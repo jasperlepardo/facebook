@@ -25,7 +25,12 @@ _msg_total = None
 def _get_msgs():
     global _mongo, _msgs
     if _msgs is None:
-        _mongo = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
+        _mongo = MongoClient(
+            MONGODB_URI,
+            tlsCAFile=certifi.where(),
+            tlsAllowInvalidCertificates=True,
+            serverSelectionTimeoutMS=10000,
+        )
         _msgs  = _mongo["ciara-notes"]["messages"]
     return _msgs
 
