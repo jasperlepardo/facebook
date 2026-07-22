@@ -408,11 +408,14 @@ def index():
 
 @app.route("/api/messages")
 def api_messages():
+    try:
+        msgs = _get_msgs()
+    except Exception as e:
+        return jsonify({"error": f"DB connect failed: {e}", "uri_prefix": MONGODB_URI[:30]}), 500
     off   = int(request.args.get("offset", 0))
     limit = min(int(request.args.get("limit", 80)), 200)
     q     = (request.args.get("search") or "").strip()
     asc   = request.args.get("asc") == "1"
-    msgs = _get_msgs()
     if q:
         filt  = {"$text": {"$search": q}}
         total = msgs.count_documents(filt)
