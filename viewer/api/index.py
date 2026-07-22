@@ -409,29 +409,29 @@ def index():
 @app.route("/api/messages")
 def api_messages():
     try:
-        msgs = _get_msgs()
+        off   = int(request.args.get("offset", 0))
+        limit = min(int(request.args.get("limit", 80)), 200)
+        q     = (request.args.get("search") or "").strip()
+        asc   = request.args.get("asc") == "1"
+        msgs  = _get_msgs()
+        if q:
+            filt  = {"$text": {"$search": q}}
+            total = msgs.count_documents(filt)
+            page  = list(msgs.find(filt, {"score": {"$meta": "textScore"}})
+                         .sort([("score", {"$meta": "textScore"}), ("timestamp_ms", ASCENDING)])
+                         .skip(off).limit(limit))
+            return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
+        elif asc:
+            total = _get_total()
+            page  = list(msgs.find().sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
+            return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
+        else:
+            total = _get_total()
+            skip  = max(0, total - off - limit)
+            page  = list(msgs.find().sort("timestamp_ms", ASCENDING).skip(skip).limit(limit))
+            return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": skip > 0})
     except Exception as e:
-        return jsonify({"error": f"DB connect failed: {e}", "uri_prefix": MONGODB_URI[:30]}), 500
-    off   = int(request.args.get("offset", 0))
-    limit = min(int(request.args.get("limit", 80)), 200)
-    q     = (request.args.get("search") or "").strip()
-    asc   = request.args.get("asc") == "1"
-    if q:
-        filt  = {"$text": {"$search": q}}
-        total = msgs.count_documents(filt)
-        page  = list(msgs.find(filt, {"score": {"$meta": "textScore"}})
-                     .sort([("score", {"$meta": "textScore"}), ("timestamp_ms", ASCENDING)])
-                     .skip(off).limit(limit))
-        return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
-    elif asc:
-        total = _get_total()
-        page  = list(msgs.find().sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
-        return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
-    else:
-        total = _get_total()
-        skip  = max(0, total - off - limit)
-        page  = list(msgs.find().sort("timestamp_ms", ASCENDING).skip(skip).limit(limit))
-        return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": skip > 0})
+        return jsonify({"error": str(e), "type": type(e).__name__, "uri": MONGODB_URI[:40]}), 500
 
 
 @app.route("/api/attachments")
