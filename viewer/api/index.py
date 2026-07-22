@@ -16,9 +16,24 @@ PAYLOAD_PASSWORD  = os.environ.get("PAYLOAD_PASSWORD", "JLDesign@0593")
 MONGODB_URI       = os.environ.get("MONGODB_URI", "mongodb+srv://jsprlprd_db_user:eQ5igx90btLzSAcB@cluster0.pyqf6ob.mongodb.net/ciara-notes?retryWrites=true&w=majority&appName=Cluster0")
 
 _payload_token = None
-_mongo  = MongoClient(MONGODB_URI)
-_msgs   = _mongo["ciara-notes"]["messages"]
-MSG_TOTAL = _msgs.count_documents({})
+_mongo    = None
+_msgs     = None
+_msg_total = None
+
+
+def _get_msgs():
+    global _mongo, _msgs
+    if _msgs is None:
+        _mongo = MongoClient(MONGODB_URI)
+        _msgs  = _mongo["ciara-notes"]["messages"]
+    return _msgs
+
+
+def _get_total():
+    global _msg_total
+    if _msg_total is None:
+        _msg_total = _get_msgs().count_documents({})
+    return _msg_total
 
 
 def _payload_login():
@@ -397,21 +412,22 @@ def api_messages():
     limit = min(int(request.args.get("limit", 80)), 200)
     q     = (request.args.get("search") or "").strip()
     asc   = request.args.get("asc") == "1"
+    msgs = _get_msgs()
     if q:
         filt  = {"$text": {"$search": q}}
-        total = _msgs.count_documents(filt)
-        page  = list(_msgs.find(filt, {"score": {"$meta": "textScore"}})
+        total = msgs.count_documents(filt)
+        page  = list(msgs.find(filt, {"score": {"$meta": "textScore"}})
                      .sort([("score", {"$meta": "textScore"}), ("timestamp_ms", ASCENDING)])
                      .skip(off).limit(limit))
         return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
     elif asc:
-        total = MSG_TOTAL
-        page  = list(_msgs.find().sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
+        total = _get_total()
+        page  = list(msgs.find().sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
         return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
     else:
-        total = MSG_TOTAL
+        total = _get_total()
         skip  = max(0, total - off - limit)
-        page  = list(_msgs.find().sort("timestamp_ms", ASCENDING).skip(skip).limit(limit))
+        page  = list(msgs.find().sort("timestamp_ms", ASCENDING).skip(skip).limit(limit))
         return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": skip > 0})
 
 
@@ -421,9 +437,10 @@ def api_attachments():
     off   = int(request.args.get("offset", 0))
     limit = min(int(request.args.get("limit", 60)), 200)
     field = {"photos": "photos", "videos": "videos", "files": "files", "audio": "audio_files"}.get(atype, "photos")
+    msgs  = _get_msgs()
     filt  = {field: {"$exists": True, "$not": {"$size": 0}}}
-    total = _msgs.count_documents(filt)
-    docs  = list(_msgs.find(filt, {field: 1, "timestamp_ms": 1, "sender_name": 1})
+    total = msgs.count_documents(filt)
+    docs  = list(msgs.find(filt, {field: 1, "timestamp_ms": 1, "sender_name": 1})
                  .sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
     items = []
     for m in docs:
@@ -444,7 +461,7 @@ def api_jump():
     try:
         fmt = "%Y-%m-%dT%H:%M" if "T" in date_str else "%Y-%m-%d"
         target_ts = datetime.strptime(date_str, fmt).timestamp() * 1000
-        idx = _msgs.count_documents({"timestamp_ms": {"$lt": target_ts}})
+        idx = _get_msgs().count_documents({"timestamp_ms": {"$lt": target_ts}})
         return jsonify({"index": idx})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
