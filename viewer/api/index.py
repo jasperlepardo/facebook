@@ -10,7 +10,7 @@ from bson import ObjectId
 app = Flask(__name__)
 
 PAYLOAD_BASE      = os.environ.get("PAYLOAD_BASE", "https://facebook-lac.vercel.app")
-PAYLOAD_NOTES_URL = f"{PAYLOAD_BASE}/payload/notes?limit=500&sort=start&depth=0"
+PAYLOAD_NOTES_URL = f"{PAYLOAD_BASE}/api/notes?limit=500&sort=start&depth=0"
 PAYLOAD_EMAIL     = os.environ.get("PAYLOAD_EMAIL", "jsprlprd@gmail.com")
 PAYLOAD_PASSWORD  = os.environ.get("PAYLOAD_PASSWORD", "JLDesign@0593")
 MONGODB_URI       = os.environ.get("MONGODB_URI", "mongodb+srv://jsprlprd_db_user:eQ5igx90btLzSAcB@cluster0.pyqf6ob.mongodb.net/ciara-notes?retryWrites=true&w=majority&appName=Cluster0")
@@ -39,7 +39,7 @@ def _get_total():
 def _payload_login():
     global _payload_token
     body = json.dumps({"email": PAYLOAD_EMAIL, "password": PAYLOAD_PASSWORD}).encode()
-    req  = urllib.request.Request(f"{PAYLOAD_BASE}/payload/users/login", data=body,
+    req  = urllib.request.Request(f"{PAYLOAD_BASE}/api/users/login", data=body,
                                    headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=5) as r:
         _payload_token = json.loads(r.read()).get("token")
@@ -53,7 +53,7 @@ def payload_request(method, path, body=None):
     def _do():
         headers = {"Content-Type": "application/json", "Authorization": f"JWT {_payload_token}"}
         data = json.dumps(body).encode() if body is not None else None
-        req  = urllib.request.Request(f"{PAYLOAD_BASE}/payload{path}", data=data, headers=headers, method=method)
+        req  = urllib.request.Request(f"{PAYLOAD_BASE}/api{path}", data=data, headers=headers, method=method)
         return urllib.request.urlopen(req, timeout=5)
 
     try:
