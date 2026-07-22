@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const items: { uri: string; ts: number; sender: string }[] = []
     for (const m of docs) {
       for (const att of (m[field] as { uri?: string }[] ?? [])) {
-        if (att.uri) items.push({ uri: att.uri, ts: m.timestamp_ms as number, sender: m.sender_name as string ?? '' })
+        if (att.uri) items.push({ uri: att.uri, ts: m.timestamp_ms as number, sender: m.sender_name as string ?? '', msgId: String(m._id) })
       }
     }
     return NextResponse.json({ items, total, has_more: off + limit < total }, { headers: CORS })

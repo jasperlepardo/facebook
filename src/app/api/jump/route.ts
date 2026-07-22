@@ -1,4 +1,4 @@
-import { MongoClient, MongoClientOptions } from 'mongodb'
+import { MongoClient, MongoClientOptions, ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }
@@ -17,14 +17,22 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: NextRequest) {
-  const dateStr = new URL(req.url).searchParams.get('date') ?? ''
+  const { searchParams } = new URL(req.url)
+  const msgId   = searchParams.get('msgId')
+  const dateStr = searchParams.get('date') ?? ''
   try {
-    const fmt = dateStr.includes('T') ? /(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/ : /(\d{4}-\d{2}-\d{2})/
-    const date = new Date(dateStr)
-    if (isNaN(date.getTime())) throw new Error('Invalid date')
-    const targetTs = date.getTime()
     const msgs = await getMsgs()
-    const idx  = await msgs.countDocuments({ timestamp_ms: { $lt: targetTs } })
+    let targetTs: number
+    if (msgId) {
+      const doc = await msgs.findOne({ _id: new ObjectId(msgId) }, { projection: { timestamp_ms: 1 } })
+      if (!doc) return NextResponse.json({ error: 'not found' }, { status: 404, headers: CORS })
+      targetTs = doc.timestamp_ms as number
+    } else {
+      const date = new Date(dateStr)
+      if (isNaN(date.getTime())) throw new Error('Invalid date')
+      targetTs = date.getTime()
+    }
+    const idx = await msgs.countDocuments({ timestamp_ms: { $lt: targetTs } })
     return NextResponse.json({ index: idx }, { headers: CORS })
   } catch (e: unknown) {
     return NextResponse.json({ error: String(e) }, { status: 400, headers: CORS })

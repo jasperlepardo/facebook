@@ -127,8 +127,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 .gitem{aspect-ratio:1;overflow:hidden;cursor:pointer;border-radius:3px;background:#e4e6ea;position:relative}
 .gitem img,.gitem video{width:100%;height:100%;object-fit:cover;display:block}
 .gitem:hover{opacity:.85}
-.gmore{text-align:center;padding:14px}
-.gmore button{background:#fff;border:1px solid #ddd;padding:7px 18px;border-radius:18px;cursor:pointer;font-size:13px;color:#65676b}
 
 /* --- files --- */
 #fview{flex:1;overflow-y:auto;padding:12px;display:none}
@@ -189,6 +187,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 
 <div id="ctx-menu">
   <div class="ctx-item" id="ctx-edit">Edit Note</div>
+  <div class="ctx-item" id="ctx-goto" style="display:none">Go to message</div>
 </div>
 
 <div id="note-modal">
@@ -217,6 +216,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 </div>
 
 <script>
+const _lazyIO = new IntersectionObserver(entries => {
+  for (const {isIntersecting, target} of entries) {
+    if (!isIntersecting) continue;
+    target.src = target.dataset.src;
+    delete target.dataset.src;
+    _lazyIO.unobserve(target);
+  }
+}, {rootMargin: '300px'});
+function observeLazy(root) {
+  root.querySelectorAll('video[data-src],audio[data-src]').forEach(el => _lazyIO.observe(el));
+}
+
 const ME = 'Jasper Lepardo';
 let total = 0, searchQ = '', currentTab = 'chat';
 let galType = 'photos', galOff = 0, galItems = [];
@@ -248,8 +259,8 @@ function r2(uri) { return `${R2}/${encPath(uri)}`; }
 function renderMedia(m) {
   const parts = [];
   if (m.photos)      for (const p of m.photos)      parts.push(`<img src="${r2(p.uri)}" loading="lazy" onclick="lb('${r2(p.uri)}','photo')" onerror="this.remove()">`);
-  if (m.videos)      for (const v of m.videos)      parts.push(`<video src="${r2(v.uri)}" controls preload="metadata"></video>`);
-  if (m.audio_files) for (const a of m.audio_files) parts.push(`<audio src="${r2(a.uri)}" controls></audio>`);
+  if (m.videos)      for (const v of m.videos)      parts.push(`<video data-src="${r2(v.uri)}" controls preload="none"></video>`);
+  if (m.audio_files) for (const a of m.audio_files) parts.push(`<audio data-src="${r2(a.uri)}" controls preload="none"></audio>`);
   if (m.gifs)        for (const g of m.gifs)        parts.push(`<img src="${r2(g.uri)}" loading="lazy" onclick="lb('${r2(g.uri)}','gif')" onerror="this.remove()">`);
   if (m.sticker)     parts.push(`<div class="msg-stk"><img src="${r2(m.sticker.uri)}" loading="lazy" onerror="this.remove()"></div>`);
   if (m.files)       for (const f of m.files) {
@@ -274,7 +285,7 @@ function renderMsgBody(m) {
   const txt = m.is_unsent
     ? '<div class="msg-unsent">Message removed</div>'
     : (m.content ? `<div class="msg-text">${esc(m.content)}</div>` : '');
-  return txt + med;
+  return `<span id="msg-${m._id}" style="display:none"></span>` + txt + med;
 }
 
 // Builds groups from messages using global state so append mode continues correctly
@@ -303,7 +314,8 @@ function renderMessages(messages) {
     const initial = (b.sender || '?')[0].toUpperCase();
     const ts = fmtTime(b.msgs[0].timestamp_ms);
     const body = b.msgs.map(renderMsgBody).join('');
-    return `${sep}<div class="msg-group" data-id="${b.msgs[0]._id}" data-ts="${b.msgs[0].timestamp_ms}">
+    const ids = b.msgs.map(m => m._id).join(',');
+    return `${sep}<div class="msg-group" data-id="${b.msgs[0]._id}" data-ids="${ids}" data-ts="${b.msgs[0].timestamp_ms}">
       <div class="avatar ${b.mine?'me':'them'}">${initial}</div>
       <div class="msg-content">
         <div class="msg-header">
@@ -341,13 +353,16 @@ async function loadMessages(append = false, prepend = false) {
     const html = renderMessages(data.messages);
     [lastDate, lastSender, lastTs] = saved;
     container.insertAdjacentHTML('afterbegin', html);
+    observeLazy(container);
     $('chat').scrollTop = prevTop + ($('chat').scrollHeight - prevH);
   } else if (append) {
     container.insertAdjacentHTML('beforeend', renderMessages(data.messages));
+    observeLazy(container);
     upperOffset += count;
   } else {
     lastDate = null; lastSender = null; lastTs = 0;
     container.innerHTML = renderMessages(data.messages);
+    observeLazy(container);
     upperOffset = lowerOffset + count;
     $('chat').scrollTop = 0;
   }
@@ -375,42 +390,56 @@ async function jumpToEnd() {
 
 // --- gallery ---
 function renderGalleryItems(items) {
-  const grid = $('gallery').querySelector('.ggrid') || (() => {
-    const g = document.createElement('div');
-    g.className = 'ggrid';
-    $('gallery').insertBefore(g, $('gallery').querySelector('.gmore'));
-    return g;
-  })();
+  const grid = $('gallery').querySelector('.ggrid');
 
   for (const item of items) {
     const div = document.createElement('div');
     div.className = 'gitem';
+    div.dataset.ts = item.ts;
+    if (item.msgId) div.dataset.msgId = item.msgId;
     if (galType === 'photos') {
       div.innerHTML = `<img src="${r2(item.uri)}" loading="lazy" onerror="this.closest('.gitem').remove()">`;
       div.onclick = () => lb(r2(item.uri), 'photo', new Date(item.ts).toLocaleDateString()+' · '+esc(item.sender));
     } else {
-      div.innerHTML = `<video src="${r2(item.uri)}" preload="metadata"></video>`;
+      div.innerHTML = `<video data-src="${r2(item.uri)}" preload="none"></video>`;
       div.onclick = () => lb(r2(item.uri), 'video', new Date(item.ts).toLocaleDateString()+' · '+esc(item.sender));
     }
     grid.appendChild(div);
   }
 }
 
-async function loadGallery(reset = false) {
-  if (reset) { galOff = 0; galItems = []; $('gallery').innerHTML = '<div class="ggrid"></div><div class="gmore"></div>'; }
-  const data = await api(`/api/attachments?type=${galType}&offset=${galOff}&limit=${GLIMIT}`);
-  galItems.push(...data.items);
-  renderGalleryItems(data.items);
-  const more = $('gallery').querySelector('.gmore');
-  if (data.has_more) {
-    more.innerHTML = `<button onclick="loadMoreGal()">Load more</button>`;
-  } else {
-    more.innerHTML = '';
-  }
-  galOff += GLIMIT;
+let galLoading = false, galHasMore = true, _galIO = null;
+
+function _attachGalSentinel() {
+  if (_galIO) _galIO.disconnect();
+  const sentinel = document.createElement('div');
+  sentinel.id = 'gal-sentinel';
+  $('gallery').appendChild(sentinel);
+  _galIO = new IntersectionObserver(([e]) => {
+    if (e.isIntersecting) loadGallery(false);
+  }, {root: $('gallery'), rootMargin: '300px'});
+  _galIO.observe(sentinel);
 }
 
-async function loadMoreGal() { await loadGallery(false); }
+async function loadGallery(reset = false) {
+  if (reset) {
+    galOff = 0; galItems = []; galHasMore = true;
+    $('gallery').innerHTML = '<div class="ggrid"></div>';
+    _attachGalSentinel();
+  }
+  if (!galHasMore || galLoading) return;
+  galLoading = true;
+  try {
+    const data = await api(`/api/attachments?type=${galType}&offset=${galOff}&limit=${GLIMIT}`);
+    galItems.push(...data.items);
+    renderGalleryItems(data.items);
+    observeLazy($('gallery'));
+    galHasMore = data.has_more;
+    galOff += GLIMIT;
+  } finally {
+    galLoading = false;
+  }
+}
 
 // --- files & audio ---
 async function loadFiles() {
@@ -606,6 +635,26 @@ async function jumpToDate(date) {
   await loadMessages(false);
 }
 
+async function jumpToMessage(ts, msgId = null) {
+  if (currentTab !== 'chat') document.querySelector('.tab[data-tab="chat"]').click();
+  $('chat').style.display = 'flex';
+  $('chat').style.flexDirection = 'column';
+  const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`;
+  const data = await api(url);
+  if (data.index == null) return;
+  lowerOffset = Math.max(0, data.index - Math.floor(LIMIT / 2));
+  upperOffset = lowerOffset;
+  searchQ = ''; $('search').value = ''; lastDate = null; lastSender = null; lastTs = 0;
+  await loadMessages(false);
+  const anchor = msgId ? document.getElementById('msg-' + msgId) : null;
+  const target = anchor ? anchor.closest('.msg-group') : null;
+  if (!target) return;
+  target.scrollIntoView({block: 'center'});
+  target.style.background = '#fff3cd';
+  setTimeout(() => { target.style.transition = 'background 1s'; target.style.background = ''; }, 800);
+  setTimeout(() => { target.style.transition = ''; }, 1800);
+}
+
 function filterNotes(q) {
   const lq = q.toLowerCase();
   const filtered = allNotes.filter(n =>
@@ -693,26 +742,51 @@ document.addEventListener('keydown', e => {
 });
 
 // --- context menu ---
-let _ctxNote = null;
+let _ctxNote = null, _ctxGalTs = null, _ctxGalMsgId = null;
 
-function closeCtxMenu() { $('ctx-menu').classList.remove('on'); _ctxNote = null; }
+function closeCtxMenu() { $('ctx-menu').classList.remove('on'); _ctxNote = null; _ctxGalTs = null; _ctxGalMsgId = null; }
+
+function _showCtxMenu(x, y) {
+  const menu = $('ctx-menu');
+  menu.classList.add('on');
+  menu.style.left = Math.min(x, window.innerWidth  - menu.offsetWidth  - 8) + 'px';
+  menu.style.top  = Math.min(y, window.innerHeight - menu.offsetHeight - 8) + 'px';
+}
 
 document.addEventListener('contextmenu', e => {
+  const gitem = e.target.closest('.gitem');
+  if (gitem) {
+    e.preventDefault();
+    _ctxGalTs    = gitem.dataset.ts;
+    _ctxGalMsgId = gitem.dataset.msgId || null;
+    _ctxNote     = null;
+    $('ctx-edit').style.display = 'none';
+    $('ctx-goto').style.display = '';
+    _showCtxMenu(e.clientX, e.clientY);
+    return;
+  }
   const card = e.target.closest('.note-card');
-  if (!card) return;
-  e.preventDefault();
-  _ctxNote = allNotes.find(n => String(n.id) === card.dataset.id);
-  if (!_ctxNote) return;
-  const menu = $('ctx-menu');
-  menu.style.left = Math.min(e.clientX, window.innerWidth  - menu.offsetWidth  - 8) + 'px';
-  menu.style.top  = Math.min(e.clientY, window.innerHeight - menu.offsetHeight - 8) + 'px';
-  menu.classList.add('on');
+  if (card) {
+    e.preventDefault();
+    _ctxNote = allNotes.find(n => String(n.id) === card.dataset.id);
+    if (!_ctxNote) return;
+    _ctxGalTs = null;
+    $('ctx-edit').style.display = '';
+    $('ctx-goto').style.display = 'none';
+    _showCtxMenu(e.clientX, e.clientY);
+  }
 });
 
 $('ctx-edit').addEventListener('click', () => {
   const note = _ctxNote;
   closeCtxMenu();
   if (note) openNoteModal(note);
+});
+
+$('ctx-goto').addEventListener('click', () => {
+  const ts = _ctxGalTs, msgId = _ctxGalMsgId;
+  closeCtxMenu();
+  if (ts) jumpToMessage(+ts, msgId);
 });
 
 document.addEventListener('click', e => {
