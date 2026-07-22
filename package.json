@@ -1,0 +1,33 @@
+{
+  "name": "ciara-notes-cms",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "payload": "cross-env PAYLOAD_CONFIG_PATH=src/payload.config.ts payload"
+  },
+  "dependencies": {
+    "@payloadcms/db-mongodb": "^3.28.1",
+    "@payloadcms/next": "3.28.1",
+    "@payloadcms/richtext-lexical": "3.28.1",
+    "cross-env": "^7.0.3",
+    "graphql": "^16.8.1",
+    "next": "15.1.0",
+    "payload": "3.28.1",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "sharp": "^0.33.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.20.2"
+  }
+}

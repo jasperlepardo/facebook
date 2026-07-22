@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# environment
+.env
+.env.local
+.env*.local
+
+# build
+dist/
+build/
+
+# logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# local data
+ciara_conversation/
