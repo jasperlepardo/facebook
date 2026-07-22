@@ -81,7 +81,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 #nf-save:hover{background:#0757d9}
 #nf-save:disabled{opacity:.5;cursor:default}
 #oldbtn,#loadbtn{text-align:center;padding:10px 0 6px;display:none}
-#top-spacer,#bottom-spacer{flex-shrink:0;will-change:height}
 #oldbtn button,#loadbtn button{background:#fff;border:1px solid #ddd;padding:7px 18px;border-radius:18px;cursor:pointer;font-size:13px;color:#65676b}
 #oldbtn button:hover,#loadbtn button:hover{background:#f0f2f5}
 #searching{text-align:center;padding:8px;font-size:13px;color:#65676b;display:none}
@@ -174,9 +173,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
     <div id="sticky-date"><span></span></div>
     <div id="chat" style="visibility:hidden">
       <div id="searching">Searching…</div>
-      <div id="top-spacer"></div>
       <div id="msgs"></div>
-      <div id="bottom-spacer"></div>
       <div id="loadbtn" style="display:none"></div>
     </div>
     <div id="gallery"></div>
@@ -349,17 +346,6 @@ let lowerOffset = 0, upperOffset = 0;
 let hasMore = false;
 const MAX_DOM = LIMIT * 4;
 const LOAD_THRESHOLD = 500;
-let avgMsgHeight = 60;
-
-function updateAvgHeight() {
-  const groups = $('msgs').querySelectorAll('.msg-group');
-  if (groups.length) avgMsgHeight = Math.max(40, $('msgs').offsetHeight / groups.length);
-}
-
-function updateSpacers() {
-  $('top-spacer').style.height = (lowerOffset * avgMsgHeight) + 'px';
-  $('bottom-spacer').style.height = Math.max(0, total - upperOffset) * avgMsgHeight + 'px';
-}
 
 function _cullMsgGroups(container, fromBottom, n) {
   let removed = 0;
@@ -423,8 +409,6 @@ async function loadMessages(append = false, prepend = false) {
     upperOffset = lowerOffset + count;
     $('chat').scrollTop = 0;
   }
-  updateAvgHeight();
-  updateSpacers();
   updateStickyDate();
 }
 
@@ -932,13 +916,11 @@ $('chat').addEventListener('scroll', () => {
   if (currentTab === 'chat' && !searchQ) maybeSaveBookmark();
   if (loading || searchQ || currentTab !== 'chat') return;
   const el = $('chat');
-  const topH = $('top-spacer').offsetHeight;
-  const msgsH = $('msgs').offsetHeight;
-  if (el.scrollTop - topH < LOAD_THRESHOLD && lowerOffset > 0) {
+  if (el.scrollTop < LOAD_THRESHOLD && lowerOffset > 0) {
     loading = true;
     loadOlder().finally(() => { loading = false; });
   }
-  if (el.scrollTop + el.clientHeight > topH + msgsH - LOAD_THRESHOLD && hasMore) {
+  if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMore) {
     loading = true;
     loadNewer().finally(() => { loading = false; });
   }
@@ -959,7 +941,11 @@ async function initChat() {
   lowerOffset = Math.max(0, startIdx - Math.floor(LIMIT / 2));
   upperOffset = lowerOffset;
   lastDate = null; lastSender = null; lastTs = 0;
-  await loadMessages(false);
+  try {
+    await loadMessages(false);
+  } catch(e) {
+    console.error('loadMessages failed:', e);
+  }
   if (anchorMsgId) {
     const anchor = document.getElementById('msg-' + anchorMsgId)?.closest('.msg-group');
     if (anchor) {
@@ -970,6 +956,12 @@ async function initChat() {
     }
   }
   $('chat').style.visibility = '';
+  // trigger load if rendered content doesn't fill the viewport
+  const el = $('chat');
+  if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMore) {
+    loading = true;
+    loadNewer().finally(() => { loading = false; });
+  }
 }
 initChat();
 api('/api/notes?limit=500&sort=start&depth=0').then(data => { allNotes = data.docs || data; renderNotes(allNotes); });
