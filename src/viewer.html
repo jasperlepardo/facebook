@@ -29,7 +29,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 #chat-pane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
 
 /* --- chat --- */
-#chat{flex:1;overflow-y:auto;padding:8px 0 16px;display:flex;flex-direction:column;min-height:0;scroll-behavior:smooth;overflow-anchor:none}
+#chat{flex:1;overflow-y:auto;padding:8px 0 16px;display:flex;flex-direction:column;min-height:0}
 
 /* --- resize handle --- */
 #resizer{width:5px;background:#e4e6ea;cursor:col-resize;flex-shrink:0;transition:background .15s}
@@ -81,6 +81,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 #nf-save:hover{background:#0757d9}
 #nf-save:disabled{opacity:.5;cursor:default}
 #oldbtn,#loadbtn{text-align:center;padding:10px 0 6px;display:none}
+#top-spacer,#bottom-spacer{flex-shrink:0;will-change:height}
 #oldbtn button,#loadbtn button{background:#fff;border:1px solid #ddd;padding:7px 18px;border-radius:18px;cursor:pointer;font-size:13px;color:#65676b}
 #oldbtn button:hover,#loadbtn button:hover{background:#f0f2f5}
 #searching{text-align:center;padding:8px;font-size:13px;color:#65676b;display:none}
@@ -89,6 +90,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 .dsep{text-align:center;margin:20px 0 8px;font-size:12px;color:#616061;position:relative}
 .dsep::before{content:'';position:absolute;top:50%;left:0;right:0;border-top:1px solid #e8e8e8}
 .dsep span{background:#f0f2f5;padding:0 10px;position:relative;font-weight:600}
+
+/* sticky date pill */
+#chat-pane{position:relative}
+#sticky-date{position:absolute;top:8px;left:0;right:0;display:flex;justify-content:center;z-index:5;pointer-events:none;opacity:0;transition:opacity .2s}
+#sticky-date span{background:rgba(255,255,255,.93);border:1px solid #e4e6ea;border-radius:14px;padding:3px 16px;font-size:12px;color:#616061;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.1)}
 
 /* message group — contains all messages from same sender block */
 .msg-group{display:flex;padding:8px 20px;gap:12px;align-items:flex-start}
@@ -165,11 +171,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 
 <div id="view">
   <div id="chat-pane">
+    <div id="sticky-date"><span></span></div>
     <div id="chat" style="visibility:hidden">
       <div id="searching">Searching…</div>
+      <div id="top-spacer"></div>
       <div id="msgs"></div>
-      <div id="oldbtn"><button onclick="loadOlder()">Load older messages ⬆</button></div>
-      <div id="loadbtn"><button onclick="loadNewer()">Load newer messages ⬇</button></div>
+      <div id="bottom-spacer"></div>
+      <div id="loadbtn" style="display:none"></div>
     </div>
     <div id="gallery"></div>
     <div id="fview"></div>
@@ -216,16 +224,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 </div>
 
 <script>
-const _lazyIO = new IntersectionObserver(entries => {
-  for (const {isIntersecting, target} of entries) {
-    if (!isIntersecting) continue;
-    target.src = target.dataset.src;
-    delete target.dataset.src;
-    _lazyIO.unobserve(target);
-  }
-}, {rootMargin: '300px'});
-function observeLazy(root) {
-  root.querySelectorAll('video[data-src],audio[data-src]').forEach(el => _lazyIO.observe(el));
+const _ioCache = new Map();
+function _getIO(scrollRoot) {
+  if (_ioCache.has(scrollRoot)) return _ioCache.get(scrollRoot);
+  const io = new IntersectionObserver(entries => {
+    for (const {isIntersecting, target} of entries) {
+      if (!isIntersecting) continue;
+      target.src = target.dataset.src;
+      delete target.dataset.src;
+      io.unobserve(target);
+    }
+  }, {root: scrollRoot, rootMargin: '300px'});
+  _ioCache.set(scrollRoot, io);
+  return io;
+}
+function observeLazy(queryRoot, scrollRoot) {
+  const io = _getIO(scrollRoot);
+  queryRoot.querySelectorAll('[data-src]').forEach(el => io.observe(el));
 }
 
 const ME = 'Jasper Lepardo';
@@ -258,11 +273,11 @@ const R2 = 'https://pub-bcf374add91945839b65e3ee37ef410d.r2.dev';
 function r2(uri) { return `${R2}/${encPath(uri)}`; }
 function renderMedia(m) {
   const parts = [];
-  if (m.photos)      for (const p of m.photos)      parts.push(`<img src="${r2(p.uri)}" loading="lazy" onclick="lb('${r2(p.uri)}','photo')" onerror="this.remove()">`);
+  if (m.photos)      for (const p of m.photos)      parts.push(`<img data-src="${r2(p.uri)}" onclick="lb('${r2(p.uri)}','photo')" onerror="this.remove()">`);
   if (m.videos)      for (const v of m.videos)      parts.push(`<video data-src="${r2(v.uri)}" controls preload="none"></video>`);
   if (m.audio_files) for (const a of m.audio_files) parts.push(`<audio data-src="${r2(a.uri)}" controls preload="none"></audio>`);
-  if (m.gifs)        for (const g of m.gifs)        parts.push(`<img src="${r2(g.uri)}" loading="lazy" onclick="lb('${r2(g.uri)}','gif')" onerror="this.remove()">`);
-  if (m.sticker)     parts.push(`<div class="msg-stk"><img src="${r2(m.sticker.uri)}" loading="lazy" onerror="this.remove()"></div>`);
+  if (m.gifs)        for (const g of m.gifs)        parts.push(`<img data-src="${r2(g.uri)}" onclick="lb('${r2(g.uri)}','gif')" onerror="this.remove()">`);
+  if (m.sticker)     parts.push(`<div class="msg-stk"><img data-src="${r2(m.sticker.uri)}" onerror="this.remove()"></div>`);
   if (m.files)       for (const f of m.files) {
     const name = f.uri.split('/').pop();
     parts.push(`<div class="msg-flink">📎 <a href="${r2(f.uri)}" target="_blank">${esc(name)}</a></div>`);
@@ -331,6 +346,47 @@ function renderMessages(messages) {
 // --- chat loading ---
 // lowerOffset = start of loaded range, upperOffset = end of loaded range
 let lowerOffset = 0, upperOffset = 0;
+let hasMore = false;
+const MAX_DOM = LIMIT * 4;
+const LOAD_THRESHOLD = 500;
+let avgMsgHeight = 60;
+
+function updateAvgHeight() {
+  const groups = $('msgs').querySelectorAll('.msg-group');
+  if (groups.length) avgMsgHeight = Math.max(40, $('msgs').offsetHeight / groups.length);
+}
+
+function updateSpacers() {
+  $('top-spacer').style.height = (lowerOffset * avgMsgHeight) + 'px';
+  $('bottom-spacer').style.height = Math.max(0, total - upperOffset) * avgMsgHeight + 'px';
+}
+
+function _cullMsgGroups(container, fromBottom, n) {
+  let removed = 0;
+  while (removed < n) {
+    const el = fromBottom ? container.lastElementChild : container.firstElementChild;
+    if (!el) break;
+    container.removeChild(el);
+    if (el.classList.contains('msg-group')) removed++;
+  }
+}
+
+function cullBottom() {
+  const excess = $('msgs').querySelectorAll('.msg-group').length - MAX_DOM;
+  if (excess <= 0) return;
+  _cullMsgGroups($('msgs'), true, excess);
+  upperOffset -= excess;
+}
+
+function cullTop() {
+  const excess = $('msgs').querySelectorAll('.msg-group').length - MAX_DOM;
+  if (excess <= 0) return;
+  const chatEl = $('chat');
+  const prevH = chatEl.scrollHeight, prevTop = chatEl.scrollTop;
+  _cullMsgGroups($('msgs'), false, excess);
+  lowerOffset += excess;
+  chatEl.scrollTop = prevTop - (prevH - chatEl.scrollHeight);
+}
 
 async function loadMessages(append = false, prepend = false) {
   const fetchOffset = prepend ? lowerOffset : (append ? upperOffset : lowerOffset);
@@ -338,34 +394,38 @@ async function loadMessages(append = false, prepend = false) {
   if (searchQ) { params.delete('asc'); params.set('offset', 0); params.set('search', searchQ); }
   const data = await api('/api/messages?' + params);
   total = data.total;
+  hasMore = !!(data.has_more && !searchQ);
   $('count').textContent = total.toLocaleString() + ' messages';
-  $('oldbtn').style.display  = (lowerOffset > 0 && !searchQ) ? '' : 'none';
-  $('loadbtn').style.display = (data.has_more && !searchQ) ? '' : 'none';
 
   const container = $('msgs');
   const count = data.messages.length;
 
   if (prepend) {
-    const prevH   = $('chat').scrollHeight;
-    const prevTop = $('chat').scrollTop;
-    const saved   = [lastDate, lastSender, lastTs];
+    const saved = [lastDate, lastSender, lastTs];
     lastDate = null; lastSender = null; lastTs = 0;
     const html = renderMessages(data.messages);
     [lastDate, lastSender, lastTs] = saved;
+    const chatEl = $('chat');
+    const prevH = chatEl.scrollHeight, prevTop = chatEl.scrollTop;
     container.insertAdjacentHTML('afterbegin', html);
-    observeLazy(container);
-    $('chat').scrollTop = prevTop + ($('chat').scrollHeight - prevH);
+    observeLazy(container, chatEl);
+    chatEl.scrollTop = prevTop + (chatEl.scrollHeight - prevH);
+    cullBottom();
   } else if (append) {
     container.insertAdjacentHTML('beforeend', renderMessages(data.messages));
-    observeLazy(container);
+    observeLazy(container, $('chat'));
     upperOffset += count;
+    cullTop();
   } else {
     lastDate = null; lastSender = null; lastTs = 0;
     container.innerHTML = renderMessages(data.messages);
-    observeLazy(container);
+    observeLazy(container, $('chat'));
     upperOffset = lowerOffset + count;
     $('chat').scrollTop = 0;
   }
+  updateAvgHeight();
+  updateSpacers();
+  updateStickyDate();
 }
 
 async function loadOlder() {
@@ -398,7 +458,7 @@ function renderGalleryItems(items) {
     div.dataset.ts = item.ts;
     if (item.msgId) div.dataset.msgId = item.msgId;
     if (galType === 'photos') {
-      div.innerHTML = `<img src="${r2(item.uri)}" loading="lazy" onerror="this.closest('.gitem').remove()">`;
+      div.innerHTML = `<img data-src="${r2(item.uri)}" onerror="this.closest('.gitem').remove()">`;
       div.onclick = () => lb(r2(item.uri), 'photo', new Date(item.ts).toLocaleDateString()+' · '+esc(item.sender));
     } else {
       div.innerHTML = `<video data-src="${r2(item.uri)}" preload="none"></video>`;
@@ -433,7 +493,7 @@ async function loadGallery(reset = false) {
     const data = await api(`/api/attachments?type=${galType}&offset=${galOff}&limit=${GLIMIT}`);
     galItems.push(...data.items);
     renderGalleryItems(data.items);
-    observeLazy($('gallery'));
+    observeLazy($('gallery'), $('gallery'));
     galHasMore = data.has_more;
     galOff += GLIMIT;
   } finally {
@@ -489,7 +549,8 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   $('chat').style.display    = 'none';
   $('gallery').style.display = 'none';
   $('fview').style.display   = 'none';
-  if (currentTab==='chat')   { $('chat').style.display='flex'; $('chat').style.flexDirection='column'; }
+  $('sticky-date').style.opacity = '0';
+  if (currentTab==='chat')   { $('chat').style.display='flex'; $('chat').style.flexDirection='column'; updateStickyDate(); }
   if (currentTab==='photos') { $('gallery').style.display='block'; galType='photos'; loadGallery(true); }
   if (currentTab==='videos') { $('gallery').style.display='block'; galType='videos'; loadGallery(true); }
   if (currentTab==='files')  { $('fview').style.display='block'; loadFiles(); }
@@ -820,18 +881,64 @@ document.addEventListener('click', e => {
 })();
 
 
+// --- sticky date ---
+function updateStickyDate() {
+  if (currentTab !== 'chat') return;
+  const chatEl = $('chat');
+  const chatTop = chatEl.getBoundingClientRect().top;
+  const seps = $('msgs').querySelectorAll('.dsep');
+  let current = null;
+  for (const sep of seps) {
+    if (sep.getBoundingClientRect().top <= chatTop + 2) {
+      current = sep.textContent.trim();
+    } else {
+      break;
+    }
+  }
+  const el = $('sticky-date');
+  if (current) {
+    el.querySelector('span').textContent = current;
+    el.style.opacity = '1';
+  } else {
+    el.style.opacity = '0';
+  }
+}
+
+// --- anchor / bookmark ---
+function getAnchor() {
+  const chatRect = $('chat').getBoundingClientRect();
+  for (const g of $('msgs').querySelectorAll('.msg-group')) {
+    const rect = g.getBoundingClientRect();
+    if (rect.bottom > chatRect.top) {
+      return { msgId: g.dataset.id, offset: Math.max(0, rect.top - chatRect.top) };
+    }
+  }
+  return null;
+}
+
+let _bkLast = 0;
+function maybeSaveBookmark() {
+  const now = Date.now();
+  if (now - _bkLast < 300) return;
+  _bkLast = now;
+  const anchor = getAnchor();
+  if (anchor) fetch('/api/bookmark', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(anchor)}).catch(()=>{});
+}
+
 // --- infinite scroll ---
 let loading = false;
 $('chat').addEventListener('scroll', () => {
+  updateStickyDate();
+  if (currentTab === 'chat' && !searchQ) maybeSaveBookmark();
   if (loading || searchQ || currentTab !== 'chat') return;
   const el = $('chat');
-  if (el.scrollTop < 80 && lowerOffset > 0) {
+  const topH = $('top-spacer').offsetHeight;
+  const msgsH = $('msgs').offsetHeight;
+  if (el.scrollTop - topH < LOAD_THRESHOLD && lowerOffset > 0) {
     loading = true;
     loadOlder().finally(() => { loading = false; });
   }
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
-    const btn = $('loadbtn');
-    if (btn.style.display === 'none') return;
+  if (el.scrollTop + el.clientHeight > topH + msgsH - LOAD_THRESHOLD && hasMore) {
     loading = true;
     loadNewer().finally(() => { loading = false; });
   }
@@ -839,8 +946,29 @@ $('chat').addEventListener('scroll', () => {
 
 // --- init ---
 async function initChat() {
-  lowerOffset = 0; upperOffset = 0;
+  let startIdx = 0, anchorMsgId = null, anchorOffset = 0;
+  try {
+    const bk = await api('/api/bookmark');
+    if (bk.msgId) {
+      anchorMsgId = bk.msgId;
+      anchorOffset = bk.offset ?? 0;
+      const jd = await api('/api/jump?msgId=' + bk.msgId);
+      if (jd.index != null) startIdx = jd.index;
+    }
+  } catch(e) {}
+  lowerOffset = Math.max(0, startIdx - Math.floor(LIMIT / 2));
+  upperOffset = lowerOffset;
+  lastDate = null; lastSender = null; lastTs = 0;
   await loadMessages(false);
+  if (anchorMsgId) {
+    const anchor = document.getElementById('msg-' + anchorMsgId)?.closest('.msg-group');
+    if (anchor) {
+      const chatEl = $('chat');
+      chatEl.scrollTop = 0;
+      const chatRect = chatEl.getBoundingClientRect();
+      chatEl.scrollTop = anchor.getBoundingClientRect().top - chatRect.top - anchorOffset;
+    }
+  }
   $('chat').style.visibility = '';
 }
 initChat();
