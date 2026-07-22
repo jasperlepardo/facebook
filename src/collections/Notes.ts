@@ -9,7 +9,10 @@ const ALL_TAGS = [
 export const Notes: CollectionConfig = {
   slug: 'notes',
   access: {
-    read: () => true,
+    read:   () => true,
+    create: () => true,
+    update: () => true,
+    delete: () => true,
   },
   admin: {
     useAsTitle: 'title',

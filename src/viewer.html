@@ -664,7 +664,7 @@ async function saveNote() {
       await fetch('/api/notes', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     }
     closeNoteModal();
-    allNotes = await api('/api/notes');
+    allNotes = (await api('/api/notes?limit=500&sort=start&depth=0')).docs || [];
     filterNotes($('notes-filter').value);
   } catch(err) {
     alert('Save failed: ' + err);
@@ -678,7 +678,7 @@ async function deleteNote() {
   try {
     await fetch(`/api/notes/${_editingId}`, {method:'DELETE'});
     closeNoteModal();
-    allNotes = await api('/api/notes');
+    allNotes = (await api('/api/notes?limit=500&sort=start&depth=0')).docs || [];
     filterNotes($('notes-filter').value);
   } catch(err) {
     alert('Delete failed: ' + err);
@@ -770,7 +770,7 @@ async function initChat() {
   $('chat').style.visibility = '';
 }
 initChat();
-api('/api/notes').then(data => { allNotes = data; renderNotes(data); });
+api('/api/notes?limit=500&sort=start&depth=0').then(data => { allNotes = data.docs || data; renderNotes(allNotes); });
 </script>
 </body>
 </html>
