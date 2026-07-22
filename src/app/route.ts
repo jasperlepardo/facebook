@@ -1,64 +1,6 @@
-import json
-import os
-import urllib.request
-import urllib.error
-from flask import Flask, request, jsonify, Response
+import { NextResponse } from 'next/server'
 
-app = Flask(__name__)
-
-PAYLOAD_BASE      = os.environ.get("PAYLOAD_BASE", "https://facebook-lac.vercel.app")
-PAYLOAD_NOTES_URL = f"{PAYLOAD_BASE}/api/notes?limit=500&sort=start&depth=0"
-PAYLOAD_EMAIL     = os.environ.get("PAYLOAD_EMAIL", "jsprlprd@gmail.com")
-PAYLOAD_PASSWORD  = os.environ.get("PAYLOAD_PASSWORD", "JLDesign@0593")
-
-_payload_token = None
-
-
-def _payload_login():
-    global _payload_token
-    body = json.dumps({"email": PAYLOAD_EMAIL, "password": PAYLOAD_PASSWORD}).encode()
-    req  = urllib.request.Request(f"{PAYLOAD_BASE}/api/users/login", data=body,
-                                   headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=5) as r:
-        _payload_token = json.loads(r.read()).get("token")
-
-
-def payload_request(method, path, body=None):
-    global _payload_token
-    if not _payload_token:
-        _payload_login()
-
-    def _do():
-        headers = {"Content-Type": "application/json", "Authorization": f"JWT {_payload_token}"}
-        data = json.dumps(body).encode() if body is not None else None
-        req  = urllib.request.Request(f"{PAYLOAD_BASE}/api{path}", data=data, headers=headers, method=method)
-        return urllib.request.urlopen(req, timeout=5)
-
-    try:
-        with _do() as r:
-            return json.loads(r.read()), r.status
-    except urllib.error.HTTPError as e:
-        if e.code == 401:
-            _payload_login()
-            with _do() as r:
-                return json.loads(r.read()), r.status
-        raise
-
-
-def fetch_notes():
-    try:
-        with urllib.request.urlopen(PAYLOAD_NOTES_URL, timeout=3) as resp:
-            data = json.loads(resp.read())
-        docs = data.get("docs", [])
-        return [{k: v for k, v in d.items() if k in ("id", "start", "end", "tags", "title", "body")} for d in docs]
-    except Exception:
-        return []
-
-
-    return doc
-
-
-HTML = r"""<!DOCTYPE html>
+const HTML = String.raw`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -251,7 +193,6 @@ const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 const encPath = uri => uri.split('/').map(encodeURIComponent).join('/');
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 function fmtDate(ts) { return new Date(ts).toLocaleDateString([],{weekday:'short',year:'numeric',month:'long',day:'numeric'}); }
-const API_BASE = 'https://facebook-lac.vercel.app';
 const R2 = 'https://pub-bcf374add91945839b65e3ee37ef410d.r2.dev';
 function r2(uri) { return `${R2}/${encPath(uri)}`; }
 function renderMedia(m) {
@@ -292,7 +233,7 @@ async function loadMessages(append=false,prepend=false) {
   const fetchOffset=prepend?lowerOffset:(append?upperOffset:lowerOffset);
   const params=new URLSearchParams({offset:fetchOffset,limit:LIMIT,asc:1});
   if(searchQ){params.delete('asc');params.set('offset',0);params.set('search',searchQ);}
-  const data=await api(API_BASE+'/api/messages?'+params);
+  const data=await api('/api/messages?'+params);
   total=data.total; $('count').textContent=total.toLocaleString()+' messages';
   $('oldbtn').style.display=(lowerOffset>0&&!searchQ)?'':'none';
   $('loadbtn').style.display=(data.has_more&&!searchQ)?'':'none';
@@ -317,10 +258,10 @@ function renderGalleryItems(items){
   const grid=$('gallery').querySelector('.ggrid')||(() => {const g=document.createElement('div');g.className='ggrid';$('gallery').insertBefore(g,$('gallery').querySelector('.gmore'));return g;})();
   for(const item of items){const div=document.createElement('div');div.className='gitem';if(galType==='photos'){div.innerHTML=`<img src="${r2(item.uri)}" loading="lazy" onerror="this.closest('.gitem').remove()">`;div.onclick=()=>lb(r2(item.uri),'photo',new Date(item.ts).toLocaleDateString()+' · '+esc(item.sender));}else{div.innerHTML=`<video src="${r2(item.uri)}" preload="metadata"></video>`;div.onclick=()=>lb(r2(item.uri),'video',new Date(item.ts).toLocaleDateString()+' · '+esc(item.sender));}grid.appendChild(div);}
 }
-async function loadGallery(reset=false){if(reset){galOff=0;galItems=[];$('gallery').innerHTML='<div class="ggrid"></div><div class="gmore"></div>';}const data=await api(`${API_BASE}/api/attachments?type=${galType}&offset=${galOff}&limit=${GLIMIT}`);galItems.push(...data.items);renderGalleryItems(data.items);const more=$('gallery').querySelector('.gmore');if(data.has_more){more.innerHTML=`<button onclick="loadMoreGal()">Load more</button>`;}else{more.innerHTML='';}galOff+=GLIMIT;}
+async function loadGallery(reset=false){if(reset){galOff=0;galItems=[];$('gallery').innerHTML='<div class="ggrid"></div><div class="gmore"></div>';}const data=await api(`/api/attachments?type=${galType}&offset=${galOff}&limit=${GLIMIT}`);galItems.push(...data.items);renderGalleryItems(data.items);const more=$('gallery').querySelector('.gmore');if(data.has_more){more.innerHTML=`<button onclick="loadMoreGal()">Load more</button>`;}else{more.innerHTML='';}galOff+=GLIMIT;}
 async function loadMoreGal(){await loadGallery(false);}
 async function loadFiles(){
-  const[fd,ad]=await Promise.all([api(API_BASE+'/api/attachments?type=files&offset=0&limit=500'),api(API_BASE+'/api/attachments?type=audio&offset=0&limit=500')]);
+  const[fd,ad]=await Promise.all([api('/api/attachments?type=files&offset=0&limit=500'),api('/api/attachments?type=audio&offset=0&limit=500')]);
   const all=[...fd.items.map(i=>({...i,kind:'file'})),...ad.items.map(i=>({...i,kind:'audio'}))].sort((a,b)=>b.ts-a.ts);
   if(!all.length){$('fview').innerHTML='<p style="padding:20px;color:#65676b">No files found.</p>';return;}
   $('fview').innerHTML=all.map(item=>{const name=item.uri.split('/').pop();const icon=item.kind==='audio'?'🎵':(name.match(/\.pdf$/i)?'📄':name.match(/\.(jpg|jpeg|png|gif|webp)$/i)?'🖼':'📎');return`<div class="fitem"><div class="fico">${icon}</div><div class="fmeta"><div class="fname"><a href="${r2(item.uri)}" target="_blank">${esc(name)}</a></div><div class="fdate">${new Date(item.ts).toLocaleDateString()} · ${esc(item.sender)}</div></div></div>`;}).join('');
@@ -339,7 +280,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 }));
 let stimer;
 $('search').addEventListener('input',e=>{clearTimeout(stimer);stimer=setTimeout(async()=>{searchQ=e.target.value.trim();lowerOffset=0;upperOffset=0;lastDate=null;$('searching').style.display=searchQ?'':'none';await loadMessages(false);$('searching').style.display='none';},350);});
-$('date-jump').addEventListener('change',async e=>{const date=e.target.value;if(!date)return;const data=await api(API_BASE+'/api/jump?date='+date);if(data.index!=null){lowerOffset=Math.max(0,data.index-Math.floor(LIMIT/2));upperOffset=lowerOffset;searchQ='';$('search').value='';lastDate=null;await loadMessages(false);}});
+$('date-jump').addEventListener('change',async e=>{const date=e.target.value;if(!date)return;const data=await api('/api/jump?date='+date);if(data.index!=null){lowerOffset=Math.max(0,data.index-Math.floor(LIMIT/2));upperOffset=lowerOffset;searchQ='';$('search').value='';lastDate=null;await loadMessages(false);}});
 let allNotes=[],activeNoteIdx=null;
 const TAG_COLORS={'milestone':'#1d4ed8','religion':'#6d28d9','jealousy':'#c2410c','conflict':'#b91c1c','pattern':'#9d174d','foreshadowing':'#854d0e','travel':'#15803d','money':'#b45309','friendship':'#0f766e','social':'#0369a1','work':'#475569','wedding-planning':'#be185d','first-contact':'#1e40af','first-date':'#1e40af','getting-to-know':'#166534'};
 const TAG_LABELS={'milestone':'Milestone','religion':'Religion','jealousy':'Jealousy','conflict':'Conflict','pattern':'Pattern','foreshadowing':'Foreshadowing','travel':'Travel','money':'Money','friendship':'Friendship','social':'Social','work':'Work','wedding-planning':'Wedding','first-contact':'First Contact','first-date':'First Date','getting-to-know':'Getting to Know'};
@@ -352,7 +293,7 @@ document.addEventListener('click',async function(e){
   const editBtn=e.target.closest('.note-edit-btn');if(editBtn){e.stopPropagation();const note=allNotes.find(n=>String(n.id)===editBtn.dataset.id);if(note)openNoteModal(note);return;}
   const card=e.target.closest('.note-card');if(card){document.querySelectorAll('.note-card').forEach(c=>c.classList.remove('active'));card.classList.add('active');await jumpToDate(card.dataset.start);}
 });
-async function jumpToDate(date){if(currentTab!=='chat')document.querySelector('.tab[data-tab="chat"]').click();$('chat').style.display='flex';$('chat').style.flexDirection='column';const data=await api(API_BASE+'/api/jump?date='+date);if(data.index==null)return;lowerOffset=Math.max(0,data.index-Math.floor(LIMIT/2));upperOffset=lowerOffset;searchQ='';$('search').value='';lastDate=null;lastSender=null;lastTs=0;await loadMessages(false);}
+async function jumpToDate(date){if(currentTab!=='chat')document.querySelector('.tab[data-tab="chat"]').click();$('chat').style.display='flex';$('chat').style.flexDirection='column';const data=await api('/api/jump?date='+date);if(data.index==null)return;lowerOffset=Math.max(0,data.index-Math.floor(LIMIT/2));upperOffset=lowerOffset;searchQ='';$('search').value='';lastDate=null;lastSender=null;lastTs=0;await loadMessages(false);}
 function filterNotes(q){const lq=q.toLowerCase();const filtered=allNotes.filter(n=>!lq||n.tags.some(t=>t.includes(lq))||n.title.toLowerCase().includes(lq)||n.body.toLowerCase().includes(lq));renderNotes(filtered);}
 const ALL_TAGS=['milestone','religion','jealousy','conflict','pattern','foreshadowing','travel','money','friendship','social','work','wedding-planning','first-contact','first-date','getting-to-know'];
 let _editingId=null;
@@ -374,39 +315,10 @@ api('/api/notes').then(data=>{allNotes=data;renderNotes(data);});
 </script>
 </body>
 </html>
-"""
+`
 
-
-@app.route("/")
-def index():
-    return Response(HTML, mimetype="text/html")
-
-
-@app.route("/api/notes")
-def api_notes():
-    return jsonify(fetch_notes())
-
-
-def _proxy_write(method, path):
-    try:
-        data, status = payload_request(method, path, request.json or {})
-        return jsonify(data), status
-    except urllib.error.HTTPError as e:
-        return jsonify({"error": e.reason}), e.code
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/api/notes", methods=["POST"])
-def api_notes_create():
-    return _proxy_write("POST", "/notes")
-
-
-@app.route("/api/notes/<note_id>", methods=["PATCH"])
-def api_notes_update(note_id):
-    return _proxy_write("PATCH", f"/notes/{note_id}")
-
-
-@app.route("/api/notes/<note_id>", methods=["DELETE"])
-def api_notes_delete(note_id):
-    return _proxy_write("DELETE", f"/notes/{note_id}")
+export async function GET() {
+  return new NextResponse(HTML, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  })
+}
