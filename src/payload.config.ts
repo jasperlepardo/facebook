@@ -13,6 +13,9 @@ export default buildConfig({
   admin: {
     user: 'users',
   },
+  routes: {
+    api: '/payload',
+  },
   collections: [Users, Notes],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || 'ciara-notes-secret-key',

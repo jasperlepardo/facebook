@@ -6,13 +6,14 @@ import os
 import urllib.request
 import urllib.error
 from datetime import datetime
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs, unquote
+from flask import Flask, request, jsonify, Response
 from pymongo import MongoClient, ASCENDING
 from bson import ObjectId
 
-PAYLOAD_BASE = "http://localhost:3001"
-PAYLOAD_NOTES_URL = f"{PAYLOAD_BASE}/api/notes?limit=500&sort=start&depth=0"
+app = Flask(__name__)
+
+PAYLOAD_BASE = os.environ.get("PAYLOAD_BASE", "http://localhost:3001")
+PAYLOAD_NOTES_URL = f"{PAYLOAD_BASE}/payload/notes?limit=500&sort=start&depth=0"
 
 # Credentials for Payload write proxy — set via env vars or edit here directly.
 PAYLOAD_EMAIL    = os.environ.get("PAYLOAD_EMAIL", "jsprlprd@gmail.com")
@@ -25,7 +26,7 @@ def _payload_login():
     global _payload_token
     body = json.dumps({"email": PAYLOAD_EMAIL, "password": PAYLOAD_PASSWORD}).encode()
     req = urllib.request.Request(
-        f"{PAYLOAD_BASE}/api/users/login",
+        f"{PAYLOAD_BASE}/payload/users/login",
         data=body, headers={"Content-Type": "application/json"}, method="POST",
     )
     with urllib.request.urlopen(req, timeout=5) as r:
@@ -41,7 +42,7 @@ def payload_request(method, path, body=None):
     def _do():
         headers = {"Content-Type": "application/json", "Authorization": f"JWT {_payload_token}"}
         data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(f"{PAYLOAD_BASE}{path}", data=data, headers=headers, method=method)
+        req = urllib.request.Request(f"{PAYLOAD_BASE}/payload{path}", data=data, headers=headers, method=method)
         return urllib.request.urlopen(req, timeout=5)
 
     try:
@@ -65,20 +66,14 @@ def fetch_notes():
     except Exception:
         return []
 
-BASE = os.path.dirname(os.path.abspath(__file__))
-CONVERSATION_DIR = os.path.join(BASE, "ciara_conversation")
-PORT = 8080
-
 MONGODB_URI = os.environ.get(
     "MONGODB_URI",
     "mongodb+srv://jsprlprd_db_user:eQ5igx90btLzSAcB@cluster0.pyqf6ob.mongodb.net/ciara-notes?retryWrites=true&w=majority&appName=Cluster0"
 )
 
-print("Connecting to MongoDB…", flush=True)
 _mongo = MongoClient(MONGODB_URI)
 _msgs  = _mongo["ciara-notes"]["messages"]
 MSG_TOTAL = _msgs.count_documents({})
-print(f"Connected — {MSG_TOTAL:,} messages", flush=True)
 
 
 def _clean(doc):
@@ -868,140 +863,96 @@ api('/api/notes').then(data => { allNotes = data; renderNotes(data); });
 
 
 
-class Handler(BaseHTTPRequestHandler):
-    def log_message(self, fmt, *args):
-        pass  # quiet
+@app.route("/")
+def index():
+    return Response(HTML, mimetype="text/html")
 
-    def send_json(self, data, status=200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", len(body))
-        self.end_headers()
-        self.wfile.write(body)
 
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        p = parsed.path
-        qs = parse_qs(parsed.query)
+@app.route("/api/messages")
+def api_messages():
+    off   = int(request.args.get("offset", 0))
+    limit = min(int(request.args.get("limit", 80)), 200)
+    q     = (request.args.get("search") or "").strip()
+    asc   = request.args.get("asc") == "1"
 
-        def qp(k, d=None):
-            return qs.get(k, [d])[0]
+    if q:
+        filt  = {"$text": {"$search": q}}
+        total = _msgs.count_documents(filt)
+        page  = list(_msgs.find(filt, {"score": {"$meta": "textScore"}})
+                     .sort([("score", {"$meta": "textScore"}), ("timestamp_ms", ASCENDING)])
+                     .skip(off).limit(limit))
+        return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
+    elif asc:
+        total = MSG_TOTAL
+        page  = list(_msgs.find().sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
+        return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
+    else:
+        total = MSG_TOTAL
+        skip  = max(0, total - off - limit)
+        page  = list(_msgs.find().sort("timestamp_ms", ASCENDING).skip(skip).limit(limit))
+        return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": skip > 0})
 
-        if p == "/":
-            body = HTML.encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", len(body))
-            self.end_headers()
-            self.wfile.write(body)
 
-        elif p == "/api/messages":
-            off   = int(qp("offset", 0))
-            limit = min(int(qp("limit", 80)), 200)
-            q     = (qp("search") or "").strip()
-            asc   = qp("asc") == "1"
+@app.route("/api/attachments")
+def api_attachments():
+    atype = request.args.get("type", "photos")
+    off   = int(request.args.get("offset", 0))
+    limit = min(int(request.args.get("limit", 60)), 200)
 
-            if q:
-                filt  = {"$text": {"$search": q}}
-                total = _msgs.count_documents(filt)
-                page  = list(_msgs.find(filt, {"score": {"$meta": "textScore"}})
-                             .sort([("score", {"$meta": "textScore"}), ("timestamp_ms", ASCENDING)])
-                             .skip(off).limit(limit))
-                self.send_json({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
-            elif asc:
-                total = MSG_TOTAL
-                page  = list(_msgs.find().sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
-                self.send_json({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
-            else:
-                total  = MSG_TOTAL
-                skip   = max(0, total - off - limit)
-                page   = list(_msgs.find().sort("timestamp_ms", ASCENDING).skip(skip).limit(limit))
-                self.send_json({"messages": [_clean(m) for m in page], "total": total, "has_more": skip > 0})
+    field = {"photos": "photos", "videos": "videos", "files": "files", "audio": "audio_files"}.get(atype, "photos")
+    filt  = {field: {"$exists": True, "$not": {"$size": 0}}}
+    total = _msgs.count_documents(filt)
+    docs  = list(_msgs.find(filt, {field: 1, "timestamp_ms": 1, "sender_name": 1})
+                 .sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
+    items = []
+    for m in docs:
+        for att in m.get(field, []):
+            if "uri" in att:
+                items.append({"uri": att["uri"], "ts": m["timestamp_ms"], "sender": m.get("sender_name", "")})
+    return jsonify({"items": items, "total": total, "has_more": off + limit < total})
 
-        elif p == "/api/attachments":
-            atype = qp("type", "photos")
-            off   = int(qp("offset", 0))
-            limit = min(int(qp("limit", 60)), 200)
 
-            field = {"photos": "photos", "videos": "videos", "files": "files", "audio": "audio_files"}.get(atype, "photos")
-            filt  = {field: {"$exists": True, "$not": {"$size": 0}}}
-            total = _msgs.count_documents(filt)
-            docs  = list(_msgs.find(filt, {field: 1, "timestamp_ms": 1, "sender_name": 1})
-                         .sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
-            items = []
-            for m in docs:
-                for att in m.get(field, []):
-                    if "uri" in att:
-                        items.append({"uri": att["uri"], "ts": m["timestamp_ms"], "sender": m.get("sender_name", "")})
-            self.send_json({"items": items, "total": total, "has_more": off + limit < total})
+@app.route("/api/notes")
+def api_notes():
+    return jsonify(fetch_notes())
 
-        elif p == "/api/notes":
-            self.send_json(fetch_notes())
 
-        elif p == "/api/jump":
-            date_str = qp("date", "")
-            try:
-                fmt = "%Y-%m-%dT%H:%M" if "T" in date_str else "%Y-%m-%d"
-                target_ts = datetime.strptime(date_str, fmt).timestamp() * 1000
-                idx = _msgs.count_documents({"timestamp_ms": {"$lt": target_ts}})
-                self.send_json({"index": idx})
-            except Exception as e:
-                self.send_json({"error": str(e)}, 400)
+@app.route("/api/jump")
+def api_jump():
+    date_str = request.args.get("date", "")
+    try:
+        fmt = "%Y-%m-%dT%H:%M" if "T" in date_str else "%Y-%m-%d"
+        target_ts = datetime.strptime(date_str, fmt).timestamp() * 1000
+        idx = _msgs.count_documents({"timestamp_ms": {"$lt": target_ts}})
+        return jsonify({"index": idx})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-        else:
-            self.send_response(404)
-            self.end_headers()
 
-    def _read_body(self):
-        length = int(self.headers.get("Content-Length", 0))
-        return json.loads(self.rfile.read(length)) if length else {}
+def _proxy_write(method, path):
+    try:
+        data, status = payload_request(method, path, request.json or {})
+        return jsonify(data), status
+    except urllib.error.HTTPError as e:
+        return jsonify({"error": e.reason}), e.code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    def _proxy_write(self, method, path):
-        try:
-            body = self._read_body()
-            data, status = payload_request(method, path, body)
-            self.send_json(data, status)
-        except urllib.error.HTTPError as e:
-            self.send_json({"error": e.reason}, e.code)
-        except Exception as e:
-            self.send_json({"error": str(e)}, 500)
 
-    def do_POST(self):
-        p = urlparse(self.path).path
-        if p == "/api/notes":
-            self._proxy_write("POST", "/api/notes")
-        else:
-            self.send_response(404); self.end_headers()
+@app.route("/api/notes", methods=["POST"])
+def api_notes_create():
+    return _proxy_write("POST", "/notes")
 
-    def do_PATCH(self):
-        p = urlparse(self.path).path
-        if p.startswith("/api/notes/"):
-            note_id = p.split("/")[-1]
-            self._proxy_write("PATCH", f"/api/notes/{note_id}")
-        else:
-            self.send_response(404); self.end_headers()
 
-    def do_DELETE(self):
-        p = urlparse(self.path).path
-        if p.startswith("/api/notes/"):
-            note_id = p.split("/")[-1]
-            try:
-                data, status = payload_request("DELETE", f"/api/notes/{note_id}")
-                self.send_json(data, status)
-            except urllib.error.HTTPError as e:
-                self.send_json({"error": e.reason}, e.code)
-            except Exception as e:
-                self.send_json({"error": str(e)}, 500)
-        else:
-            self.send_response(404); self.end_headers()
+@app.route("/api/notes/<note_id>", methods=["PATCH"])
+def api_notes_update(note_id):
+    return _proxy_write("PATCH", f"/notes/{note_id}")
+
+
+@app.route("/api/notes/<note_id>", methods=["DELETE"])
+def api_notes_delete(note_id):
+    return _proxy_write("DELETE", f"/notes/{note_id}")
 
 
 if __name__ == "__main__":
-    server = HTTPServer(("localhost", PORT), Handler)
-    print(f"\n  Open http://localhost:{PORT} in your browser")
-    print("  Press Ctrl+C to stop\n")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nStopped.")
+    app.run(port=8080, debug=False)
