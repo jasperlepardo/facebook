@@ -3,6 +3,7 @@ import os
 import urllib.request
 import urllib.error
 from datetime import datetime
+import certifi
 from flask import Flask, request, jsonify, Response
 from pymongo import MongoClient, ASCENDING
 from bson import ObjectId
@@ -24,7 +25,7 @@ _msg_total = None
 def _get_msgs():
     global _mongo, _msgs
     if _msgs is None:
-        _mongo = MongoClient(MONGODB_URI)
+        _mongo = MongoClient(MONGODB_URI, tlsCAFile=certifi.where())
         _msgs  = _mongo["ciara-notes"]["messages"]
     return _msgs
 
