@@ -73,7 +73,7 @@ MONGODB_URI = os.environ.get(
 
 _mongo = MongoClient(MONGODB_URI)
 _msgs  = _mongo["ciara-notes"]["messages"]
-MSG_TOTAL = _msgs.count_documents({})
+MSG_TOTAL = _msgs.estimated_document_count()
 
 
 def _clean(doc):

@@ -32,7 +32,7 @@ def _get_msgs():
 def _get_total():
     global _msg_total
     if _msg_total is None:
-        _msg_total = _get_msgs().count_documents({})
+        _msg_total = _get_msgs().estimated_document_count()
     return _msg_total
 
 
