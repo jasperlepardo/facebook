@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     const total = await msgs.countDocuments(filt)
     const docs  = await msgs.find(filt, { projection: { [field]: 1, timestamp_ms: 1, sender_name: 1 } })
       .sort({ timestamp_ms: 1 }).skip(off).limit(limit).toArray()
-    const items: { uri: string; ts: number; sender: string }[] = []
+    const items: { uri: string; ts: number; sender: string; msgId: string }[] = []
     for (const m of docs) {
       for (const att of (m[field] as { uri?: string }[] ?? [])) {
         if (att.uri) items.push({ uri: att.uri, ts: m.timestamp_ms as number, sender: m.sender_name as string ?? '', msgId: String(m._id) })
