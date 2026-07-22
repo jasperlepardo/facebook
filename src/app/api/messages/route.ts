@@ -6,16 +6,12 @@ const CORS = {
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
 }
 
-let client: MongoClient | null = null
-
 async function getMsgs() {
-  if (!client) {
-    client = new MongoClient(process.env.MONGODB_URI!, {
-      serverSelectionTimeoutMS: 10000,
-    } as MongoClientOptions)
-    await client.connect()
-  }
-  return client.db('ciara-notes').collection('messages')
+  const c = new MongoClient(process.env.MONGODB_URI!, {
+    serverSelectionTimeoutMS: 10000,
+  } as MongoClientOptions)
+  await c.connect()
+  return c.db('ciara-notes').collection('messages')
 }
 
 function clean(doc: Record<string, unknown>) {
