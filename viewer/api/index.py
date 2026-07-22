@@ -2,11 +2,7 @@ import json
 import os
 import urllib.request
 import urllib.error
-from datetime import datetime
-import certifi
 from flask import Flask, request, jsonify, Response
-from pymongo import MongoClient, ASCENDING
-from bson import ObjectId
 
 app = Flask(__name__)
 
@@ -14,31 +10,8 @@ PAYLOAD_BASE      = os.environ.get("PAYLOAD_BASE", "https://facebook-lac.vercel.
 PAYLOAD_NOTES_URL = f"{PAYLOAD_BASE}/api/notes?limit=500&sort=start&depth=0"
 PAYLOAD_EMAIL     = os.environ.get("PAYLOAD_EMAIL", "jsprlprd@gmail.com")
 PAYLOAD_PASSWORD  = os.environ.get("PAYLOAD_PASSWORD", "JLDesign@0593")
-MONGODB_URI       = os.environ.get("MONGODB_URI", "mongodb+srv://jsprlprd_db_user:eQ5igx90btLzSAcB@cluster0.pyqf6ob.mongodb.net/ciara-notes?retryWrites=true&w=majority&appName=Cluster0")
 
 _payload_token = None
-_mongo    = None
-_msgs     = None
-_msg_total = None
-
-
-def _get_msgs():
-    global _mongo, _msgs
-    if _msgs is None:
-        _mongo = MongoClient(
-            MONGODB_URI,
-            tlsInsecure=True,
-            serverSelectionTimeoutMS=10000,
-        )
-        _msgs  = _mongo["ciara-notes"]["messages"]
-    return _msgs
-
-
-def _get_total():
-    global _msg_total
-    if _msg_total is None:
-        _msg_total = _get_msgs().estimated_document_count()
-    return _msg_total
 
 
 def _payload_login():
@@ -82,9 +55,6 @@ def fetch_notes():
         return []
 
 
-def _clean(doc):
-    if "_id" in doc:
-        doc["_id"] = str(doc["_id"])
     return doc
 
 
@@ -281,6 +251,7 @@ const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 const encPath = uri => uri.split('/').map(encodeURIComponent).join('/');
 function fmtTime(ts) { return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
 function fmtDate(ts) { return new Date(ts).toLocaleDateString([],{weekday:'short',year:'numeric',month:'long',day:'numeric'}); }
+const API_BASE = 'https://facebook-lac.vercel.app';
 const R2 = 'https://pub-bcf374add91945839b65e3ee37ef410d.r2.dev';
 function r2(uri) { return `${R2}/${encPath(uri)}`; }
 function renderMedia(m) {
@@ -321,7 +292,7 @@ async function loadMessages(append=false,prepend=false) {
   const fetchOffset=prepend?lowerOffset:(append?upperOffset:lowerOffset);
   const params=new URLSearchParams({offset:fetchOffset,limit:LIMIT,asc:1});
   if(searchQ){params.delete('asc');params.set('offset',0);params.set('search',searchQ);}
-  const data=await api('/api/messages?'+params);
+  const data=await api(API_BASE+'/api/messages?'+params);
   total=data.total; $('count').textContent=total.toLocaleString()+' messages';
   $('oldbtn').style.display=(lowerOffset>0&&!searchQ)?'':'none';
   $('loadbtn').style.display=(data.has_more&&!searchQ)?'':'none';
@@ -346,10 +317,10 @@ function renderGalleryItems(items){
   const grid=$('gallery').querySelector('.ggrid')||(() => {const g=document.createElement('div');g.className='ggrid';$('gallery').insertBefore(g,$('gallery').querySelector('.gmore'));return g;})();
   for(const item of items){const div=document.createElement('div');div.className='gitem';if(galType==='photos'){div.innerHTML=`<img src="${r2(item.uri)}" loading="lazy" onerror="this.closest('.gitem').remove()">`;div.onclick=()=>lb(r2(item.uri),'photo',new Date(item.ts).toLocaleDateString()+' · '+esc(item.sender));}else{div.innerHTML=`<video src="${r2(item.uri)}" preload="metadata"></video>`;div.onclick=()=>lb(r2(item.uri),'video',new Date(item.ts).toLocaleDateString()+' · '+esc(item.sender));}grid.appendChild(div);}
 }
-async function loadGallery(reset=false){if(reset){galOff=0;galItems=[];$('gallery').innerHTML='<div class="ggrid"></div><div class="gmore"></div>';}const data=await api(`/api/attachments?type=${galType}&offset=${galOff}&limit=${GLIMIT}`);galItems.push(...data.items);renderGalleryItems(data.items);const more=$('gallery').querySelector('.gmore');if(data.has_more){more.innerHTML=`<button onclick="loadMoreGal()">Load more</button>`;}else{more.innerHTML='';}galOff+=GLIMIT;}
+async function loadGallery(reset=false){if(reset){galOff=0;galItems=[];$('gallery').innerHTML='<div class="ggrid"></div><div class="gmore"></div>';}const data=await api(`${API_BASE}/api/attachments?type=${galType}&offset=${galOff}&limit=${GLIMIT}`);galItems.push(...data.items);renderGalleryItems(data.items);const more=$('gallery').querySelector('.gmore');if(data.has_more){more.innerHTML=`<button onclick="loadMoreGal()">Load more</button>`;}else{more.innerHTML='';}galOff+=GLIMIT;}
 async function loadMoreGal(){await loadGallery(false);}
 async function loadFiles(){
-  const[fd,ad]=await Promise.all([api('/api/attachments?type=files&offset=0&limit=500'),api('/api/attachments?type=audio&offset=0&limit=500')]);
+  const[fd,ad]=await Promise.all([api(API_BASE+'/api/attachments?type=files&offset=0&limit=500'),api(API_BASE+'/api/attachments?type=audio&offset=0&limit=500')]);
   const all=[...fd.items.map(i=>({...i,kind:'file'})),...ad.items.map(i=>({...i,kind:'audio'}))].sort((a,b)=>b.ts-a.ts);
   if(!all.length){$('fview').innerHTML='<p style="padding:20px;color:#65676b">No files found.</p>';return;}
   $('fview').innerHTML=all.map(item=>{const name=item.uri.split('/').pop();const icon=item.kind==='audio'?'🎵':(name.match(/\.pdf$/i)?'📄':name.match(/\.(jpg|jpeg|png|gif|webp)$/i)?'🖼':'📎');return`<div class="fitem"><div class="fico">${icon}</div><div class="fmeta"><div class="fname"><a href="${r2(item.uri)}" target="_blank">${esc(name)}</a></div><div class="fdate">${new Date(item.ts).toLocaleDateString()} · ${esc(item.sender)}</div></div></div>`;}).join('');
@@ -368,7 +339,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
 }));
 let stimer;
 $('search').addEventListener('input',e=>{clearTimeout(stimer);stimer=setTimeout(async()=>{searchQ=e.target.value.trim();lowerOffset=0;upperOffset=0;lastDate=null;$('searching').style.display=searchQ?'':'none';await loadMessages(false);$('searching').style.display='none';},350);});
-$('date-jump').addEventListener('change',async e=>{const date=e.target.value;if(!date)return;const data=await api('/api/jump?date='+date);if(data.index!=null){lowerOffset=Math.max(0,data.index-Math.floor(LIMIT/2));upperOffset=lowerOffset;searchQ='';$('search').value='';lastDate=null;await loadMessages(false);}});
+$('date-jump').addEventListener('change',async e=>{const date=e.target.value;if(!date)return;const data=await api(API_BASE+'/api/jump?date='+date);if(data.index!=null){lowerOffset=Math.max(0,data.index-Math.floor(LIMIT/2));upperOffset=lowerOffset;searchQ='';$('search').value='';lastDate=null;await loadMessages(false);}});
 let allNotes=[],activeNoteIdx=null;
 const TAG_COLORS={'milestone':'#1d4ed8','religion':'#6d28d9','jealousy':'#c2410c','conflict':'#b91c1c','pattern':'#9d174d','foreshadowing':'#854d0e','travel':'#15803d','money':'#b45309','friendship':'#0f766e','social':'#0369a1','work':'#475569','wedding-planning':'#be185d','first-contact':'#1e40af','first-date':'#1e40af','getting-to-know':'#166534'};
 const TAG_LABELS={'milestone':'Milestone','religion':'Religion','jealousy':'Jealousy','conflict':'Conflict','pattern':'Pattern','foreshadowing':'Foreshadowing','travel':'Travel','money':'Money','friendship':'Friendship','social':'Social','work':'Work','wedding-planning':'Wedding','first-contact':'First Contact','first-date':'First Date','getting-to-know':'Getting to Know'};
@@ -381,7 +352,7 @@ document.addEventListener('click',async function(e){
   const editBtn=e.target.closest('.note-edit-btn');if(editBtn){e.stopPropagation();const note=allNotes.find(n=>String(n.id)===editBtn.dataset.id);if(note)openNoteModal(note);return;}
   const card=e.target.closest('.note-card');if(card){document.querySelectorAll('.note-card').forEach(c=>c.classList.remove('active'));card.classList.add('active');await jumpToDate(card.dataset.start);}
 });
-async function jumpToDate(date){if(currentTab!=='chat')document.querySelector('.tab[data-tab="chat"]').click();$('chat').style.display='flex';$('chat').style.flexDirection='column';const data=await api('/api/jump?date='+date);if(data.index==null)return;lowerOffset=Math.max(0,data.index-Math.floor(LIMIT/2));upperOffset=lowerOffset;searchQ='';$('search').value='';lastDate=null;lastSender=null;lastTs=0;await loadMessages(false);}
+async function jumpToDate(date){if(currentTab!=='chat')document.querySelector('.tab[data-tab="chat"]').click();$('chat').style.display='flex';$('chat').style.flexDirection='column';const data=await api(API_BASE+'/api/jump?date='+date);if(data.index==null)return;lowerOffset=Math.max(0,data.index-Math.floor(LIMIT/2));upperOffset=lowerOffset;searchQ='';$('search').value='';lastDate=null;lastSender=null;lastTs=0;await loadMessages(false);}
 function filterNotes(q){const lq=q.toLowerCase();const filtered=allNotes.filter(n=>!lq||n.tags.some(t=>t.includes(lq))||n.title.toLowerCase().includes(lq)||n.body.toLowerCase().includes(lq));renderNotes(filtered);}
 const ALL_TAGS=['milestone','religion','jealousy','conflict','pattern','foreshadowing','travel','money','friendship','social','work','wedding-planning','first-contact','first-date','getting-to-know'];
 let _editingId=null;
@@ -411,68 +382,9 @@ def index():
     return Response(HTML, mimetype="text/html")
 
 
-@app.route("/api/messages")
-def api_messages():
-    try:
-        off   = int(request.args.get("offset", 0))
-        limit = min(int(request.args.get("limit", 80)), 200)
-        q     = (request.args.get("search") or "").strip()
-        asc   = request.args.get("asc") == "1"
-        msgs  = _get_msgs()
-        if q:
-            filt  = {"$text": {"$search": q}}
-            total = msgs.count_documents(filt)
-            page  = list(msgs.find(filt, {"score": {"$meta": "textScore"}})
-                         .sort([("score", {"$meta": "textScore"}), ("timestamp_ms", ASCENDING)])
-                         .skip(off).limit(limit))
-            return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
-        elif asc:
-            total = _get_total()
-            page  = list(msgs.find().sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
-            return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": off + limit < total})
-        else:
-            total = _get_total()
-            skip  = max(0, total - off - limit)
-            page  = list(msgs.find().sort("timestamp_ms", ASCENDING).skip(skip).limit(limit))
-            return jsonify({"messages": [_clean(m) for m in page], "total": total, "has_more": skip > 0})
-    except Exception as e:
-        return jsonify({"error": str(e), "type": type(e).__name__, "uri": MONGODB_URI[:40]}), 500
-
-
-@app.route("/api/attachments")
-def api_attachments():
-    atype = request.args.get("type", "photos")
-    off   = int(request.args.get("offset", 0))
-    limit = min(int(request.args.get("limit", 60)), 200)
-    field = {"photos": "photos", "videos": "videos", "files": "files", "audio": "audio_files"}.get(atype, "photos")
-    msgs  = _get_msgs()
-    filt  = {field: {"$exists": True, "$not": {"$size": 0}}}
-    total = msgs.count_documents(filt)
-    docs  = list(msgs.find(filt, {field: 1, "timestamp_ms": 1, "sender_name": 1})
-                 .sort("timestamp_ms", ASCENDING).skip(off).limit(limit))
-    items = []
-    for m in docs:
-        for att in m.get(field, []):
-            if "uri" in att:
-                items.append({"uri": att["uri"], "ts": m["timestamp_ms"], "sender": m.get("sender_name", "")})
-    return jsonify({"items": items, "total": total, "has_more": off + limit < total})
-
-
 @app.route("/api/notes")
 def api_notes():
     return jsonify(fetch_notes())
-
-
-@app.route("/api/jump")
-def api_jump():
-    date_str = request.args.get("date", "")
-    try:
-        fmt = "%Y-%m-%dT%H:%M" if "T" in date_str else "%Y-%m-%d"
-        target_ts = datetime.strptime(date_str, fmt).timestamp() * 1000
-        idx = _get_msgs().count_documents({"timestamp_ms": {"$lt": target_ts}})
-        return jsonify({"index": idx})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
 
 
 def _proxy_write(method, path):

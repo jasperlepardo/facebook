@@ -1,0 +1,70 @@
+import { MongoClient, MongoClientOptions } from 'mongodb'
+import { NextRequest, NextResponse } from 'next/server'
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+}
+
+let client: MongoClient | null = null
+
+async function getMsgs() {
+  if (!client) {
+    client = new MongoClient(process.env.MONGODB_URI!, {
+      serverSelectionTimeoutMS: 10000,
+    } as MongoClientOptions)
+    await client.connect()
+  }
+  return client.db('ciara-notes').collection('messages')
+}
+
+function clean(doc: Record<string, unknown>) {
+  const d = { ...doc }
+  if (d._id) d._id = String(d._id)
+  return d
+}
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: CORS })
+}
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const off   = parseInt(searchParams.get('offset') ?? '0')
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '80'), 200)
+  const q     = (searchParams.get('search') ?? '').trim()
+  const asc   = searchParams.get('asc') === '1'
+
+  try {
+    const msgs = await getMsgs()
+
+    if (q) {
+      const filt = { $text: { $search: q } }
+      const total = await msgs.countDocuments(filt)
+      const page  = await msgs.find(filt, { projection: { score: { $meta: 'textScore' } } })
+        .sort({ score: { $meta: 'textScore' }, timestamp_ms: 1 })
+        .skip(off).limit(limit).toArray()
+      return NextResponse.json(
+        { messages: page.map(clean), total, has_more: off + limit < total },
+        { headers: CORS }
+      )
+    } else if (asc) {
+      const total = await msgs.estimatedDocumentCount()
+      const page  = await msgs.find().sort({ timestamp_ms: 1 }).skip(off).limit(limit).toArray()
+      return NextResponse.json(
+        { messages: page.map(clean), total, has_more: off + limit < total },
+        { headers: CORS }
+      )
+    } else {
+      const total = await msgs.estimatedDocumentCount()
+      const skip  = Math.max(0, total - off - limit)
+      const page  = await msgs.find().sort({ timestamp_ms: 1 }).skip(skip).limit(limit).toArray()
+      return NextResponse.json(
+        { messages: page.map(clean), total, has_more: skip > 0 },
+        { headers: CORS }
+      )
+    }
+  } catch (e: unknown) {
+    return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
+  }
+}
