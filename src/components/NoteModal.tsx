@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { Note } from '../types'
-import { ALL_TAGS, TAG_LABELS } from '../lib/constants'
-import { fmtDateRange } from '../lib/format'
+import { Note } from '@/types'
+import { ALL_TAGS, TAG_LABELS } from '@/lib/constants'
+import { fmtDateRange } from '@/lib/format'
 
 interface Props {
   note: Note | null

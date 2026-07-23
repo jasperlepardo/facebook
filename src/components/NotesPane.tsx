@@ -1,8 +1,8 @@
 'use client'
 import { useState, useMemo } from 'react'
-import { Note } from '../types'
-import { TAG_COLORS, TAG_LABELS } from '../lib/constants'
-import { fmtDateRange } from '../lib/format'
+import { Note } from '@/types'
+import { TAG_COLORS, TAG_LABELS } from '@/lib/constants'
+import { fmtDateRange } from '@/lib/format'
 
 interface Props {
   notes: Note[]
@@ -22,7 +22,7 @@ export default function NotesPane({ notes, onEdit, onNew, onJumpToDate, onJumpTo
   }, [notes, filter])
 
   return (
-    <div className="w-1/2 min-w-[220px] flex flex-col bg-white flex-shrink-0">
+    <div className="flex flex-col bg-white h-full min-h-0">
       <div className="px-3.5 py-2.5 border-b border-gray-200 text-[13px] font-bold text-gray-900 flex items-center gap-2 flex-shrink-0">
         <span className="flex-1">📝 Analysis Notes</span>
         <input

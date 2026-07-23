@@ -1,16 +1,7 @@
-import { MongoClient, MongoClientOptions } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
+import { getSettings } from '@/lib/db'
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS' }
-
-let client: MongoClient | null = null
-async function getSettings() {
-  if (!client) {
-    client = new MongoClient(process.env.MONGODB_URI!, { serverSelectionTimeoutMS: 10000 } as MongoClientOptions)
-    await client.connect()
-  }
-  return client.db('ciara-notes').collection('settings')
-}
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })

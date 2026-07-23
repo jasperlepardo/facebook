@@ -1,6 +1,6 @@
 'use client'
 import { useEffect } from 'react'
-import { LightboxState } from '../types'
+import { LightboxState } from '@/types'
 
 export default function Lightbox({ state, onClose }: { state: LightboxState; onClose: () => void }) {
   useEffect(() => {

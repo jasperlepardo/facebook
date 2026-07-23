@@ -1,7 +1,7 @@
 'use client'
 import { memo } from 'react'
-import { Message, MessageBlock, LightboxState } from '../types'
-import { r2, fmtTime } from '../lib/format'
+import { Message, MessageBlock, LightboxState } from '@/types'
+import { r2, fmtTime } from '@/lib/format'
 
 function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) => void }) {
   return (
@@ -10,7 +10,7 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
         <img key={i} src={r2(p.uri)} loading="lazy"
           className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1 hover:opacity-90"
           onClick={() => onLightbox({ src: r2(p.uri), type: 'photo', caption: '' })}
-          onError={e => e.currentTarget.remove()} />
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
       {m.videos?.map((v, i) => (
         <video key={i} src={r2(v.uri)} controls preload="none" className="max-w-[360px] rounded block mt-1" />
@@ -22,11 +22,11 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
         <img key={i} src={r2(g.uri)} loading="lazy"
           className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1"
           onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', caption: '' })}
-          onError={e => e.currentTarget.remove()} />
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
       {m.sticker && (
         <img src={r2(m.sticker.uri)} loading="lazy" className="max-w-[72px] max-h-[72px]"
-          onError={e => e.currentTarget.remove()} />
+          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       )}
       {m.files?.map((f, i) => {
         const name = f.uri.split('/').pop() ?? ''
@@ -96,8 +96,8 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
             <span className={`font-bold text-sm ${block.mine ? 'text-blue-600' : 'text-gray-900'}`}>{block.sender}</span>
             <span className="text-[11px] text-gray-400 whitespace-nowrap">{fmtTime(first.timestamp_ms)}</span>
           </div>
-          {block.msgs.map(m => (
-            <div key={m._id}>
+          {block.msgs.map((m, i) => (
+            <div key={m._id ?? i}>
               <span id={`msg-${m._id}`} className="hidden" />
               {m.is_unsent
                 ? <div className="text-[13px] text-gray-400 italic">Message removed</div>

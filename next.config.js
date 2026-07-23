@@ -1,12 +1,6 @@
 import { withPayload } from '@payloadcms/next/withPayload'
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  experimental: {
-    outputFileTracingIncludes: {
-      '/': ['./src/viewer.html'],
-    },
-  },
-}
+const nextConfig = {}
 
 export default withPayload(nextConfig)

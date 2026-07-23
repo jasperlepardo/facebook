@@ -1,4 +1,4 @@
-import ViewerApp from './components/ViewerApp'
+import ViewerApp from '@/components/ViewerApp'
 
 export default function Page() {
   return <ViewerApp />

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { GalleryItem } from '../types'
-import { r2 } from '../lib/format'
+import { GalleryItem } from '@/types'
+import { r2 } from '@/lib/format'
 
 export default function FilesView() {
   const [items, setItems] = useState<(GalleryItem & { kind: string })[]>([])

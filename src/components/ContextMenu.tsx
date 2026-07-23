@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef } from 'react'
-import { CtxMenuState, Note } from '../types'
+import { CtxMenuState, Note } from '@/types'
 
 interface Props {
   state: CtxMenuState

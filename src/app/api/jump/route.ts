@@ -1,15 +1,11 @@
-import { MongoClient, MongoClientOptions, ObjectId } from 'mongodb'
+import { ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
+import { getMessages } from '@/lib/db'
 
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' }
-
-let client: MongoClient | null = null
-async function getMsgs() {
-  if (!client) {
-    client = new MongoClient(process.env.MONGODB_URI!, { serverSelectionTimeoutMS: 10000 } as MongoClientOptions)
-    await client.connect()
-  }
-  return client.db('ciara-notes').collection('messages')
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
 }
 
 export async function OPTIONS() {
@@ -21,7 +17,7 @@ export async function GET(req: NextRequest) {
   const msgId   = searchParams.get('msgId')
   const dateStr = searchParams.get('date') ?? ''
   try {
-    const msgs = await getMsgs()
+    const msgs = await getMessages()
     let targetTs: number
     if (msgId) {
       const doc = await msgs.findOne({ _id: new ObjectId(msgId) }, { projection: { timestamp_ms: 1 } })

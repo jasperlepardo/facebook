@@ -1,15 +1,10 @@
-import { MongoClient, MongoClientOptions } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
+import { getMessages } from '@/lib/db'
 
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' }
-
-let client: MongoClient | null = null
-async function getMsgs() {
-  if (!client) {
-    client = new MongoClient(process.env.MONGODB_URI!, { serverSelectionTimeoutMS: 10000 } as MongoClientOptions)
-    await client.connect()
-  }
-  return client.db('ciara-notes').collection('messages')
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
 }
 
 export async function OPTIONS() {
@@ -24,7 +19,7 @@ export async function GET(req: NextRequest) {
   const field = ({ photos: 'photos', videos: 'videos', files: 'files', audio: 'audio_files' } as Record<string, string>)[atype] ?? 'photos'
 
   try {
-    const msgs  = await getMsgs()
+    const msgs  = await getMessages()
     const filt  = { [field]: { $exists: true, $not: { $size: 0 } } }
     const total = await msgs.countDocuments(filt)
     const docs  = await msgs.find(filt, { projection: { [field]: 1, timestamp_ms: 1, sender_name: 1 } })

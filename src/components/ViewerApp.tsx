@@ -1,8 +1,8 @@
 'use client'
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
-import { Message, Note, Tab, LightboxState, CtxMenuState, GalleryItem } from '../types'
-import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '../lib/constants'
-import { groupMessages } from '../lib/groupMessages'
+import { Message, Note, Tab, LightboxState, CtxMenuState, GalleryItem } from '@/types'
+import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
+import { groupMessages } from '@/lib/groupMessages'
 import MessageGroup from './MessageGroup'
 import NotesPane from './NotesPane'
 import NoteModal from './NoteModal'
@@ -60,7 +60,12 @@ export default function ViewerApp() {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const setMsg = (msgs: Message[]) => { messagesRef.current = msgs; setMessages(msgs) }
+  const setMsg = (msgs: Message[]) => {
+    const seen = new Set<string>()
+    const deduped = msgs.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
+    messagesRef.current = deduped
+    setMessages(deduped)
+  }
 
   const reloadNotes = useCallback(async () => {
     const d = await apiFetch<{ docs: Note[] }>('/api/notes?limit=500&sort=start&depth=1')
@@ -102,9 +107,13 @@ export default function ViewerApp() {
       else setMsg(next)
     } else if (mode === 'append') {
       upperOffset.current += count
-      const next = [...prev, ...data.messages]
-      if (next.length > MAX_DOM) { lowerOffset.current += next.length - MAX_DOM; setMsg(next.slice(-MAX_DOM)) }
-      else setMsg(next)
+      setMessages(cur => {
+        const next = [...cur, ...data.messages]
+        const seen = new Set<string>()
+        const deduped = next.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
+        if (deduped.length > MAX_DOM) { lowerOffset.current += deduped.length - MAX_DOM; messagesRef.current = deduped.slice(-MAX_DOM); return deduped.slice(-MAX_DOM) }
+        messagesRef.current = deduped; return deduped
+      })
     } else {
       upperOffset.current = lowerOffset.current + count
       setMsg(data.messages)
@@ -115,10 +124,12 @@ export default function ViewerApp() {
   async function loadOlder() {
     if (lowerOffset.current === 0) return
     lowerOffset.current = Math.max(0, lowerOffset.current - LIMIT)
-    await loadMessages('prepend')
+    try { await loadMessages('prepend') } catch { lowerOffset.current += LIMIT }
   }
 
-  async function loadNewer() { await loadMessages('append') }
+  async function loadNewer() {
+    try { await loadMessages('append') } catch (e) { console.error('loadNewer failed:', e) }
+  }
 
   // ─── Jump ────────────────────────────────────────────────────────────────────
 
@@ -187,8 +198,7 @@ export default function ViewerApp() {
     if (el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0) {
       loadingRef.current = true
       loadOlder().finally(() => { loadingRef.current = false })
-    }
-    if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current) {
+    } else if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current) {
       loadingRef.current = true
       loadNewer().finally(() => { loadingRef.current = false })
     }
@@ -219,6 +229,7 @@ export default function ViewerApp() {
       upperOffset.current = lowerOffset.current
       try { await loadMessages('fresh') } catch (e) { console.error(e) }
 
+      loadingRef.current = true // block scroll handler during restoration
       if (anchorMsgId && chatRef.current) {
         const anchor = document.getElementById('msg-' + anchorMsgId)?.closest<HTMLElement>('.msg-group')
         if (anchor) {
@@ -227,6 +238,7 @@ export default function ViewerApp() {
         }
       }
       setChatVisible(true)
+      loadingRef.current = false
 
       const el = chatRef.current
       if (el && el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current) {
@@ -392,9 +404,9 @@ export default function ViewerApp() {
             style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
           >
             {searching && <div className="text-center py-2 text-[13px] text-gray-500">Searching…</div>}
-            {currentTab === 'chat' && blocks.map(b => (
+            {currentTab === 'chat' && blocks.map((b, i) => (
               <MessageGroup
-                key={b.msgs[0]._id}
+                key={b.msgs[0]._id ?? i}
                 block={b}
                 isSelected={selectedMsgs.has(b.msgs[0]._id)}
                 onToggle={handleToggle}
@@ -414,7 +426,7 @@ export default function ViewerApp() {
         />
 
         {/* Notes pane */}
-        <div id="notes-pane" style={{ width: notesWidth }}>
+        <div id="notes-pane" className="flex flex-col min-h-0 flex-shrink-0 overflow-hidden" style={{ width: notesWidth }}>
           <NotesPane
             notes={allNotes}
             onEdit={note => setNoteModal({ note, msgIds: (note.msgIds ?? '').split(',').filter(Boolean) })}

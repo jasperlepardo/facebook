@@ -1,4 +1,4 @@
-import { Message, MessageBlock } from '../types'
+import { Message, MessageBlock } from '@/types'
 import { ME } from './constants'
 import { fmtDate } from './format'
 

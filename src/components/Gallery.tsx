@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { GalleryItem, LightboxState } from '../types'
-import { r2 } from '../lib/format'
-import { GLIMIT } from '../lib/constants'
+import { GalleryItem, LightboxState } from '@/types'
+import { r2 } from '@/lib/format'
+import { GLIMIT } from '@/lib/constants'
 
 interface Props {
   type: 'photos' | 'videos'
@@ -53,7 +53,7 @@ export default function Gallery({ type, onLightbox, onContextMenu }: Props) {
             data-msg-id={item.msgId}
           >
             {type === 'photos'
-              ? <img src={r2(item.uri)} loading="lazy" className="w-full h-full object-cover block" onError={e => e.currentTarget.closest('.gitem')?.remove()} />
+              ? <img src={r2(item.uri)} loading="lazy" className="w-full h-full object-cover block" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
               : <video src={r2(item.uri)} preload="none" className="w-full h-full object-cover block" />
             }
           </div>

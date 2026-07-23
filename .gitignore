@@ -13,6 +13,7 @@ out/
 # build
 dist/
 build/
+tsconfig.tsbuildinfo
 
 # logs
 *.log
