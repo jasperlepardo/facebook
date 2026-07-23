@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
 import { getMessages } from '@/lib/db'
 
@@ -19,6 +20,7 @@ export async function OPTIONS() {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
+  const idsParam = searchParams.get('ids')
   const off   = parseInt(searchParams.get('offset') ?? '0')
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '80'), 200)
   const q     = (searchParams.get('search') ?? '').trim()
@@ -26,6 +28,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const msgs = await getMessages()
+
+    if (idsParam) {
+      const ids = idsParam.split(',').filter(Boolean).map(id => { try { return new ObjectId(id) } catch { return null } }).filter(Boolean)
+      const docs = await msgs.find({ _id: { $in: ids } }).sort({ timestamp_ms: 1 }).toArray()
+      return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
+    }
 
     if (q) {
       const filt = { $text: { $search: q } }

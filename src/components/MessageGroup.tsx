@@ -64,9 +64,10 @@ interface Props {
   isSelected: boolean
   onToggle: (id: string, ts: number, tsEnd: number) => void
   onLightbox: (s: LightboxState) => void
+  onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
 }
 
-const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox }: Props) {
+const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox, onContextMenu }: Props) {
   const first = block.msgs[0]
   const last  = block.msgs[block.msgs.length - 1]
 
@@ -87,6 +88,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
         data-id={first._id}
         className={`msg-group flex py-2 px-5 gap-3 items-start relative cursor-pointer group transition-colors ${isSelected ? '!bg-blue-50' : 'hover:bg-gray-50'}`}
         onClick={handleClick}
+        onContextMenu={e => onContextMenu?.(e, block.msgs.map(m => m._id))}
       >
         <div className={`w-9 h-9 rounded flex-shrink-0 flex items-center justify-center font-black text-[15px] text-white mt-px ${block.mine ? 'bg-blue-600' : 'bg-purple-600'}`}>
           {(block.sender || '?')[0].toUpperCase()}

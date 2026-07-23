@@ -68,6 +68,7 @@ export interface Config {
   collections: {
     users: User;
     notes: Note;
+    hashtags: Hashtag;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -76,6 +77,7 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     notes: NotesSelect<false> | NotesSelect<true>;
+    hashtags: HashtagsSelect<false> | HashtagsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -176,6 +178,24 @@ export interface Note {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hashtags".
+ */
+export interface Hashtag {
+  id: string;
+  /**
+   * Hyphenated, e.g. first-date
+   */
+  name: string;
+  context?: string | null;
+  /**
+   * Comma-separated message IDs
+   */
+  msgIds?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -188,6 +208,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'notes';
         value: string | Note;
+      } | null)
+    | ({
+        relationTo: 'hashtags';
+        value: string | Hashtag;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -260,6 +284,17 @@ export interface NotesSelect<T extends boolean = true> {
   msgIds?: T;
   createdBy?: T;
   updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hashtags_select".
+ */
+export interface HashtagsSelect<T extends boolean = true> {
+  name?: T;
+  context?: T;
+  msgIds?: T;
   updatedAt?: T;
   createdAt?: T;
 }

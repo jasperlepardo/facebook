@@ -1,10 +1,11 @@
 'use client'
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
-import { Message, Note, Tab, LightboxState, CtxMenuState, GalleryItem } from '@/types'
+import { Message, Note, Tab, LightboxState, CtxMenuState, GalleryItem, Hashtag } from '@/types'
 import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
 import { groupMessages } from '@/lib/groupMessages'
 import MessageGroup from './MessageGroup'
-import NotesPane from './NotesPane'
+import HashtagsPane from './HashtagsPane'
+import HashtagPicker from './HashtagPicker'
 import NoteModal from './NoteModal'
 import Gallery from './Gallery'
 import FilesView from './FilesView'
@@ -37,9 +38,9 @@ export default function ViewerApp() {
   const [stickyDate, setStickyDate]   = useState('')
   const [currentUser, setCurrentUser] = useState('')
 
-  // Notes
-  const [allNotes, setAllNotes]   = useState<Note[]>([])
-  const [noteModal, setNoteModal] = useState<{ note: Note | null; msgIds: string[] } | null>(null)
+  // Hashtags
+  const [hashtags, setHashtags]         = useState<Hashtag[]>([])
+  const [hashtagPicker, setHashtagPicker] = useState<string[] | null>(null) // null=closed, string[]=msgIds to tag
 
   // Selection
   const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number }>())
@@ -67,9 +68,9 @@ export default function ViewerApp() {
     setMessages(deduped)
   }
 
-  const reloadNotes = useCallback(async () => {
-    const d = await apiFetch<{ docs: Note[] }>('/api/notes?limit=500&sort=start&depth=1')
-    setAllNotes(d.docs ?? [])
+  const reloadHashtags = useCallback(async () => {
+    const d = await apiFetch<{ docs: Hashtag[] }>('/api/hashtags?limit=200&sort=name&depth=0')
+    setHashtags(d.docs ?? [])
   }, [])
 
   // ─── Scroll preservation for prepend ────────────────────────────────────────
@@ -212,7 +213,7 @@ export default function ViewerApp() {
     deviceId.current = id
 
     fetch('/api/users/me').then(r => r.json()).then(d => { if (d?.user?.name) setCurrentUser(d.user.name) }).catch(() => {})
-    reloadNotes()
+    reloadHashtags()
 
     async function init() {
       let startIdx = 0, anchorMsgId: string | null = null, anchorOffset = 0
@@ -291,12 +292,26 @@ export default function ViewerApp() {
   }
 
   function openNoteFromSelection() {
-    const vals = [...selectedMsgs.values()]
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const toLocal = (ts: number) => { const d = new Date(ts); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}` }
-    const firstTs = Math.min(...vals.map(v => v.ts))
-    const lastTs  = Math.max(...vals.map(v => v.tsEnd))
-    setNoteModal({ note: { id: '', start: toLocal(firstTs), end: toLocal(lastTs), title: '', tags: [] }, msgIds: [...selectedMsgs.keys()] })
+    setHashtagPicker([...selectedMsgs.keys()])
+  }
+
+  async function applyHashtags(hashtagIds: string[], newNames: string[]) {
+    const msgIdList = hashtagPicker ?? []
+    // Add to existing hashtags
+    for (const id of hashtagIds) {
+      const h = hashtags.find(x => x.id === id)
+      if (!h) continue
+      const existing = (h.msgIds ?? '').split(',').filter(Boolean)
+      const merged = [...new Set([...existing, ...msgIdList])].join(',')
+      await fetch(`/api/hashtags/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msgIds: merged }) })
+    }
+    // Create new hashtags
+    for (const name of newNames) {
+      await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, msgIds: msgIdList.join(',') }) })
+    }
+    setHashtagPicker(null)
+    clearSelection()
+    reloadHashtags()
   }
 
   // ─── Resizer ─────────────────────────────────────────────────────────────────
@@ -335,6 +350,11 @@ export default function ViewerApp() {
   function handleGalleryContextMenu(e: React.MouseEvent, item: GalleryItem) {
     e.preventDefault()
     setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'gallery', galTs: String(item.ts), galMsgId: item.msgId ?? null })
+  }
+
+  function handleMsgContextMenu(e: React.MouseEvent, msgIds: string[]) {
+    e.preventDefault()
+    setHashtagPicker(msgIds)
   }
 
   // ─── Tabs ────────────────────────────────────────────────────────────────────
@@ -391,7 +411,7 @@ export default function ViewerApp() {
           {selectedMsgs.size > 0 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-4 py-2 flex items-center gap-3 text-[13px] whitespace-nowrap shadow-xl z-20">
               <span>{selectedMsgs.size} message{selectedMsgs.size > 1 ? 's' : ''} selected</span>
-              <button onClick={openNoteFromSelection} className="bg-blue-600 px-3.5 py-1 rounded-full text-[13px] font-semibold">📝 Note</button>
+              <button onClick={openNoteFromSelection} className="bg-blue-600 px-3.5 py-1 rounded-full text-[13px] font-semibold"># Tag</button>
               <button onClick={clearSelection} className="opacity-80 hover:opacity-100">✕</button>
             </div>
           )}
@@ -411,6 +431,7 @@ export default function ViewerApp() {
                 isSelected={selectedMsgs.has(b.msgs[0]._id)}
                 onToggle={handleToggle}
                 onLightbox={setLightbox}
+                onContextMenu={handleMsgContextMenu}
               />
             ))}
             {currentTab === 'photos' && <Gallery type="photos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} />}
@@ -425,26 +446,18 @@ export default function ViewerApp() {
           className="w-[5px] bg-gray-200 cursor-col-resize flex-shrink-0 hover:bg-blue-600 transition-colors"
         />
 
-        {/* Notes pane */}
+        {/* Hashtags pane */}
         <div id="notes-pane" className="flex flex-col min-h-0 flex-shrink-0 overflow-hidden" style={{ width: notesWidth }}>
-          <NotesPane
-            notes={allNotes}
-            onEdit={note => setNoteModal({ note, msgIds: (note.msgIds ?? '').split(',').filter(Boolean) })}
-            onNew={() => setNoteModal({ note: null, msgIds: [] })}
-            onJumpToDate={jumpToDate}
-            onJumpToMessage={msgId => jumpToMessage(0, msgId)}
-            onContextMenu={handleNoteContextMenu}
-          />
+          <HashtagsPane hashtags={hashtags} onReload={reloadHashtags} onJumpToMessage={jumpToMessage} />
         </div>
       </div>
 
       {/* Overlays */}
-      {noteModal && (
-        <NoteModal
-          note={noteModal.note?.id ? noteModal.note : null}
-          msgIds={noteModal.msgIds}
-          onClose={() => { setNoteModal(null); clearSelection() }}
-          onSaved={reloadNotes}
+      {hashtagPicker && (
+        <HashtagPicker
+          hashtags={hashtags}
+          onClose={() => setHashtagPicker(null)}
+          onApply={applyHashtags}
         />
       )}
       {lightbox && <Lightbox state={lightbox} onClose={() => setLightbox(null)} />}
@@ -452,7 +465,7 @@ export default function ViewerApp() {
         <ContextMenu
           state={ctxMenu}
           onClose={() => setCtxMenu(null)}
-          onEditNote={note => { setNoteModal({ note, msgIds: (note.msgIds ?? '').split(',').filter(Boolean) }); setCtxMenu(null) }}
+          onEditNote={() => setCtxMenu(null)}
           onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setCtxMenu(null) }}
         />
       )}

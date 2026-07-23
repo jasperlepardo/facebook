@@ -60,3 +60,10 @@ export interface CtxMenuState {
 }
 
 export type Tab = 'chat' | 'photos' | 'videos' | 'files'
+
+export interface Hashtag {
+  id: string
+  name: string
+  context?: string
+  msgIds?: string
+}
