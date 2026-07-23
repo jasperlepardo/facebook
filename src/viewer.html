@@ -96,8 +96,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 #sticky-date span{background:rgba(255,255,255,.93);border:1px solid #e4e6ea;border-radius:14px;padding:3px 16px;font-size:12px;color:#616061;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.1)}
 
 /* message group — contains all messages from same sender block */
-.msg-group{display:flex;padding:8px 20px;gap:12px;align-items:flex-start}
+.msg-group{display:flex;padding:8px 20px;gap:12px;align-items:flex-start;position:relative}
 .msg-group:hover{background:#f8f8f8}
+.msg-group.selected{background:#e8f0fe!important}
+.msg-check{align-self:flex-start;width:15px;height:15px;cursor:pointer;opacity:0;transition:opacity .1s;accent-color:#0866ff;flex-shrink:0}
+.msg-group:hover .msg-check,.msg-group.selected .msg-check{opacity:1}
+/* selection bar */
+#sel-bar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:#1d1c1d;color:#fff;border-radius:20px;padding:8px 18px;display:none;align-items:center;gap:12px;font-size:13px;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:20}
+#sel-bar button{background:none;border:none;color:#fff;font-size:13px;cursor:pointer;padding:0;opacity:.8}
+#sel-bar button:hover{opacity:1}
+#sel-note-btn{background:#0866ff!important;padding:4px 14px!important;border-radius:12px!important;font-weight:600!important;opacity:1!important}
 
 /* avatar */
 .avatar{width:36px;height:36px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;margin-top:1px}
@@ -171,6 +179,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
 <div id="view">
   <div id="chat-pane">
     <div id="sticky-date"><span></span></div>
+    <div id="sel-bar">
+      <span id="sel-count"></span>
+      <button id="sel-note-btn" onclick="openNoteFromSelection()">📝 Note</button>
+      <button onclick="clearSelection()">✕</button>
+    </div>
     <div id="chat" style="visibility:hidden">
       <div id="searching">Searching…</div>
       <div id="msgs"></div>
@@ -199,6 +212,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-seri
   <div id="note-modal-bg" onclick="closeNoteModal()"></div>
   <div id="note-dlg">
     <h2 id="note-dlg-h">Edit Note</h2>
+    <div class="nf" id="nf-msgs-row" style="display:none"><label>Linked messages</label><div id="nf-msgs" style="font-size:13px;color:#0866ff;padding:4px 0"></div></div>
     <div class="nf"><label>Start</label><input id="nf-start" placeholder="2016-07-14 or 2016-07-14T13:06"></div>
     <div class="nf"><label>End (optional)</label><input id="nf-end" placeholder="2016-07-14 or 2016-07-14T23:59"></div>
     <div class="nf"><label>Tags</label><div class="tag-chips" id="nf-tags"></div></div>
@@ -327,7 +341,7 @@ function renderMessages(messages) {
     const ts = fmtTime(b.msgs[0].timestamp_ms);
     const body = b.msgs.map(renderMsgBody).join('');
     const ids = b.msgs.map(m => m._id).join(',');
-    return `${sep}<div class="msg-group" data-id="${b.msgs[0]._id}" data-ids="${ids}" data-ts="${b.msgs[0].timestamp_ms}">
+    return `${sep}<div class="msg-group" data-id="${b.msgs[0]._id}" data-ids="${ids}" data-ts="${b.msgs[0].timestamp_ms}" data-ts-end="${b.msgs[b.msgs.length-1].timestamp_ms}">
       <div class="avatar ${b.mine?'me':'them'}">${initial}</div>
       <div class="msg-content">
         <div class="msg-header">
@@ -336,6 +350,7 @@ function renderMessages(messages) {
         </div>
         ${body}
       </div>
+      <input type="checkbox" class="msg-check">
     </div>`;
   }).join('');
 }
@@ -344,7 +359,7 @@ function renderMessages(messages) {
 // lowerOffset = start of loaded range, upperOffset = end of loaded range
 let lowerOffset = 0, upperOffset = 0;
 let hasMore = false;
-const MAX_DOM = LIMIT * 4;
+const MAX_DOM = LIMIT * 2;
 const LOAD_THRESHOLD = 500;
 
 function _cullMsgGroups(container, fromBottom, n) {
@@ -352,9 +367,10 @@ function _cullMsgGroups(container, fromBottom, n) {
   while (removed < n) {
     const el = fromBottom ? container.lastElementChild : container.firstElementChild;
     if (!el) break;
+    if (el.classList.contains('msg-group')) { selectedMsgs.delete(el.dataset.id); removed++; }
     container.removeChild(el);
-    if (el.classList.contains('msg-group')) removed++;
   }
+  updateSelBar();
 }
 
 function cullBottom() {
@@ -630,12 +646,16 @@ function renderNotes(notes) {
     const tagText = n.tags.map(t => TAG_LABELS[t] || t).join(' · ');
     const bodyHtml = esc(n.body).replace(/\n/g, '<br>');
     const dateRange = fmtDateRange(n.start, n.end);
-    return `<div class="note-card" data-idx="${i}" data-id="${n.id}" data-start="${n.start}" data-end="${n.end}" style="border-left-color:${accentColor}">
+    const firstMsgId = (n.msgIds || '').split(',').filter(Boolean)[0] || '';
+    const jumpBtn = firstMsgId
+      ? `<button class="jump-btn" data-msgid="${firstMsgId}">→ Message</button>`
+      : `<button class="jump-btn" data-start="${n.start}" data-end="${n.end || n.start}">→ Chat</button>`;
+    return `<div class="note-card" data-idx="${i}" data-id="${n.id}" data-start="${n.start}" data-end="${n.end || ''}" data-msgid="${firstMsgId}" style="border-left-color:${accentColor}">
       <div class="note-date">
         <span>${dateRange}</span>
         <div style="display:flex;gap:6px;align-items:center">
           <button class="note-edit-btn" data-id="${n.id}">✏</button>
-          <button class="jump-btn" data-start="${n.start}" data-end="${n.end}">→ Chat</button>
+          ${jumpBtn}
         </div>
       </div>
       <div class="note-tags">${tagText}</div>
@@ -645,12 +665,27 @@ function renderNotes(notes) {
   }).join('');
 }
 
-// event delegation — one listener handles jump, edit, and card click
+// event delegation — one listener handles jump, edit, card click, and checkbox
 document.addEventListener('click', async function(e) {
+  const group = e.target.closest('.msg-group');
+  if (group && !e.target.closest('a,button,audio,video,img')) {
+    const check = group.querySelector('.msg-check');
+    check.checked = !check.checked;
+    if (check.checked) {
+      selectedMsgs.set(group.dataset.id, {ts: +group.dataset.ts, tsEnd: +(group.dataset.tsEnd || group.dataset.ts)});
+      group.classList.add('selected');
+    } else {
+      selectedMsgs.delete(group.dataset.id);
+      group.classList.remove('selected');
+    }
+    updateSelBar();
+    return;
+  }
   const jumpBtn = e.target.closest('.jump-btn');
   if (jumpBtn) {
     e.stopPropagation();
-    await jumpToDate(jumpBtn.dataset.start);
+    if (jumpBtn.dataset.msgid) await jumpToMessage(0, jumpBtn.dataset.msgid);
+    else await jumpToDate(jumpBtn.dataset.start);
     return;
   }
   const editBtn = e.target.closest('.note-edit-btn');
@@ -664,7 +699,8 @@ document.addEventListener('click', async function(e) {
   if (card) {
     document.querySelectorAll('.note-card').forEach(c => c.classList.remove('active'));
     card.classList.add('active');
-    await jumpToDate(card.dataset.start);
+    if (card.dataset.msgid) await jumpToMessage(0, card.dataset.msgid);
+    else await jumpToDate(card.dataset.start);
   }
 });
 
@@ -708,6 +744,40 @@ function filterNotes(q) {
   renderNotes(filtered);
 }
 
+// --- message selection ---
+const selectedMsgs = new Map(); // msgId -> ts
+
+function updateSelBar() {
+  const n = selectedMsgs.size;
+  if (!n) { $('sel-bar').style.display = 'none'; return; }
+  $('sel-bar').style.display = 'flex';
+  $('sel-count').textContent = n + ' message' + (n > 1 ? 's' : '') + ' selected';
+}
+
+function clearSelection() {
+  selectedMsgs.clear();
+  document.querySelectorAll('.msg-group.selected').forEach(g => {
+    g.classList.remove('selected');
+    const cb = g.querySelector('.msg-check');
+    if (cb) cb.checked = false;
+  });
+  updateSelBar();
+}
+
+let _noteFromMsgIds = [];
+
+function openNoteFromSelection() {
+  _noteFromMsgIds = [...selectedMsgs.keys()];
+  const vals = [...selectedMsgs.values()];
+  const pad = n => String(n).padStart(2,'0');
+  const toLocal = ts => { const d = new Date(ts); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  const firstTs = Math.min(...vals.map(v => v.ts));
+  const lastTs  = Math.max(...vals.map(v => v.tsEnd));
+  openNoteModal(null);
+  $('nf-start').value = toLocal(firstTs);
+  $('nf-end').value   = toLocal(lastTs);
+}
+
 // --- note modal ---
 const ALL_TAGS = [
   'milestone','religion','jealousy','conflict','pattern','foreshadowing',
@@ -719,7 +789,14 @@ let _editingId = null;
 
 function openNoteModal(note) {
   _editingId = note ? note.id : null;
+  if (note) _noteFromMsgIds = (note.msgIds || '').split(',').filter(Boolean);
   $('note-dlg-h').textContent = note ? 'Edit Note' : 'New Note';
+  if (_noteFromMsgIds.length) {
+    $('nf-msgs-row').style.display = '';
+    $('nf-msgs').textContent = _noteFromMsgIds.length + ' message' + (_noteFromMsgIds.length > 1 ? 's' : '') + ' linked';
+  } else {
+    $('nf-msgs-row').style.display = 'none';
+  }
   $('nf-start').value  = note ? (note.start || '') : '';
   $('nf-end').value    = note ? (note.end   || '') : '';
   $('nf-title').value  = note ? (note.title || '') : '';
@@ -750,6 +827,7 @@ async function saveNote() {
     title: $('nf-title').value.trim(),
     body:  $('nf-body').value.trim(),
     tags:  [...$('nf-tags').querySelectorAll('.tag-chip.on')].map(c => c.dataset.tag),
+    msgIds: _noteFromMsgIds.length ? _noteFromMsgIds.join(',') : null,
   };
   try {
     if (_editingId) {
@@ -758,6 +836,8 @@ async function saveNote() {
       await fetch('/api/notes', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     }
     closeNoteModal();
+    clearSelection();
+    _noteFromMsgIds = [];
     allNotes = (await api('/api/notes?limit=500&sort=start&depth=0')).docs || [];
     filterNotes($('notes-filter').value);
   } catch(err) {

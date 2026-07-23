@@ -50,5 +50,10 @@ export const Notes: CollectionConfig = {
       name: 'body',
       type: 'textarea',
     },
+    {
+      name: 'msgIds',
+      type: 'text',
+      admin: { description: 'Comma-separated linked message IDs' },
+    },
   ],
 }
