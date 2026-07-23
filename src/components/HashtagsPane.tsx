@@ -1,9 +1,49 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { Hashtag, LightboxState, Message } from '@/types'
-import { groupMessages } from '@/lib/groupMessages'
+import ReactMarkdown from 'react-markdown'
+import { Hashtag, LightboxState, Message, MessageBlock } from '@/types'
+import { ME } from '@/lib/constants'
+import { fmtDate } from '@/lib/format'
 import MessageGroup from './MessageGroup'
 import Lightbox from './Lightbox'
+
+// Group fetched hashtag messages by blockId (set during migration).
+// Falls back to one message per block if blockId is absent.
+function buildBlocks(messages: Message[]): MessageBlock[] {
+  const groupMap = new Map<string, Message[]>()
+  for (const m of messages) {
+    const key = m.blockId ?? m._id
+    if (!groupMap.has(key)) groupMap.set(key, [])
+    groupMap.get(key)!.push(m)
+  }
+  const groups = [...groupMap.values()]
+    .map(msgs => msgs.sort((a, b) => a.timestamp_ms - b.timestamp_ms))
+    .sort((a, b) => a[0].timestamp_ms - b[0].timestamp_ms)
+  return groups.map((msgs, i) => ({
+    date: fmtDate(msgs[0].timestamp_ms),
+    newDate: i === 0 || fmtDate(msgs[0].timestamp_ms) !== fmtDate(groups[i - 1][0].timestamp_ms),
+    sender: msgs[0].sender_name,
+    mine: msgs[0].sender_name === ME,
+    msgs,
+  }))
+}
+
+// Per-container lazy loader (same pattern as main chat)
+const ioCache = new Map<HTMLElement, IntersectionObserver>()
+function observeLazy(container: HTMLElement) {
+  let io = ioCache.get(container)
+  if (!io) {
+    io = new IntersectionObserver(entries => {
+      for (const { isIntersecting, target } of entries) {
+        if (!isIntersecting) continue
+        const el = target as HTMLImageElement | HTMLVideoElement | HTMLAudioElement
+        if (el.dataset.src) { el.src = el.dataset.src; delete el.dataset.src; io!.unobserve(el) }
+      }
+    }, { root: container, rootMargin: '300px' })
+    ioCache.set(container, io)
+  }
+  container.querySelectorAll<HTMLElement>('[data-src]').forEach(el => io!.observe(el))
+}
 
 interface Props {
   hashtags: Hashtag[]
@@ -28,15 +68,25 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
+  const [editingContext, setEditingContext] = useState(false)
+  const ctxRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const nameRef = useRef<HTMLInputElement>(null)
   const newRef = useRef<HTMLInputElement>(null)
+  const msgsScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (activeTab === 'messages' && msgsScrollRef.current) {
+      observeLazy(msgsScrollRef.current)
+    }
+  }, [messages, activeTab])
 
   async function openDetail(h: Hashtag) {
     setSelected(h)
     setContext(h.context ?? '')
     setActiveTab('context')
     setEditingName(false)
+    setEditingContext(false)
     await loadMessages(h)
   }
 
@@ -44,8 +94,15 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
     const ids = (h.msgIds ?? '').split(',').filter(Boolean)
     if (!ids.length) { setMessages([]); return }
     try {
-      const d = await apiFetch<{ messages: Message[] }>(`/api/messages?ids=${ids.join(',')}`)
-      setMessages(d.messages ?? [])
+      const CHUNK = 150
+      const chunks: string[][] = []
+      for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
+      const results = await Promise.all(
+        chunks.map(chunk => apiFetch<{ messages: Message[] }>(`/api/messages?ids=${chunk.join(',')}`))
+      )
+      const all = results.flatMap(r => r.messages ?? [])
+      all.sort((a, b) => a.timestamp_ms - b.timestamp_ms)
+      setMessages(all)
     } catch { setMessages([]) }
   }
 
@@ -134,23 +191,58 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
           ))}
         </div>
 
-        {/* Tab content */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        {/* Tab content — each tab is its own independent scroll container */}
+        <div className="flex-1 min-h-0 relative">
+
+          {/* Context tab */}
           {activeTab === 'context' && (
-            <textarea
-              value={context}
-              onChange={e => handleContextChange(e.target.value)}
-              placeholder={`Notes and context for #${selected.name}…`}
-              className="w-full h-full p-3 text-sm text-gray-700 leading-relaxed resize-none outline-none"
-            />
+            <div className="absolute inset-0 overflow-y-auto">
+              {editingContext ? (
+                <textarea
+                  ref={ctxRef}
+                  value={context}
+                  onChange={e => handleContextChange(e.target.value)}
+                  onBlur={() => setEditingContext(false)}
+                  onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') setEditingContext(false) }}
+                  placeholder={`Notes and context for #${selected.name}…\n\nSupports **markdown**`}
+                  className="w-full h-full p-3 text-sm text-gray-700 leading-relaxed resize-none outline-none font-mono"
+                  autoFocus
+                />
+              ) : (
+                <div
+                  onClick={() => { setEditingContext(true); setTimeout(() => ctxRef.current?.focus(), 10) }}
+                  className="min-h-full p-3 cursor-text"
+                >
+                  {context ? (
+                    <ReactMarkdown components={{
+                      p:          ({children}) => <p className="text-sm text-gray-700 leading-relaxed mb-3">{children}</p>,
+                      h1:         ({children}) => <h1 className="text-base font-bold text-gray-900 mb-2 mt-4">{children}</h1>,
+                      h2:         ({children}) => <h2 className="text-sm font-bold text-gray-800 mb-2 mt-3">{children}</h2>,
+                      h3:         ({children}) => <h3 className="text-sm font-semibold text-gray-800 mb-1 mt-3">{children}</h3>,
+                      ul:         ({children}) => <ul className="list-disc pl-4 mb-3 space-y-1 text-sm text-gray-700">{children}</ul>,
+                      ol:         ({children}) => <ol className="list-decimal pl-4 mb-3 space-y-1 text-sm text-gray-700">{children}</ol>,
+                      li:         ({children}) => <li className="leading-relaxed">{children}</li>,
+                      strong:     ({children}) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                      em:         ({children}) => <em className="italic">{children}</em>,
+                      a:          ({href, children}) => <a href={href} target="_blank" rel="noopener" className="text-blue-600 underline">{children}</a>,
+                      code:       ({children}) => <code className="bg-gray-100 text-xs px-1 py-0.5 rounded font-mono">{children}</code>,
+                      blockquote: ({children}) => <blockquote className="border-l-2 border-gray-300 pl-3 text-gray-500 italic my-2">{children}</blockquote>,
+                    }}>{context}</ReactMarkdown>
+                  ) : (
+                    <p className="text-sm text-gray-300 italic">Click to add context… supports **markdown**</p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
+          {/* Messages tab — own scroll container so observeLazy root is correct */}
           {activeTab === 'messages' && (
-            <div>
+            <div ref={msgsScrollRef} className="absolute inset-0 overflow-y-auto">
               {messages.length === 0 && (
                 <p className="text-xs text-gray-400 text-center py-8">No messages tagged yet.</p>
               )}
-              {groupMessages(messages).map((block, i) => (
+              {buildBlocks(messages).map((block, i) => (
                 <div key={block.msgs[0]._id ?? i} className="relative group/block">
                   <MessageGroup
                     block={block}
@@ -158,7 +250,6 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
                     onToggle={() => {}}
                     onLightbox={setLightbox}
                   />
-                  {/* Per-block actions: jump + remove */}
                   <div className="absolute top-2 right-2 opacity-0 group-hover/block:opacity-100 transition-opacity flex gap-1 z-10">
                     <button
                       onClick={() => onJumpToMessage(block.msgs[0].timestamp_ms, block.msgs[0]._id)}
@@ -173,6 +264,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
               ))}
             </div>
           )}
+
         </div>
       </div>
       {lightbox && <Lightbox state={lightbox} onClose={() => setLightbox(null)} />}
@@ -210,22 +302,26 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 && (
           <p className="text-xs text-gray-400 text-center py-8">{filter ? 'No matches.' : 'No hashtags yet. Create one above.'}</p>
         )}
-        <div className="flex flex-wrap gap-2">
-          {filtered.map(h => {
-            const count = (h.msgIds ?? '').split(',').filter(Boolean).length
-            return (
-              <button key={h.id} onClick={() => openDetail(h)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-blue-50 hover:text-blue-700 rounded-full text-sm font-medium text-gray-700 transition-colors">
-                <span className="text-gray-400">#</span>{h.name}
-                {count > 0 && <span className="text-xs text-gray-400">({count})</span>}
-              </button>
-            )
-          })}
-        </div>
+        {filtered.map(h => {
+          const count = (h.msgIds ?? '').split(',').filter(Boolean).length
+          return (
+            <button key={h.id} onClick={() => openDetail(h)}
+              className="w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors group">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold text-blue-600">#{h.name}</span>
+                {count > 0 && <span className="text-[11px] text-gray-400">{count} message{count !== 1 ? 's' : ''}</span>}
+              </div>
+              {h.context
+                ? <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{h.context}</p>
+                : <p className="text-xs text-gray-300 italic">No context yet</p>
+              }
+            </button>
+          )
+        })}
       </div>
     </div>
   )

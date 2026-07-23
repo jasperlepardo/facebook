@@ -11,6 +11,7 @@ const CORS = {
 function clean(doc: Record<string, unknown>) {
   const d = { ...doc }
   if (d._id) d._id = String(d._id)
+  if (d.blockId) d.blockId = String(d.blockId)
   return d
 }
 

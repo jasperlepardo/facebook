@@ -62,7 +62,7 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
 interface Props {
   block: MessageBlock
   isSelected: boolean
-  onToggle: (id: string, ts: number, tsEnd: number) => void
+  onToggle: (id: string, ts: number, tsEnd: number, allIds: string[]) => void
   onLightbox: (s: LightboxState) => void
   onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
 }
@@ -71,17 +71,20 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
   const first = block.msgs[0]
   const last  = block.msgs[block.msgs.length - 1]
 
+  const allIds = block.msgs.map(m => m._id)
+
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('a,button,audio,video,img')) return
-    onToggle(first._id, first.timestamp_ms, last.timestamp_ms)
+    onToggle(first._id, first.timestamp_ms, last.timestamp_ms, allIds)
   }
 
   return (
     <>
       {block.newDate && (
-        <div className="dsep text-center my-5 mb-2 text-xs text-[#616061] relative">
-          <span className="relative z-10 bg-gray-100 px-2.5 font-semibold">{block.date}</span>
-          <span className="absolute top-1/2 left-0 right-0 border-t border-gray-200 -z-0" />
+        <div className="dsep text-center my-5 mb-2 text-xs text-[#616061] relative flex items-center">
+          <span className="flex-1 border-t border-gray-200" />
+          <span className="px-2.5 font-semibold bg-gray-50 whitespace-nowrap">{block.date}</span>
+          <span className="flex-1 border-t border-gray-200" />
         </div>
       )}
       <div
@@ -113,7 +116,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
           type="checkbox"
           checked={isSelected}
           onChange={() => {}}
-          onClick={e => { e.stopPropagation(); onToggle(first._id, first.timestamp_ms, last.timestamp_ms) }}
+          onClick={e => { e.stopPropagation(); onToggle(first._id, first.timestamp_ms, last.timestamp_ms, allIds) }}
           className="self-start mt-0.5 w-4 h-4 cursor-pointer opacity-0 group-hover:opacity-100 accent-blue-600 flex-shrink-0 transition-opacity"
           style={isSelected ? { opacity: 1 } : {}}
         />

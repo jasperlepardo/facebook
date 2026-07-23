@@ -14,6 +14,7 @@ export interface Message {
   call_duration?: number
   missed?: boolean
   reactions?: { reaction: string; actor: string }[]
+  blockId?: string
 }
 
 export interface MessageBlock {

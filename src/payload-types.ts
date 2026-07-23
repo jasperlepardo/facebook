@@ -191,6 +191,10 @@ export interface Hashtag {
    * Comma-separated message IDs
    */
   msgIds?: string | null;
+  /**
+   * Timestamp (ms) of the earliest tagged message — used for sorting
+   */
+  firstMsgTs?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -295,6 +299,7 @@ export interface HashtagsSelect<T extends boolean = true> {
   name?: T;
   context?: T;
   msgIds?: T;
+  firstMsgTs?: T;
   updatedAt?: T;
   createdAt?: T;
 }

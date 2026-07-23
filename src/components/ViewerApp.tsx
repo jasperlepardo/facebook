@@ -43,7 +43,7 @@ export default function ViewerApp() {
   const [hashtagPicker, setHashtagPicker] = useState<string[] | null>(null) // null=closed, string[]=msgIds to tag
 
   // Selection
-  const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number }>())
+  const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[] }>())
 
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -279,10 +279,10 @@ export default function ViewerApp() {
 
   // ─── Selection ───────────────────────────────────────────────────────────────
 
-  function handleToggle(id: string, ts: number, tsEnd: number) {
+  function handleToggle(id: string, ts: number, tsEnd: number, allIds: string[]) {
     setSelectedMsgs(prev => {
       const next = new Map(prev)
-      next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd })
+      next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd, allIds })
       return next
     })
   }
@@ -292,7 +292,8 @@ export default function ViewerApp() {
   }
 
   function openNoteFromSelection() {
-    setHashtagPicker([...selectedMsgs.keys()])
+    const allIds = [...new Set([...selectedMsgs.values()].flatMap(v => v.allIds))]
+    setHashtagPicker(allIds)
   }
 
   async function applyHashtags(hashtagIds: string[], newNames: string[]) {
