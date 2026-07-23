@@ -6,10 +6,11 @@ export default function Page() {
   return (
     <div id="viewer-root">
       <div id="hdr">
-        <h1>💬 Jasper &amp; Ciara</h1>
+        {/* <h1>💬 Jasper &amp; Ciara</h1> */}
         <input type="date" id="date-jump" min="2016-07-14" max="2024-05-09" title="Jump to date" />
         <input type="search" id="search" placeholder="Search messages…" />
-        <span id="count"></span>
+        {/* <span id="count"></span> */}
+        <span id="current-user" style={{fontSize:'12px',opacity:0.75}}></span>
       </div>
 
       <div id="tabs">

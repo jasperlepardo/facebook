@@ -158,7 +158,7 @@ async function loadMessages(append = false, prepend = false) {
   const data = await api('/api/messages?' + params);
   total = data.total;
   hasMore = !!(data.has_more && !searchQ);
-  $('count').textContent = total.toLocaleString() + ' messages';
+  const countEl = $('count'); if (countEl) countEl.textContent = total.toLocaleString() + ' messages';
 
   const container = $('msgs');
   const count = data.messages.length;
@@ -406,12 +406,12 @@ function renderNotes(notes) {
     const jumpBtn = firstMsgId
       ? `<button class="jump-btn" data-msgid="${firstMsgId}">→ Message</button>`
       : `<button class="jump-btn" data-start="${n.start}" data-end="${n.end || n.start}">→ Chat</button>`;
-    const editor = n.updatedBy?.email || n.createdBy?.email || '';
+    const editor = n.updatedBy?.name || n.createdBy?.name || '';
     return `<div class="note-card" data-idx="${i}" data-id="${n.id}" data-start="${n.start}" data-end="${n.end || ''}" data-msgid="${firstMsgId}" style="border-left-color:${accentColor}">
       <div class="note-date">
         <span>${dateRange}</span>
         <div style="display:flex;gap:6px;align-items:center">
-          ${editor ? `<span style="font-size:10px;color:#aaa">${esc(editor.split('@')[0])}</span>` : ''}
+          ${editor ? `<span style="font-size:10px;color:#aaa">${esc(editor)}</span>` : ''}
           <button class="note-edit-btn" data-id="${n.id}">✏</button>
           ${jumpBtn}
         </div>
@@ -813,3 +813,7 @@ function initUI() {
 initUI();
 initChat();
 api('/api/notes?limit=500&sort=start&depth=1').then(data => { allNotes = data.docs || data; renderNotes(allNotes); });
+fetch('/api/users/me').then(r => r.json()).then(data => {
+  const name = data?.user?.name;
+  if (name) $('current-user').textContent = name;
+}).catch(() => {});

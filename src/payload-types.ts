@@ -118,6 +118,7 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: string;
+  name: string;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -164,6 +165,12 @@ export interface Note {
     | null;
   title: string;
   body?: string | null;
+  /**
+   * Comma-separated linked message IDs
+   */
+  msgIds?: string | null;
+  createdBy?: (string | null) | User;
+  updatedBy?: (string | null) | User;
   updatedAt: string;
   createdAt: string;
 }
@@ -229,6 +236,7 @@ export interface PayloadMigration {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  name?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -249,6 +257,9 @@ export interface NotesSelect<T extends boolean = true> {
   tags?: T;
   title?: T;
   body?: T;
+  msgIds?: T;
+  createdBy?: T;
+  updatedBy?: T;
   updatedAt?: T;
   createdAt?: T;
 }

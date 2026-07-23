@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 export function middleware(req: NextRequest) {
   const token = req.cookies.get('payload-token')
   if (!token) {
-    return NextResponse.redirect(new URL('/admin/login', req.url))
+    const login = new URL('/admin/login', req.url)
+    login.searchParams.set('redirect', req.nextUrl.pathname)
+    return NextResponse.redirect(login)
   }
   return NextResponse.next()
 }
