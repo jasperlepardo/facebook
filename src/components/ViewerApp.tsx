@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
+import { flushSync } from 'react-dom'
 import { Message, Note, Tab, LightboxState, CtxMenuState, GalleryItem, Hashtag } from '@/types'
 import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
 import { groupMessages } from '@/lib/groupMessages'
@@ -16,6 +17,21 @@ async function apiFetch<T>(url: string): Promise<T> {
   const r = await fetch(url)
   if (!r.ok) throw new Error(String(r.status))
   return r.json()
+}
+
+// Given a set of selected messages and the full visible message list,
+// return the anchor ID (first _id) of each groupMessages block that contains a selected message.
+function toBlockIds(selected: Message[], allMsgs: Message[]): string[] {
+  const blocks = groupMessages(allMsgs)
+  const selectedIds = new Set(selected.map(m => m._id))
+  const blockIds = new Set<string>()
+  for (const block of blocks) {
+    if (block.msgs.some(m => selectedIds.has(m._id))) {
+      const bid = block.msgs[0].blockId
+      if (bid) blockIds.add(bid)
+    }
+  }
+  return [...blockIds]
 }
 
 export default function ViewerApp() {
@@ -56,10 +72,27 @@ export default function ViewerApp() {
   const chatRef       = useRef<HTMLDivElement>(null)
   const deviceId      = useRef('')
   const bkLast        = useRef(0)
-  const didPrepend    = useRef(false)
-  const scrollBefore  = useRef({ h: 0, top: 0 })
+  const pendingJump   = useRef<string | null>(null)
+  const queuedLoad    = useRef<'older' | 'newer' | null>(null)
+  const scrollLog     = useRef<string[]>([])
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  const slog = (event: string, data?: Record<string, unknown>) => {
+    const el = chatRef.current
+    const line = `[${new Date().toISOString().slice(11,23)}] ${event} | top=${el?.scrollTop?.toFixed(0)} h=${el?.scrollHeight?.toFixed(0)} client=${el?.clientHeight?.toFixed(0)} loIdx=${lowerOffset.current} upIdx=${upperOffset.current}${data ? ' | ' + JSON.stringify(data) : ''}`
+    scrollLog.current.push(line)
+    console.log(line)
+  }
+
+  // Expose log helpers on window for easy copy
+  if (typeof window !== 'undefined') {
+    (window as any).__scrollLog = scrollLog.current;
+    (window as any).__copyScrollLog = () => {
+      const text = scrollLog.current.join('\n')
+      navigator.clipboard.writeText(text).then(() => console.log(`Copied ${scrollLog.current.length} log entries`))
+    }
+  }
 
   const setMsg = (msgs: Message[]) => {
     const seen = new Set<string>()
@@ -73,13 +106,18 @@ export default function ViewerApp() {
     setHashtags(d.docs ?? [])
   }, [])
 
-  // ─── Scroll preservation for prepend ────────────────────────────────────────
+  // ─── Scroll to pending jump target after messages render ────────────────────
 
-  useLayoutEffect(() => {
-    if (didPrepend.current && chatRef.current) {
-      chatRef.current.scrollTop = scrollBefore.current.top + chatRef.current.scrollHeight - scrollBefore.current.h
-      didPrepend.current = false
-    }
+  useEffect(() => {
+    const msgId = pendingJump.current
+    if (!msgId) return
+    const anchor = document.getElementById('msg-' + msgId)?.closest<HTMLElement>('.msg-group')
+    if (!anchor) return
+    pendingJump.current = null
+    anchor.scrollIntoView({ block: 'center' })
+    anchor.style.background = '#fff3cd'
+    setTimeout(() => { anchor.style.transition = 'background 1s'; anchor.style.background = '' }, 800)
+    setTimeout(() => { anchor.style.transition = '' }, 1800)
   }, [messages])
 
   // ─── Load messages ───────────────────────────────────────────────────────────
@@ -99,22 +137,63 @@ export default function ViewerApp() {
     const prev  = messagesRef.current
 
     if (mode === 'prepend') {
-      if (chatRef.current) {
-        scrollBefore.current = { h: chatRef.current.scrollHeight, top: chatRef.current.scrollTop }
-        didPrepend.current = true
+      const el = chatRef.current
+      const prevH = el?.scrollHeight ?? 0
+      const prevTop = el?.scrollTop ?? 0
+      slog('prepend BEFORE', { prevH, prevTop, newMsgs: count })
+      const combined = [...data.messages, ...prev]
+
+      // Step 1: prepend only — formula correct for pure prepend
+      flushSync(() => setMsg(combined))
+      if (el) {
+        const newScrollTop = prevTop + el.scrollHeight - prevH
+        slog('prepend AFTER', { newH: el.scrollHeight, delta: el.scrollHeight - prevH, newScrollTop })
+        el.scrollTop = newScrollTop
       }
-      const next = [...data.messages, ...prev]
-      if (next.length > MAX_DOM) { upperOffset.current -= next.length - MAX_DOM; setMsg(next.slice(0, MAX_DOM)) }
-      else setMsg(next)
+
+      // Step 2: cull bottom only if it won't clamp scrollTop.
+      // After cull: max scrollTop = (currentH - cullH) - clientH
+      // Clamps when currentScrollTop > maxAfterCull → skip cull to avoid triggering loadNewer.
+      if (combined.length > MAX_DOM && el) {
+        const excess = combined.length - MAX_DOM
+        const currentH = el.scrollHeight
+        const currentTop = el.scrollTop
+        const clientH = el.clientHeight
+        const estCullH = Math.round(currentH * excess / combined.length)
+        if (currentTop <= currentH - estCullH - clientH) {
+          upperOffset.current -= excess
+          flushSync(() => setMsg(combined.slice(0, MAX_DOM)))
+        }
+        // else: skip cull — DOM temporarily > MAX_DOM; will cull on next prepend
+      }
+
     } else if (mode === 'append') {
       upperOffset.current += count
-      setMessages(cur => {
-        const next = [...cur, ...data.messages]
-        const seen = new Set<string>()
-        const deduped = next.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
-        if (deduped.length > MAX_DOM) { lowerOffset.current += deduped.length - MAX_DOM; messagesRef.current = deduped.slice(-MAX_DOM); return deduped.slice(-MAX_DOM) }
-        messagesRef.current = deduped; return deduped
-      })
+      const next = [...prev, ...data.messages]
+      const seen = new Set<string>()
+      const deduped = next.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
+      if (deduped.length > MAX_DOM) {
+        const excess = deduped.length - MAX_DOM
+        const culled = deduped.slice(-MAX_DOM)
+
+        // Step 1: append only — no scroll adjustment (new content appears below viewport)
+        flushSync(() => setMsg(deduped))
+
+        // Step 2: cull top only if user is safely above the culled region.
+        // Estimate culled height proportionally; if scrollTop < culledH, skip to avoid clamping.
+        const el = chatRef.current
+        const prevH2 = el?.scrollHeight ?? 0
+        const prevTop2 = el?.scrollTop ?? 0
+        const estCullH = Math.round(prevH2 * excess / deduped.length)
+        if (prevTop2 > estCullH) {
+          lowerOffset.current += excess
+          flushSync(() => setMsg(culled))
+          if (el) el.scrollTop = prevTop2 + el.scrollHeight - prevH2
+        }
+        // else: skip cull — DOM temporarily > MAX_DOM; will cull on next append
+      } else {
+        setMsg(deduped)
+      }
     } else {
       upperOffset.current = lowerOffset.current + count
       setMsg(data.messages)
@@ -124,12 +203,16 @@ export default function ViewerApp() {
 
   async function loadOlder() {
     if (lowerOffset.current === 0) return
+    slog('loadOlder START')
     lowerOffset.current = Math.max(0, lowerOffset.current - LIMIT)
     try { await loadMessages('prepend') } catch { lowerOffset.current += LIMIT }
+    slog('loadOlder END')
   }
 
   async function loadNewer() {
+    slog('loadNewer START')
     try { await loadMessages('append') } catch (e) { console.error('loadNewer failed:', e) }
+    slog('loadNewer END')
   }
 
   // ─── Jump ────────────────────────────────────────────────────────────────────
@@ -152,14 +235,8 @@ export default function ViewerApp() {
     lowerOffset.current = Math.max(0, d.index - Math.floor(LIMIT / 2))
     upperOffset.current = lowerOffset.current
     searchRef.current = ''; setSearchInput('')
+    if (msgId) pendingJump.current = msgId
     await loadMessages('fresh')
-    if (!msgId) return
-    const anchor = document.getElementById('msg-' + msgId)?.closest<HTMLElement>('.msg-group')
-    if (!anchor) return
-    anchor.scrollIntoView({ block: 'center' })
-    anchor.style.background = '#fff3cd'
-    setTimeout(() => { anchor.style.transition = 'background 1s'; anchor.style.background = '' }, 800)
-    setTimeout(() => { anchor.style.transition = '' }, 1800)
   }
 
   // ─── Scroll handler ──────────────────────────────────────────────────────────
@@ -194,15 +271,35 @@ export default function ViewerApp() {
       }
     }
 
-    // Infinite scroll
-    if (loadingRef.current || searchRef.current) return
-    if (el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0) {
-      loadingRef.current = true
-      loadOlder().finally(() => { loadingRef.current = false })
-    } else if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current) {
-      loadingRef.current = true
-      loadNewer().finally(() => { loadingRef.current = false })
+    // Infinite scroll — queue next load if one is already in progress
+    const nearTop    = el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0
+    const nearBottom = el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current
+
+    if (nearTop || nearBottom) slog(`scroll TRIGGER nearTop=${nearTop} nearBottom=${nearBottom} loading=${loadingRef.current}`)
+
+    if (loadingRef.current || searchRef.current) {
+      if (nearTop)    queuedLoad.current = 'older'
+      if (nearBottom) queuedLoad.current = 'newer'
+      return
     }
+
+    const run = (fn: () => Promise<void>) => {
+      loadingRef.current = true
+      fn().finally(async () => {
+        const queued = queuedLoad.current
+        queuedLoad.current = null
+        // Re-check scroll position — the prepend may have moved us far from the edge
+        const qel = chatRef.current
+        const stillNearTop    = qel && qel.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0
+        const stillNearBottom = qel && qel.scrollTop + qel.clientHeight > qel.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current
+        if (queued === 'older' && stillNearTop)    { await loadOlder().catch(() => {}) }
+        else if (queued === 'newer' && stillNearBottom) { await loadNewer().catch(() => {}) }
+        loadingRef.current = false
+      })
+    }
+
+    if (nearTop)         run(loadOlder)
+    else if (nearBottom) run(loadNewer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Init ───────────────────────────────────────────────────────────────────
@@ -240,11 +337,20 @@ export default function ViewerApp() {
       }
       setChatVisible(true)
       loadingRef.current = false
+      slog('init RESTORED', { anchorMsgId, anchorOffset })
 
+      // Preload in whichever direction the restored position is close to the edge.
+      // Keep loadingRef true throughout so the scroll handler doesn't double-fire.
       const el = chatRef.current
-      if (el && el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current) {
+      if (el) {
         loadingRef.current = true
-        loadNewer().finally(() => { loadingRef.current = false })
+        if (el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0) {
+          await loadOlder().catch(() => {})
+        }
+        if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current) {
+          await loadNewer().catch(() => {})
+        }
+        loadingRef.current = false
       }
     }
     init()
@@ -298,17 +404,20 @@ export default function ViewerApp() {
 
   async function applyHashtags(hashtagIds: string[], newNames: string[]) {
     const msgIdList = hashtagPicker ?? []
+    // Convert selected message IDs → group anchor IDs (first _id of each groupMessages block)
+    const selectedMsgsData = messagesRef.current.filter(m => msgIdList.includes(m._id))
+    const anchorIds = toBlockIds(selectedMsgsData, messagesRef.current)
     // Add to existing hashtags
     for (const id of hashtagIds) {
       const h = hashtags.find(x => x.id === id)
       if (!h) continue
-      const existing = (h.msgIds ?? '').split(',').filter(Boolean)
-      const merged = [...new Set([...existing, ...msgIdList])].join(',')
-      await fetch(`/api/hashtags/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msgIds: merged }) })
+      const existing = (h.groupIds ?? '').split(',').filter(Boolean)
+      const merged = [...new Set([...existing, ...anchorIds])].join(',')
+      await fetch(`/api/hashtags/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groupIds: merged }) })
     }
     // Create new hashtags
     for (const name of newNames) {
-      await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, msgIds: msgIdList.join(',') }) })
+      await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, groupIds: anchorIds.join(',') }) })
     }
     setHashtagPicker(null)
     clearSelection()

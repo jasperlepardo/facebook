@@ -93,7 +93,7 @@ export default function HashtagPicker({ hashtags, onClose, onApply }: Props) {
             <label key={h.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50">
               <input type="checkbox" checked={selected.has(h.id)} onChange={() => toggleExisting(h.id)} className="accent-blue-600" />
               <span className="text-sm text-gray-700">#{h.name}</span>
-              <span className="ml-auto text-xs text-gray-400">{(h.msgIds || '').split(',').filter(Boolean).length}</span>
+              <span className="ml-auto text-xs text-gray-400">{(h.groupIds || '').split(',').filter(Boolean).length}</span>
             </label>
           ))}
         </div>

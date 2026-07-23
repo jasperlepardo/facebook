@@ -9,7 +9,7 @@ export function groupMessages(messages: Message[]): MessageBlock[] {
   for (const m of messages) {
     const d = fmtDate(m.timestamp_ms)
     const newDate = d !== lastDate
-    const grouped = !newDate && m.sender_name === lastSender && m.timestamp_ms - lastTs < 5 * 60_000
+    const grouped = !newDate && m.sender_name === lastSender
     if (newDate) lastDate = d
     lastSender = m.sender_name
     lastTs = m.timestamp_ms

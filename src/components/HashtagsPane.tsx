@@ -7,17 +7,15 @@ import { fmtDate } from '@/lib/format'
 import MessageGroup from './MessageGroup'
 import Lightbox from './Lightbox'
 
-// Group fetched hashtag messages by blockId (set during migration).
-// Falls back to one message per block if blockId is absent.
 function buildBlocks(messages: Message[]): MessageBlock[] {
+  const sorted = [...messages].sort((a, b) => a.timestamp_ms - b.timestamp_ms)
   const groupMap = new Map<string, Message[]>()
-  for (const m of messages) {
-    const key = m.blockId ?? m._id
+  for (const m of sorted) {
+    const key = m.blockId!
     if (!groupMap.has(key)) groupMap.set(key, [])
     groupMap.get(key)!.push(m)
   }
   const groups = [...groupMap.values()]
-    .map(msgs => msgs.sort((a, b) => a.timestamp_ms - b.timestamp_ms))
     .sort((a, b) => a[0].timestamp_ms - b[0].timestamp_ms)
   return groups.map((msgs, i) => ({
     date: fmtDate(msgs[0].timestamp_ms),
@@ -91,14 +89,14 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
   }
 
   async function loadMessages(h: Hashtag) {
-    const ids = (h.msgIds ?? '').split(',').filter(Boolean)
+    const ids = (h.groupIds ?? '').split(',').filter(Boolean)
     if (!ids.length) { setMessages([]); return }
     try {
       const CHUNK = 150
       const chunks: string[][] = []
       for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
       const results = await Promise.all(
-        chunks.map(chunk => apiFetch<{ messages: Message[] }>(`/api/messages?ids=${chunk.join(',')}`))
+        chunks.map(chunk => apiFetch<{ messages: Message[] }>(`/api/messages?groupIds=${chunk.join(',')}`))
       )
       const all = results.flatMap(r => r.messages ?? [])
       all.sort((a, b) => a.timestamp_ms - b.timestamp_ms)
@@ -132,13 +130,13 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
     onReload()
   }
 
-  async function removeMessage(msgId: string) {
+  async function removeGroup(blockId: string) {
     if (!selected) return
-    const ids = (selected.msgIds ?? '').split(',').filter(id => id && id !== msgId)
-    const updated = { ...selected, msgIds: ids.join(',') }
-    await fetch(`/api/hashtags/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msgIds: updated.msgIds }) })
+    const ids = (selected.groupIds ?? '').split(',').filter(id => id && id !== blockId)
+    const updated = { ...selected, groupIds: ids.join(',') }
+    await fetch(`/api/hashtags/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groupIds: updated.groupIds }) })
     setSelected(updated)
-    setMessages(prev => prev.filter(m => m._id !== msgId))
+    await loadMessages(updated)
   }
 
   async function deleteHashtag() {
@@ -243,7 +241,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
                 <p className="text-xs text-gray-400 text-center py-8">No messages tagged yet.</p>
               )}
               {buildBlocks(messages).map((block, i) => (
-                <div key={block.msgs[0]._id ?? i} className="relative group/block">
+                <div key={block.msgs[0].blockId ?? i} className="relative group/block">
                   <MessageGroup
                     block={block}
                     isSelected={false}
@@ -256,7 +254,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
                       className="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-blue-600 shadow-sm hover:bg-blue-50"
                     >→ Jump</button>
                     <button
-                      onClick={() => block.msgs.forEach(m => removeMessage(m._id))}
+                      onClick={() => removeGroup(block.msgs[0].blockId!)}
                       className="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-red-500 shadow-sm hover:bg-red-50"
                     >× Remove</button>
                   </div>
@@ -307,7 +305,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
           <p className="text-xs text-gray-400 text-center py-8">{filter ? 'No matches.' : 'No hashtags yet. Create one above.'}</p>
         )}
         {filtered.map(h => {
-          const count = (h.msgIds ?? '').split(',').filter(Boolean).length
+          const count = (h.groupIds ?? '').split(',').filter(Boolean).length
           return (
             <button key={h.id} onClick={() => openDetail(h)}
               className="w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors group">

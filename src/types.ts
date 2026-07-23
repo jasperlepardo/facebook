@@ -10,7 +10,7 @@ export interface Message {
   gifs?: { uri: string }[]
   sticker?: { uri: string }
   files?: { uri: string }[]
-  share?: { link: string }
+  share?: { link: string; share_text?: string }
   call_duration?: number
   missed?: boolean
   reactions?: { reaction: string; actor: string }[]
@@ -66,5 +66,5 @@ export interface Hashtag {
   id: string
   name: string
   context?: string
-  msgIds?: string
+  groupIds?: string
 }

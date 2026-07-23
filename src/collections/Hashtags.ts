@@ -7,7 +7,7 @@ export const Hashtags: CollectionConfig = {
   fields: [
     { name: 'name', type: 'text', required: true, admin: { description: 'Hyphenated, e.g. first-date' } },
     { name: 'context', type: 'textarea' },
-    { name: 'msgIds', type: 'textarea', admin: { description: 'Comma-separated message IDs' } },
+    { name: 'groupIds', type: 'textarea', admin: { description: 'Comma-separated group anchor IDs (first message _id of each groupMessages block)' } },
     { name: 'firstMsgTs', type: 'number', admin: { description: 'Timestamp (ms) of the earliest tagged message — used for sorting' } },
   ],
 }

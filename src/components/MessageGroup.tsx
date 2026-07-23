@@ -2,6 +2,7 @@
 import { memo } from 'react'
 import { Message, MessageBlock, LightboxState } from '@/types'
 import { r2, fmtTime } from '@/lib/format'
+import { mapFbEmoji } from '@/lib/fbEmoji'
 
 function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) => void }) {
   return (
@@ -37,17 +38,33 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
         )
       })}
       {m.share?.link && (
-        <div className="text-[13px] text-gray-600 mt-0.5">
-          🔗 <a href={m.share.link} target="_blank" rel="noopener" className="text-blue-600">
+        <div className="mt-1 border-l-2 border-gray-200 pl-2">
+          {m.share.share_text && (
+            <div className="text-[12px] text-gray-700 font-medium mb-0.5 line-clamp-2">{m.share.share_text}</div>
+          )}
+          <a href={m.share.link} target="_blank" rel="noopener" className="text-[12px] text-blue-500 break-all hover:underline">
             {m.share.link.slice(0, 80)}{m.share.link.length > 80 ? '…' : ''}
           </a>
         </div>
       )}
-      {m.call_duration != null && (
-        <div className="text-[13px] text-gray-500 italic mt-0.5">
-          📞 {m.missed ? 'Missed call' : `Call${m.call_duration ? ` · ${Math.floor(m.call_duration / 60)}m ${m.call_duration % 60}s` : ''}`}
-        </div>
-      )}
+      {m.call_duration != null && (() => {
+        const isVideo   = (m.content ?? '').toLowerCase().includes('video')
+        const icon      = isVideo ? '📹' : '📞'
+        const callType  = isVideo ? 'Video call' : 'Call'
+        if (m.missed) return (
+          <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-red-400">
+            {icon} Missed {callType.toLowerCase()}
+          </div>
+        )
+        const mins = Math.floor(m.call_duration / 60)
+        const secs = m.call_duration % 60
+        const dur  = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+        return (
+          <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-gray-500">
+            {icon} {callType} · {dur}
+          </div>
+        )
+      })()}
       {!!m.reactions?.length && (
         <div className="flex gap-1 flex-wrap mt-1">
           {Object.entries(m.reactions.reduce((c, r) => ({ ...c, [r.reaction]: (c[r.reaction] ?? 0) + 1 }), {} as Record<string, number>)).map(([r, n]) => (
@@ -100,15 +117,23 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
           <div className="flex items-baseline gap-2 mb-0.5">
             <span className={`font-bold text-sm ${block.mine ? 'text-blue-600' : 'text-gray-900'}`}>{block.sender}</span>
             <span className="text-[11px] text-gray-400 whitespace-nowrap">{fmtTime(first.timestamp_ms)}</span>
+            {first.blockId && <span className="text-[10px] text-gray-300 font-mono">grp:{first.blockId.slice(-6)}</span>}
           </div>
           {block.msgs.map((m, i) => (
             <div key={m._id ?? i}>
               <span id={`msg-${m._id}`} className="hidden" />
               {m.is_unsent
                 ? <div className="text-[13px] text-gray-400 italic">Message removed</div>
-                : m.content && <div className="text-sm leading-relaxed text-gray-900 break-words">{m.content}</div>
+                : m.call_duration != null
+                  ? null // call rendering handled in Media
+                  : m.share
+                    ? (m.content && m.content !== 'You sent an attachment.' && <div className="text-sm leading-relaxed text-gray-900 break-words">{mapFbEmoji(m.content)}</div>)
+                    : m.content && <div className="text-sm leading-relaxed text-gray-900 break-words">{mapFbEmoji(m.content)}</div>
               }
               <Media m={m} onLightbox={onLightbox} />
+              <div className="text-[10px] text-gray-300 font-mono mt-0.5">
+                id:{m._id.slice(-6)} · grp:{(m.blockId ?? '—').slice(-6)}
+              </div>
             </div>
           ))}
         </div>

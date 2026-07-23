@@ -188,9 +188,9 @@ export interface Hashtag {
   name: string;
   context?: string | null;
   /**
-   * Comma-separated message IDs
+   * Comma-separated group anchor IDs (first message _id of each groupMessages block)
    */
-  msgIds?: string | null;
+  groupIds?: string | null;
   /**
    * Timestamp (ms) of the earliest tagged message — used for sorting
    */
@@ -298,7 +298,7 @@ export interface NotesSelect<T extends boolean = true> {
 export interface HashtagsSelect<T extends boolean = true> {
   name?: T;
   context?: T;
-  msgIds?: T;
+  groupIds?: T;
   firstMsgTs?: T;
   updatedAt?: T;
   createdAt?: T;

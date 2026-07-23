@@ -36,7 +36,7 @@ let lastDay = null, lastSender = null, lastTs = 0, blockId = null
 for (const m of all) {
   const d = day(m.timestamp_ms)
   const newDay = d !== lastDay
-  const grouped = !newDay && m.sender_name === lastSender && m.timestamp_ms - lastTs < 5 * 60_000
+  const grouped = !newDay && m.sender_name === lastSender
 
   if (!grouped) blockId = m._id
   lastDay = d

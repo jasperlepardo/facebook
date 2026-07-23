@@ -19,9 +19,12 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
+const GROUP_GAP = 5 * 60_000
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const idsParam = searchParams.get('ids')
+  const idsParam      = searchParams.get('ids')
+  const groupIdsParam = searchParams.get('groupIds')
   const off   = parseInt(searchParams.get('offset') ?? '0')
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '80'), 200)
   const q     = (searchParams.get('search') ?? '').trim()
@@ -29,6 +32,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const msgs = await getMessages()
+
+    if (groupIdsParam) {
+      const blockIds = groupIdsParam.split(',').filter(Boolean)
+      const docs = await msgs.find({ blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
+      return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
+    }
 
     if (idsParam) {
       const ids = idsParam.split(',').filter(Boolean).map(id => { try { return new ObjectId(id) } catch { return null } }).filter(Boolean)

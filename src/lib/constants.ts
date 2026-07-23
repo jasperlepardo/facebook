@@ -3,7 +3,7 @@ export const R2 = 'https://pub-bcf374add91945839b65e3ee37ef410d.r2.dev'
 export const LIMIT = 80
 export const GLIMIT = 60
 export const MAX_DOM = LIMIT * 2
-export const LOAD_THRESHOLD = 500
+export const LOAD_THRESHOLD = 1500
 
 export const TAG_COLORS: Record<string, string> = {
   milestone: '#1d4ed8', religion: '#6d28d9', jealousy: '#c2410c',
