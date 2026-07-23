@@ -1,7 +1,7 @@
 import { MongoClient, MongoClientOptions, ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
 
-const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' }
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS', 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' }
 
 let client: MongoClient | null = null
 async function getMsgs() {

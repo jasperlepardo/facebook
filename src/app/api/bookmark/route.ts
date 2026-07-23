@@ -16,10 +16,11 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const deviceId = new URL(req.url).searchParams.get('deviceId') || 'default'
     const col = await getSettings()
-    const doc = await col.findOne({ key: 'bookmark' })
+    const doc = await col.findOne({ key: `bookmark-${deviceId}` })
     return NextResponse.json({ msgId: doc?.msgId ?? null, offset: doc?.offset ?? 0 }, { headers: CORS })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
@@ -28,10 +29,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { msgId, offset = 0 } = await req.json()
+    const { msgId, offset = 0, deviceId = 'default' } = await req.json()
     if (!msgId) return NextResponse.json({ error: 'missing msgId' }, { status: 400, headers: CORS })
     const col = await getSettings()
-    await col.updateOne({ key: 'bookmark' }, { $set: { key: 'bookmark', msgId, offset } }, { upsert: true })
+    const key = `bookmark-${deviceId}`
+    await col.updateOne({ key }, { $set: { key, msgId, offset } }, { upsert: true })
     return NextResponse.json({ ok: true }, { headers: CORS })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })

@@ -1,240 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Jasper &amp; Ciara</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;background:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-
-/* header */
-#hdr{background:#0866ff;color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 6px rgba(0,0,0,.25);z-index:10;flex-shrink:0}
-#hdr h1{font-size:17px;font-weight:700;flex:1}
-#search{padding:7px 14px;border-radius:20px;border:none;background:rgba(255,255,255,.2);color:#fff;width:200px;font-size:13px;outline:none}
-#search::placeholder{color:rgba(255,255,255,.65)}
-#search:focus{background:rgba(255,255,255,.3)}
-#date-jump{padding:6px 10px;border-radius:8px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:12px;outline:none;cursor:pointer}
-#date-jump::-webkit-calendar-picker-indicator{filter:invert(1)}
-#count{font-size:12px;color:rgba(255,255,255,.75);white-space:nowrap}
-
-/* tabs */
-#tabs{background:#fff;display:flex;border-bottom:2px solid #e4e6ea;flex-shrink:0}
-.tab{padding:10px 22px;cursor:pointer;font-size:13px;font-weight:600;color:#65676b;border-bottom:3px solid transparent;margin-bottom:-2px;user-select:none}
-.tab.on{color:#0866ff;border-bottom-color:#0866ff}
-.tab:hover{background:#f0f2f5}
-
-/* main area */
-#view{flex:1;overflow:hidden;display:flex;flex-direction:row;min-height:0}
-#chat-pane{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
-
-/* --- chat --- */
-#chat{flex:1;overflow-y:auto;padding:8px 0 16px;display:flex;flex-direction:column;min-height:0}
-
-/* --- resize handle --- */
-#resizer{width:5px;background:#e4e6ea;cursor:col-resize;flex-shrink:0;transition:background .15s}
-#resizer:hover,#resizer.dragging{background:#0866ff}
-
-/* --- notes panel --- */
-#notes-pane{width:50%;min-width:220px;display:flex;flex-direction:column;background:#fff;flex-shrink:0}
-#notes-hdr{padding:10px 14px;border-bottom:1px solid #e4e6ea;font-size:13px;font-weight:700;color:#050505;display:flex;align-items:center;gap:8px;flex-shrink:0}
-#notes-hdr span{flex:1}
-#notes-filter{padding:4px 8px;font-size:12px;border:1px solid #ddd;border-radius:12px;outline:none;width:120px}
-#notes-body{flex:1;overflow-y:auto;padding:12px 10px}
-.note-card{border-left:3px solid #e4e6ea;padding:6px 10px;margin-bottom:14px;cursor:pointer;transition:background .1s,border-color .1s}
-.note-card:hover{background:#f8f8f8}
-.note-card.active{background:#f0f7ff;border-left-color:#0866ff}
-.note-date{font-size:11px;color:#888;display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
-.note-date .jump-btn{font-size:11px;color:#0866ff;background:none;border:none;cursor:pointer;padding:0;opacity:.7}
-.note-date .jump-btn:hover{opacity:1;text-decoration:underline}
-.note-tags{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
-.note-title{font-size:13px;font-weight:700;color:#1d1c1d;margin-bottom:4px}
-.note-body{font-size:12px;color:#555;line-height:1.55}
-.note-edit-btn{font-size:11px;color:#aaa;background:none;border:none;cursor:pointer;padding:0 2px;opacity:0;transition:opacity .1s;flex-shrink:0}
-.note-card:hover .note-edit-btn{opacity:1}
-.note-edit-btn:hover{color:#0866ff}
-/* context menu */
-#ctx-menu{position:fixed;display:none;background:#fff;border:1px solid rgba(0,0,0,.15);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);padding:4px 0;min-width:130px;z-index:300;font-size:13px}
-#ctx-menu.on{display:block}
-.ctx-item{padding:6px 14px;cursor:pointer;color:#1d1c1d;user-select:none}
-.ctx-item:hover{background:#f0f2f5}
-/* --- note modal --- */
-#note-modal{display:none;position:fixed;inset:0;z-index:200;align-items:center;justify-content:center}
-#note-modal.on{display:flex}
-#note-modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
-#note-dlg{position:relative;background:#fff;border-radius:10px;padding:22px 24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)}
-#note-dlg h2{font-size:15px;font-weight:700;color:#050505;margin-bottom:16px}
-.nf{margin-bottom:13px}
-.nf label{display:block;font-size:11px;font-weight:700;color:#65676b;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
-.nf input,.nf textarea{width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;font-family:inherit;outline:none;transition:border-color .15s}
-.nf input:focus,.nf textarea:focus{border-color:#0866ff}
-#nf-body{min-height:90px;resize:vertical;line-height:1.5}
-.tag-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
-.tag-chip{padding:3px 10px;border:1px solid #ddd;border-radius:12px;font-size:11px;cursor:pointer;user-select:none;text-transform:uppercase;letter-spacing:.3px;transition:background .1s,border-color .1s,color .1s}
-.tag-chip.on{background:#0866ff;border-color:#0866ff;color:#fff}
-#nf-footer{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:1px solid #e4e6ea}
-#nf-delete{padding:7px 14px;border:1px solid #e53e3e;color:#e53e3e;background:none;border-radius:6px;font-size:13px;cursor:pointer}
-#nf-delete:hover{background:#fff5f5}
-.nf-right{display:flex;gap:8px}
-#nf-cancel{padding:7px 14px;border:1px solid #ddd;background:none;border-radius:6px;font-size:13px;cursor:pointer;color:#65676b}
-#nf-save{padding:7px 18px;background:#0866ff;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer}
-#nf-save:hover{background:#0757d9}
-#nf-save:disabled{opacity:.5;cursor:default}
-#oldbtn,#loadbtn{text-align:center;padding:10px 0 6px;display:none}
-#oldbtn button,#loadbtn button{background:#fff;border:1px solid #ddd;padding:7px 18px;border-radius:18px;cursor:pointer;font-size:13px;color:#65676b}
-#oldbtn button:hover,#loadbtn button:hover{background:#f0f2f5}
-#searching{text-align:center;padding:8px;font-size:13px;color:#65676b;display:none}
-
-/* date separator */
-.dsep{text-align:center;margin:20px 0 8px;font-size:12px;color:#616061;position:relative}
-.dsep::before{content:'';position:absolute;top:50%;left:0;right:0;border-top:1px solid #e8e8e8}
-.dsep span{background:#f0f2f5;padding:0 10px;position:relative;font-weight:600}
-
-/* sticky date pill */
-#chat-pane{position:relative}
-#sticky-date{position:absolute;top:8px;left:0;right:0;display:flex;justify-content:center;z-index:5;pointer-events:none;opacity:0;transition:opacity .2s}
-#sticky-date span{background:rgba(255,255,255,.93);border:1px solid #e4e6ea;border-radius:14px;padding:3px 16px;font-size:12px;color:#616061;font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.1)}
-
-/* message group — contains all messages from same sender block */
-.msg-group{display:flex;padding:8px 20px;gap:12px;align-items:flex-start;position:relative}
-.msg-group:hover{background:#f8f8f8}
-.msg-group.selected{background:#e8f0fe!important}
-.msg-check{align-self:flex-start;width:15px;height:15px;cursor:pointer;opacity:0;transition:opacity .1s;accent-color:#0866ff;flex-shrink:0}
-.msg-group:hover .msg-check,.msg-group.selected .msg-check{opacity:1}
-/* selection bar */
-#sel-bar{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:#1d1c1d;color:#fff;border-radius:20px;padding:8px 18px;display:none;align-items:center;gap:12px;font-size:13px;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:20}
-#sel-bar button{background:none;border:none;color:#fff;font-size:13px;cursor:pointer;padding:0;opacity:.8}
-#sel-bar button:hover{opacity:1}
-#sel-note-btn{background:#0866ff!important;padding:4px 14px!important;border-radius:12px!important;font-weight:600!important;opacity:1!important}
-
-/* avatar */
-.avatar{width:36px;height:36px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;margin-top:1px}
-.avatar.me{background:#0866ff}
-.avatar.them{background:#c026d3}
-
-/* content */
-.msg-content{flex:1;min-width:0}
-.msg-header{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
-.msg-sender{font-weight:700;font-size:14px;color:#1d1c1d}
-.msg-sender.me{color:#0866ff}
-.msg-ts{font-size:11px;color:#999;white-space:nowrap}
-/* text & media */
-.msg-text{font-size:14px;line-height:1.5;color:#1d1c1d;word-break:break-word}
-.msg-unsent{font-size:13px;color:#aaa;font-style:italic}
-.msg-content img{max-width:360px;max-height:280px;border-radius:6px;display:block;cursor:pointer;margin-top:4px}
-.msg-content img:hover{opacity:.88}
-.msg-content video{max-width:360px;border-radius:6px;display:block;margin-top:4px}
-.msg-content audio{width:280px;margin:4px 0;display:block}
-.msg-stk img{max-width:72px;max-height:72px}
-.msg-shr{font-size:13px;color:#555;margin-top:2px}
-.msg-shr a{color:#0866ff}
-.msg-rea{font-size:13px;margin-top:4px;display:flex;gap:4px;flex-wrap:wrap}
-.msg-rea span{background:#f0f2f5;border:1px solid #e4e6ea;border-radius:12px;padding:2px 7px;font-size:12px}
-.msg-call{font-size:13px;color:#888;font-style:italic;margin-top:2px}
-.msg-flink{font-size:13px;margin-top:2px}
-.msg-flink a{color:#0866ff}
-
-/* --- gallery --- */
-#gallery{flex:1;overflow-y:auto;padding:12px;display:none}
-.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:3px}
-.gitem{aspect-ratio:1;overflow:hidden;cursor:pointer;border-radius:3px;background:#e4e6ea;position:relative}
-.gitem img,.gitem video{width:100%;height:100%;object-fit:cover;display:block}
-.gitem:hover{opacity:.85}
-
-/* --- files --- */
-#fview{flex:1;overflow-y:auto;padding:12px;display:none}
-.fitem{background:#fff;border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.fico{font-size:22px}
-.fmeta{flex:1;min-width:0}
-.fname{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fname a{color:#0866ff;text-decoration:none}
-.fname a:hover{text-decoration:underline}
-.fdate{font-size:12px;color:#65676b;margin-top:2px}
-
-/* lightbox */
-#lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:999;align-items:center;justify-content:center;flex-direction:column}
-#lb.on{display:flex}
-#lb img,#lb video{max-width:92vw;max-height:88vh;border-radius:4px;object-fit:contain}
-#lbclose{position:absolute;top:14px;right:18px;color:#fff;font-size:28px;cursor:pointer;line-height:1;opacity:.8}
-#lbclose:hover{opacity:1}
-#lbcap{color:#ccc;font-size:12px;margin-top:8px;text-align:center}
-</style>
-</head>
-<body>
-
-<div id="hdr">
-  <h1>💬 Jasper &amp; Ciara</h1>
-  <input type="date" id="date-jump" min="2016-07-14" max="2024-05-09" title="Jump to date">
-  <input type="search" id="search" placeholder="Search messages…">
-  <span id="count"></span>
-</div>
-
-<div id="tabs">
-  <div class="tab on" data-tab="chat">Chat</div>
-  <div class="tab" data-tab="photos">Photos (4,955)</div>
-  <div class="tab" data-tab="videos">Videos (155)</div>
-  <div class="tab" data-tab="files">Files &amp; Audio</div>
-</div>
-
-<div id="view">
-  <div id="chat-pane">
-    <div id="sticky-date"><span></span></div>
-    <div id="sel-bar">
-      <span id="sel-count"></span>
-      <button id="sel-note-btn" onclick="openNoteFromSelection()">📝 Note</button>
-      <button onclick="clearSelection()">✕</button>
-    </div>
-    <div id="chat" style="visibility:hidden">
-      <div id="searching">Searching…</div>
-      <div id="msgs"></div>
-      <div id="loadbtn" style="display:none"></div>
-    </div>
-    <div id="gallery"></div>
-    <div id="fview"></div>
-  </div>
-  <div id="resizer"></div>
-  <div id="notes-pane">
-    <div id="notes-hdr">
-      <span>📝 Analysis Notes</span>
-      <input id="notes-filter" placeholder="Filter tags…" oninput="filterNotes(this.value)">
-      <button onclick="openNoteModal(null)" style="font-size:12px;padding:3px 10px;background:#0866ff;color:#fff;border:none;border-radius:12px;cursor:pointer;font-weight:600;flex-shrink:0">+ New</button>
-    </div>
-    <div id="notes-body"></div>
-  </div>
-</div>
-
-<div id="ctx-menu">
-  <div class="ctx-item" id="ctx-edit">Edit Note</div>
-  <div class="ctx-item" id="ctx-goto" style="display:none">Go to message</div>
-</div>
-
-<div id="note-modal">
-  <div id="note-modal-bg" onclick="closeNoteModal()"></div>
-  <div id="note-dlg">
-    <h2 id="note-dlg-h">Edit Note</h2>
-    <div class="nf" id="nf-msgs-row" style="display:none"><label>Linked messages</label><div id="nf-msgs" style="font-size:13px;color:#0866ff;padding:4px 0"></div></div>
-    <div class="nf"><label>Start</label><input id="nf-start" placeholder="2016-07-14 or 2016-07-14T13:06"></div>
-    <div class="nf"><label>End (optional)</label><input id="nf-end" placeholder="2016-07-14 or 2016-07-14T23:59"></div>
-    <div class="nf"><label>Tags</label><div class="tag-chips" id="nf-tags"></div></div>
-    <div class="nf"><label>Title</label><input id="nf-title"></div>
-    <div class="nf"><label>Body</label><textarea id="nf-body"></textarea></div>
-    <div id="nf-footer">
-      <button id="nf-delete" onclick="deleteNote()">Delete</button>
-      <div class="nf-right">
-        <button id="nf-cancel" onclick="closeNoteModal()">Cancel</button>
-        <button id="nf-save" onclick="saveNote()">Save</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="lb">
-  <span id="lbclose" onclick="closeLb()">✕</span>
-  <div id="lbinner"></div>
-  <div id="lbcap"></div>
-</div>
-
-<script>
 const _ioCache = new Map();
 function _getIO(scrollRoot) {
   if (_ioCache.has(scrollRoot)) return _ioCache.get(scrollRoot);
@@ -314,7 +77,6 @@ function renderMsgBody(m) {
   return `<span id="msg-${m._id}" style="display:none"></span>` + txt + med;
 }
 
-// Builds groups from messages using global state so append mode continues correctly
 let lastDate = null, lastSender = null, lastTs = 0;
 
 function renderMessages(messages) {
@@ -356,7 +118,6 @@ function renderMessages(messages) {
 }
 
 // --- chat loading ---
-// lowerOffset = start of loaded range, upperOffset = end of loaded range
 let lowerOffset = 0, upperOffset = 0;
 let hasMore = false;
 const MAX_DOM = LIMIT * 2;
@@ -451,7 +212,6 @@ async function jumpToEnd() {
 // --- gallery ---
 function renderGalleryItems(items) {
   const grid = $('gallery').querySelector('.ggrid');
-
   for (const item of items) {
     const div = document.createElement('div');
     div.className = 'gitem';
@@ -538,8 +298,6 @@ function lb(src, type, caption='') {
   $('lb').classList.add('on');
 }
 function closeLb() { $('lb').classList.remove('on'); $('lbinner').innerHTML = ''; }
-$('lb').addEventListener('click', e => { if (e.target===$('lb')) closeLb(); });
-document.addEventListener('keydown', e => { if (e.key==='Escape') closeLb(); });
 
 // --- tabs ---
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
@@ -620,9 +378,8 @@ function fmtIso(iso) {
 
 function fmtDateRange(start, end) {
   if (start === end) return fmtIso(start);
-  const sd = start.split('T')[0], ed = end.split('T')[0];
+  const sd = start.split('T')[0], ed = end ? end.split('T')[0] : sd;
   if (sd === ed) {
-    // same day — show date once, then time range
     const d = new Date(sd + 'T00:00:00').toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'});
     if (!hasTime(start) && !hasTime(end)) return d;
     const fmtT = iso => { const [h,m] = iso.split('T')[1].split(':').map(Number); const ap = h>=12?'PM':'AM'; return (h%12||12)+':'+String(m).padStart(2,'0')+' '+ap; };
@@ -630,7 +387,6 @@ function fmtDateRange(start, end) {
     const t2 = hasTime(end)   ? fmtT(end)   : '';
     return d + (t1||t2 ? ' · ' + [t1,t2].filter(Boolean).join(' – ') : '');
   }
-  // different days
   const s = new Date(sd+'T00:00:00'), e = new Date(ed+'T00:00:00');
   if (s.getMonth()===e.getMonth() && s.getFullYear()===e.getFullYear()) {
     return s.toLocaleDateString([],{month:'short',day:'numeric'}) + ' – ' + e.toLocaleDateString([],{day:'numeric',year:'numeric'});
@@ -650,10 +406,12 @@ function renderNotes(notes) {
     const jumpBtn = firstMsgId
       ? `<button class="jump-btn" data-msgid="${firstMsgId}">→ Message</button>`
       : `<button class="jump-btn" data-start="${n.start}" data-end="${n.end || n.start}">→ Chat</button>`;
+    const editor = n.updatedBy?.email || n.createdBy?.email || '';
     return `<div class="note-card" data-idx="${i}" data-id="${n.id}" data-start="${n.start}" data-end="${n.end || ''}" data-msgid="${firstMsgId}" style="border-left-color:${accentColor}">
       <div class="note-date">
         <span>${dateRange}</span>
         <div style="display:flex;gap:6px;align-items:center">
+          ${editor ? `<span style="font-size:10px;color:#aaa">${esc(editor.split('@')[0])}</span>` : ''}
           <button class="note-edit-btn" data-id="${n.id}">✏</button>
           ${jumpBtn}
         </div>
@@ -665,7 +423,7 @@ function renderNotes(notes) {
   }).join('');
 }
 
-// event delegation — one listener handles jump, edit, card click, and checkbox
+// event delegation
 document.addEventListener('click', async function(e) {
   const group = e.target.closest('.msg-group');
   if (group && !e.target.closest('a,button,audio,video,img')) {
@@ -745,7 +503,7 @@ function filterNotes(q) {
 }
 
 // --- message selection ---
-const selectedMsgs = new Map(); // msgId -> ts
+const selectedMsgs = new Map();
 
 function updateSelBar() {
   const n = selectedMsgs.size;
@@ -838,7 +596,7 @@ async function saveNote() {
     closeNoteModal();
     clearSelection();
     _noteFromMsgIds = [];
-    allNotes = (await api('/api/notes?limit=500&sort=start&depth=0')).docs || [];
+    allNotes = (await api('/api/notes?limit=500&sort=start&depth=1')).docs || [];
     filterNotes($('notes-filter').value);
   } catch(err) {
     alert('Save failed: ' + err);
@@ -852,7 +610,7 @@ async function deleteNote() {
   try {
     await fetch(`/api/notes/${_editingId}`, {method:'DELETE'});
     closeNoteModal();
-    allNotes = (await api('/api/notes?limit=500&sort=start&depth=0')).docs || [];
+    allNotes = (await api('/api/notes?limit=500&sort=start&depth=1')).docs || [];
     filterNotes($('notes-filter').value);
   } catch(err) {
     alert('Delete failed: ' + err);
@@ -902,18 +660,6 @@ document.addEventListener('contextmenu', e => {
   }
 });
 
-$('ctx-edit').addEventListener('click', () => {
-  const note = _ctxNote;
-  closeCtxMenu();
-  if (note) openNoteModal(note);
-});
-
-$('ctx-goto').addEventListener('click', () => {
-  const ts = _ctxGalTs, msgId = _ctxGalMsgId;
-  closeCtxMenu();
-  if (ts) jumpToMessage(+ts, msgId);
-});
-
 document.addEventListener('click', e => {
   if (!e.target.closest('#ctx-menu')) closeCtxMenu();
 }, true);
@@ -923,7 +669,6 @@ document.addEventListener('click', e => {
   const resizer = $('resizer');
   const pane = $('notes-pane');
   let startX, startW;
-
   resizer.addEventListener('mousedown', e => {
     startX = e.clientX;
     startW = pane.offsetWidth;
@@ -933,7 +678,7 @@ document.addEventListener('click', e => {
   });
   document.addEventListener('mousemove', e => {
     if (!resizer.classList.contains('dragging')) return;
-    const delta = startX - e.clientX;   // dragging left = wider notes
+    const delta = startX - e.clientX;
     const newW = Math.max(220, Math.min(window.innerWidth * 0.6, startW + delta));
     pane.style.width = newW + 'px';
   });
@@ -943,7 +688,6 @@ document.addEventListener('click', e => {
     document.body.style.cursor = '';
   });
 })();
-
 
 // --- sticky date ---
 function updateStickyDate() {
@@ -968,6 +712,13 @@ function updateStickyDate() {
   }
 }
 
+// --- device ID ---
+const _deviceId = (() => {
+  let id = localStorage.getItem('deviceId');
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id); }
+  return id;
+})();
+
 // --- anchor / bookmark ---
 function getAnchor() {
   const chatRect = $('chat').getBoundingClientRect();
@@ -986,7 +737,7 @@ function maybeSaveBookmark() {
   if (now - _bkLast < 300) return;
   _bkLast = now;
   const anchor = getAnchor();
-  if (anchor) fetch('/api/bookmark', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(anchor)}).catch(()=>{});
+  if (anchor) fetch('/api/bookmark', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({...anchor, deviceId: _deviceId})}).catch(()=>{});
 }
 
 // --- infinite scroll ---
@@ -1010,7 +761,7 @@ $('chat').addEventListener('scroll', () => {
 async function initChat() {
   let startIdx = 0, anchorMsgId = null, anchorOffset = 0;
   try {
-    const bk = await api('/api/bookmark');
+    const bk = await api('/api/bookmark?deviceId=' + _deviceId);
     if (bk.msgId) {
       anchorMsgId = bk.msgId;
       anchorOffset = bk.offset ?? 0;
@@ -1036,15 +787,29 @@ async function initChat() {
     }
   }
   $('chat').style.visibility = '';
-  // trigger load if rendered content doesn't fill the viewport
   const el = $('chat');
   if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMore) {
     loading = true;
     loadNewer().finally(() => { loading = false; });
   }
 }
+
+// --- wire up UI event listeners (replaces inline onclick handlers) ---
+function initUI() {
+  $('lb').addEventListener('click', e => { if (e.target === $('lb')) closeLb(); });
+  $('lbclose').addEventListener('click', closeLb);
+  $('ctx-edit').addEventListener('click', () => { const n = _ctxNote; closeCtxMenu(); if (n) openNoteModal(n); });
+  $('ctx-goto').addEventListener('click', () => { const ts = _ctxGalTs, msgId = _ctxGalMsgId; closeCtxMenu(); if (ts) jumpToMessage(+ts, msgId); });
+  $('sel-note-btn').addEventListener('click', openNoteFromSelection);
+  $('sel-clear-btn').addEventListener('click', clearSelection);
+  $('notes-filter').addEventListener('input', e => filterNotes(e.target.value));
+  $('notes-new-btn').addEventListener('click', () => openNoteModal(null));
+  $('note-modal-bg').addEventListener('click', closeNoteModal);
+  $('nf-delete').addEventListener('click', deleteNote);
+  $('nf-cancel').addEventListener('click', closeNoteModal);
+  $('nf-save').addEventListener('click', saveNote);
+}
+
+initUI();
 initChat();
-api('/api/notes?limit=500&sort=start&depth=0').then(data => { allNotes = data.docs || data; renderNotes(allNotes); });
-</script>
-</body>
-</html>
+api('/api/notes?limit=500&sort=start&depth=1').then(data => { allNotes = data.docs || data; renderNotes(allNotes); });

@@ -16,8 +16,19 @@ export const Notes: CollectionConfig = {
   },
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'start', 'end', 'tags'],
+    defaultColumns: ['title', 'start', 'end', 'updatedBy', 'tags'],
     listSearchableFields: ['title', 'body'],
+  },
+  hooks: {
+    beforeChange: [
+      ({ req, operation, data }) => {
+        if (req.user) {
+          data.updatedBy = req.user.id;
+          if (operation === 'create') data.createdBy = req.user.id;
+        }
+        return data;
+      },
+    ],
   },
   fields: [
     {
@@ -54,6 +65,18 @@ export const Notes: CollectionConfig = {
       name: 'msgIds',
       type: 'text',
       admin: { description: 'Comma-separated linked message IDs' },
+    },
+    {
+      name: 'createdBy',
+      type: 'relationship',
+      relationTo: 'users',
+      admin: { readOnly: true },
+    },
+    {
+      name: 'updatedBy',
+      type: 'relationship',
+      relationTo: 'users',
+      admin: { readOnly: true },
     },
   ],
 }
