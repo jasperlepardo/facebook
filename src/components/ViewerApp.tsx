@@ -74,25 +74,7 @@ export default function ViewerApp() {
   const bkLast        = useRef(0)
   const pendingJump   = useRef<string | null>(null)
   const queuedLoad    = useRef<'older' | 'newer' | null>(null)
-  const scrollLog     = useRef<string[]>([])
-
   // ─── Helpers ────────────────────────────────────────────────────────────────
-
-  const slog = (event: string, data?: Record<string, unknown>) => {
-    const el = chatRef.current
-    const line = `[${new Date().toISOString().slice(11,23)}] ${event} | top=${el?.scrollTop?.toFixed(0)} h=${el?.scrollHeight?.toFixed(0)} client=${el?.clientHeight?.toFixed(0)} loIdx=${lowerOffset.current} upIdx=${upperOffset.current}${data ? ' | ' + JSON.stringify(data) : ''}`
-    scrollLog.current.push(line)
-    console.log(line)
-  }
-
-  // Expose log helpers on window for easy copy
-  if (typeof window !== 'undefined') {
-    (window as any).__scrollLog = scrollLog.current;
-    (window as any).__copyScrollLog = () => {
-      const text = scrollLog.current.join('\n')
-      navigator.clipboard.writeText(text).then(() => console.log(`Copied ${scrollLog.current.length} log entries`))
-    }
-  }
 
   const setMsg = (msgs: Message[]) => {
     const seen = new Set<string>()
@@ -140,14 +122,12 @@ export default function ViewerApp() {
       const el = chatRef.current
       const prevH = el?.scrollHeight ?? 0
       const prevTop = el?.scrollTop ?? 0
-      slog('prepend BEFORE', { prevH, prevTop, newMsgs: count })
       const combined = [...data.messages, ...prev]
 
       // Step 1: prepend only — formula correct for pure prepend
       flushSync(() => setMsg(combined))
       if (el) {
         const newScrollTop = prevTop + el.scrollHeight - prevH
-        slog('prepend AFTER', { newH: el.scrollHeight, delta: el.scrollHeight - prevH, newScrollTop })
         el.scrollTop = newScrollTop
       }
 
@@ -203,16 +183,12 @@ export default function ViewerApp() {
 
   async function loadOlder() {
     if (lowerOffset.current === 0) return
-    slog('loadOlder START')
     lowerOffset.current = Math.max(0, lowerOffset.current - LIMIT)
     try { await loadMessages('prepend') } catch { lowerOffset.current += LIMIT }
-    slog('loadOlder END')
   }
 
   async function loadNewer() {
-    slog('loadNewer START')
-    try { await loadMessages('append') } catch (e) { console.error('loadNewer failed:', e) }
-    slog('loadNewer END')
+    await loadMessages('append')
   }
 
   // ─── Jump ────────────────────────────────────────────────────────────────────
@@ -275,8 +251,6 @@ export default function ViewerApp() {
     const nearTop    = el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0
     const nearBottom = el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current
 
-    if (nearTop || nearBottom) slog(`scroll TRIGGER nearTop=${nearTop} nearBottom=${nearBottom} loading=${loadingRef.current}`)
-
     if (loadingRef.current || searchRef.current) {
       if (nearTop)    queuedLoad.current = 'older'
       if (nearBottom) queuedLoad.current = 'newer'
@@ -325,7 +299,7 @@ export default function ViewerApp() {
 
       lowerOffset.current = Math.max(0, startIdx - Math.floor(LIMIT / 2))
       upperOffset.current = lowerOffset.current
-      try { await loadMessages('fresh') } catch (e) { console.error(e) }
+      try { await loadMessages('fresh') } catch {}
 
       loadingRef.current = true // block scroll handler during restoration
       if (anchorMsgId && chatRef.current) {
@@ -337,7 +311,6 @@ export default function ViewerApp() {
       }
       setChatVisible(true)
       loadingRef.current = false
-      slog('init RESTORED', { anchorMsgId, anchorOffset })
 
       // Preload in whichever direction the restored position is close to the edge.
       // Keep loadingRef true throughout so the scroll handler doesn't double-fire.
