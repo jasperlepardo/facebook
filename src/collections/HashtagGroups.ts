@@ -1,6 +1,6 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, PayloadRequest } from 'payload'
 
-async function resyncHashtag(hashtagId: string, req: Parameters<NonNullable<CollectionConfig['hooks']>['afterChange']>[0]['req']) {
+async function resyncHashtag(hashtagId: string, req: PayloadRequest) {
   if (!hashtagId) return
   const result = await req.payload.find({
     collection: 'hashtag-groups',
