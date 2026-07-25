@@ -21,6 +21,15 @@ export async function GET(req: NextRequest) {
   try {
     const msgs  = await getMessages()
     const filt  = { [field]: { $exists: true, $not: { $size: 0 } } }
+
+    // ?offsetOf=TIMESTAMP — return the document offset of the first photo at/after that timestamp
+    const offsetOf = searchParams.get('offsetOf')
+    if (offsetOf) {
+      const ts  = parseInt(offsetOf)
+      const idx = await msgs.countDocuments({ ...filt, timestamp_ms: { $lt: ts } })
+      return NextResponse.json({ offset: idx }, { headers: CORS })
+    }
+
     const total = await msgs.countDocuments(filt)
     const docs  = await msgs.find(filt, { projection: { [field]: 1, timestamp_ms: 1, sender_name: 1 } })
       .sort({ timestamp_ms: 1 }).skip(off).limit(limit).toArray()

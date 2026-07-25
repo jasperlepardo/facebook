@@ -12,26 +12,76 @@ interface GalleryProps {
 
 export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProps) {
   const [items, setItems]     = useState<GalleryItem[]>([])
+  const itemsRef    = useRef<GalleryItem[]>([])
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
-  const offset    = useRef(0)
-  const galleryRef = useRef<HTMLDivElement>(null)
+  const offset      = useRef(0)
+  const galleryRef  = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const saveTimer   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const deviceId    = useRef('')
 
   async function load() {
     if (!hasMore || loading) return
     setLoading(true)
     const res = await fetch(`/api/attachments?type=${type}&offset=${offset.current}&limit=${GALLERY_LIMIT}`)
     const data = await res.json()
-    setItems(prev => [...prev, ...data.items])
+    setItems(prev => { const next = [...prev, ...data.items]; itemsRef.current = next; return next })
     setHasMore(data.has_more)
     offset.current += GALLERY_LIMIT
     setLoading(false)
   }
 
+  function saveBookmark(scrollTop: number) {
+    const id = deviceId.current
+    if (!id) return
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      fetch('/api/bookmark', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ msgId: String(offset.current), offset: scrollTop, deviceId: id, ns: `gallery-${type}` }),
+      }).catch(() => {})
+    }, 300)
+  }
+
   useEffect(() => {
-    setItems([]); setHasMore(true); offset.current = 0
-    load()
+    let id = localStorage.getItem('deviceId')
+    if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id) }
+    deviceId.current = id
+
+    async function init() {
+      setItems([]); setHasMore(true); offset.current = 0
+      let startOffset = 0, scrollTop = 0
+      try {
+        const bk = await fetch(`/api/bookmark?deviceId=${id}&ns=gallery-${type}`).then(r => r.json())
+        if (bk.msgId) { startOffset = parseInt(bk.msgId) || 0; scrollTop = bk.offset ?? 0 }
+      } catch {}
+
+      // Load pages up to the saved offset in chunks, then restore scroll
+      if (startOffset > 0) {
+        const CHUNK = 200
+        let loaded: GalleryItem[] = []
+        let currentOff = 0
+        let more = true
+        while (currentOff < startOffset && more) {
+          const batchLimit = Math.min(CHUNK, startOffset - currentOff)
+          const res = await fetch(`/api/attachments?type=${type}&offset=${currentOff}&limit=${batchLimit}`)
+          const data = await res.json()
+          loaded = [...loaded, ...data.items]
+          more = data.has_more
+          currentOff += batchLimit
+        }
+        itemsRef.current = loaded
+        setItems(loaded)
+        setHasMore(more)
+        offset.current = currentOff
+        requestAnimationFrame(() => { if (galleryRef.current) galleryRef.current.scrollTop = scrollTop })
+      } else {
+        load()
+      }
+    }
+    init()
   }, [type]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -42,12 +92,23 @@ export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProp
   }, [hasMore, loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div ref={galleryRef} className="flex-1 overflow-y-auto p-3">
+    <div ref={galleryRef} className="flex-1 overflow-y-auto p-3" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
       <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
         {items.map((item, i) => (
           <div key={i}
             className="aspect-square overflow-hidden cursor-pointer rounded-sm bg-gray-200 relative hover:opacity-85"
-            onClick={() => onLightbox({ src: r2(item.uri), type: type === 'photos' ? 'photo' : 'video', caption: `${new Date(item.ts).toLocaleDateString()} · ${item.sender}` })}
+            onClick={() => {
+              const mkState = (idx: number): LightboxState => ({
+                src: r2(itemsRef.current[idx].uri),
+                type: type === 'photos' ? 'photo' : 'video',
+                caption: `${new Date(itemsRef.current[idx].ts).toLocaleDateString()} · ${itemsRef.current[idx].sender}`,
+                msgId: itemsRef.current[idx].msgId,
+                ts: itemsRef.current[idx].ts,
+                onPrev: idx > 0                          ? () => onLightbox(mkState(idx - 1)) : undefined,
+                onNext: idx < itemsRef.current.length - 1 ? () => onLightbox(mkState(idx + 1)) : undefined,
+              })
+              onLightbox(mkState(i))
+            }}
             onContextMenu={e => { e.preventDefault(); onContextMenu(e, item) }}
             data-ts={item.ts}
             data-msg-id={item.msgId}

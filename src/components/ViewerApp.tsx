@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom'
 import { Message, Note, Tab, LightboxState, ContextMenuState, GalleryItem, Hashtag } from '@/types'
 import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
 import { apiFetch } from '@/lib/utils'
+import { r2 } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
 import MessageGroup from './MessageGroup'
 import HashtagsPane from './HashtagsPane'
@@ -70,7 +71,8 @@ export default function ViewerApp() {
   const chatRef       = useRef<HTMLDivElement>(null)
   const deviceId      = useRef('')
   const lastBookmarkTime = useRef(0)
-  const pendingJump   = useRef<string | null>(null)
+  const pendingJump         = useRef<string | null>(null)
+  const pendingLightboxScroll = useRef<string | null>(null)
   const queuedLoad    = useRef<'older' | 'newer' | null>(null)
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -86,18 +88,50 @@ export default function ViewerApp() {
     setHashtags(d.docs ?? [])
   }, [])
 
+  // ─── Scroll chat to current lightbox photo in background ───────────────────
+
+  useEffect(() => {
+    const msgId = lightbox?.msgId
+    if (!msgId || !chatRef.current) return
+    const anchor = document.getElementById('msg-' + msgId)?.closest<HTMLElement>('.msg-group')
+    if (anchor) {
+      anchor.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    } else {
+      pendingLightboxScroll.current = msgId
+      apiFetch<{ index: number | null }>(`/api/jump?msgId=${msgId}`)
+        .then(d => {
+          if (d.index == null) return
+          lowerOffset.current = Math.max(0, d.index - Math.floor(LIMIT / 2))
+          upperOffset.current = lowerOffset.current
+          loadMessages('fresh').catch(() => {})
+        }).catch(() => {})
+    }
+  }, [lightbox?.msgId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Scroll to pending jump target after messages render ────────────────────
 
   useEffect(() => {
-    const msgId = pendingJump.current
-    if (!msgId) return
-    const anchor = document.getElementById('msg-' + msgId)?.closest<HTMLElement>('.msg-group')
-    if (!anchor) return
-    pendingJump.current = null
-    anchor.scrollIntoView({ block: 'center' })
-    anchor.style.background = '#fff3cd'
-    setTimeout(() => { anchor.style.transition = 'background 1s'; anchor.style.background = '' }, 800)
-    setTimeout(() => { anchor.style.transition = '' }, 1800)
+    // Pending jump (chat navigation)
+    const jumpId = pendingJump.current
+    if (jumpId) {
+      const anchor = document.getElementById('msg-' + jumpId)?.closest<HTMLElement>('.msg-group')
+      if (anchor) {
+        pendingJump.current = null
+        anchor.scrollIntoView({ block: 'center' })
+        anchor.style.background = '#fff3cd'
+        setTimeout(() => { anchor.style.transition = 'background 1s'; anchor.style.background = '' }, 800)
+        setTimeout(() => { anchor.style.transition = '' }, 1800)
+      }
+    }
+    // Pending lightbox background scroll
+    const scrollId = pendingLightboxScroll.current
+    if (scrollId) {
+      const anchor = document.getElementById('msg-' + scrollId)?.closest<HTMLElement>('.msg-group')
+      if (anchor) {
+        pendingLightboxScroll.current = null
+        anchor.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }
+    }
   }, [messages])
 
   // ─── Load messages ───────────────────────────────────────────────────────────
@@ -334,9 +368,31 @@ export default function ViewerApp() {
     setSearchInput(v)
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(async () => {
-      searchRef.current = v.trim()
+      const trimmed = v.trim()
+
+      // Block ID / message ID jump — 24-char hex ObjectId
+      if (/^[0-9a-f]{24}$/i.test(trimmed)) {
+        setSearching(true)
+        // Try as blockId first, fall back to _id
+        const byBlock = await apiFetch<{ messages: Message[] }>(`/api/messages?groupIds=${trimmed}`)
+        const msgs = byBlock.messages.length
+          ? byBlock.messages
+          : (await apiFetch<{ messages: Message[] }>(`/api/messages?ids=${trimmed}`)).messages
+        if (msgs.length) {
+          searchRef.current = ''
+          lowerOffset.current = 0; upperOffset.current = 0
+          setMessages(msgs)
+          messagesRef.current = msgs
+          pendingJump.current = msgs[0]._id
+        }
+        setSearchInput(trimmed)
+        setSearching(false)
+        return
+      }
+
+      searchRef.current = trimmed
       lowerOffset.current = 0; upperOffset.current = 0
-      setSearching(!!v.trim())
+      setSearching(!!trimmed)
       await loadMessages('fresh')
       setSearching(false)
     }, 350)
@@ -497,6 +553,51 @@ export default function ViewerApp() {
     setHashtagPicker({ msgIds, blockIds })
   }
 
+  // ─── Lightbox with chat navigation ──────────────────────────────────────────
+
+  async function handleMsgLightbox(state: LightboxState) {
+    if (!state.ts) { setLightbox(state); return }
+
+    // Find document offset of this photo in the full sorted photos list
+    const { offset: docOff } = await apiFetch<{ offset: number }>(
+      `/api/attachments?type=photos&offsetOf=${state.ts}`
+    )
+    const { items, total } = await apiFetch<{ items: { uri: string; ts: number; sender: string; msgId: string }[]; total: number }>(
+      `/api/attachments?type=photos&offset=${Math.max(0, docOff - 1)}&limit=3`
+    )
+    const baseOff  = Math.max(0, docOff - 1)
+    const localIdx = items.findIndex(i => i.msgId === state.msgId || i.ts === state.ts)
+    const target   = localIdx >= 0 ? localIdx : 0
+
+    type PhotoItem = { uri: string; ts: number; sender: string; msgId: string }
+
+    const mkState = (absOff: number, item: PhotoItem): LightboxState => ({
+      src:     r2(item.uri),
+      type:    'photo',
+      caption: `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
+      msgId:   item.msgId,
+      ts:      item.ts,
+      onPrev:  absOff > 0
+        ? async () => {
+            const { items: pi } = await apiFetch<{ items: PhotoItem[] }>(
+              `/api/attachments?type=photos&offset=${absOff - 1}&limit=1`
+            )
+            if (pi[0]) setLightbox(mkState(absOff - 1, pi[0]))
+          }
+        : undefined,
+      onNext:  absOff < total - 1
+        ? async () => {
+            const { items: ni } = await apiFetch<{ items: PhotoItem[] }>(
+              `/api/attachments?type=photos&offset=${absOff + 1}&limit=1`
+            )
+            if (ni[0]) setLightbox(mkState(absOff + 1, ni[0]))
+          }
+        : undefined,
+    })
+
+    setLightbox(mkState(baseOff + target, items[target]))
+  }
+
   // ─── Tabs ────────────────────────────────────────────────────────────────────
 
   const tabs: { key: Tab; label: string }[] = [
@@ -570,7 +671,7 @@ export default function ViewerApp() {
                 block={b}
                 isSelected={selectedMsgs.has(b.msgs[0]._id)}
                 onToggle={handleToggle}
-                onLightbox={setLightbox}
+                onLightbox={handleMsgLightbox}
                 onContextMenu={handleMsgContextMenu}
               />
             ))}
@@ -602,7 +703,14 @@ export default function ViewerApp() {
           onApply={applyHashtags}
         />
       )}
-      {lightbox && <Lightbox state={lightbox} onClose={() => setLightbox(null)} />}
+      {lightbox && <Lightbox state={lightbox}
+        onClose={() => {
+          const { ts, msgId } = lightbox
+          setLightbox(null)
+          if (msgId && !document.getElementById('msg-' + msgId)) jumpToMessage(Number(ts), msgId)
+        }}
+        onJumpToMessage={(ts, msgId) => { setLightbox(null); jumpToMessage(ts, msgId) }}
+      />}
       {ctxMenu  && (
         <ContextMenu
           state={ctxMenu}

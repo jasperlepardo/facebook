@@ -15,6 +15,11 @@ export interface Message {
   missed?: boolean
   reactions?: { reaction: string; actor: string }[]
   blockId?: string
+  type?: string
+  media_failed?: boolean
+  content_unavailable?: boolean
+  ip?: string
+  is_unsent_image_by_messenger_kid_parent?: boolean
 }
 
 export interface MessageBlock {
@@ -49,6 +54,10 @@ export interface LightboxState {
   src: string
   type: 'photo' | 'video' | 'gif'
   caption: string
+  msgId?: string
+  ts?: number
+  onPrev?: () => void
+  onNext?: () => void
 }
 
 export interface ContextMenuState {

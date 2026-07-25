@@ -10,7 +10,7 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
       {m.photos?.map((p, i) => (
         <img key={i} src={r2(p.uri)} loading="lazy"
           className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1 hover:opacity-90"
-          onClick={() => onLightbox({ src: r2(p.uri), type: 'photo', caption: '' })}
+          onClick={() => onLightbox({ src: r2(p.uri), type: 'photo', caption: '', msgId: m._id, ts: m.timestamp_ms })}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
       {m.videos?.map((v, i) => (
@@ -22,7 +22,7 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
       {m.gifs?.map((g, i) => (
         <img key={i} src={r2(g.uri)} loading="lazy"
           className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1"
-          onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', caption: '' })}
+          onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', caption: '', msgId: m._id, ts: m.timestamp_ms })}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
       {m.sticker && (
@@ -116,21 +116,46 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 mb-0.5">
-            <span className={`font-bold text-sm ${block.mine ? 'text-blue-600' : 'text-gray-900'}`}>{block.sender}</span>
+            <span className={`text-sm font-semibold ${block.mine ? 'text-blue-600' : 'text-gray-900'}`}>{block.sender}</span>
           </div>
           {block.msgs.map((m, i) => (
             <div key={m._id ?? i} className="flex items-baseline gap-2">
               <div className="flex-1 min-w-0">
                 <span id={`msg-${m._id}`} className="hidden" />
-                {m.is_unsent
+                {m.media_failed
+                  ? <div className="text-[12px] text-gray-400 italic flex items-center gap-1.5">
+                      <span>🖼️</span><span>Media unavailable — Facebook could not export this file</span>
+                    </div>
+                  : m.content_unavailable
+                  ? <div className="text-[12px] text-gray-400 italic flex items-center gap-1.5">
+                      <span>📎</span><span>Content unavailable — legacy format not exported</span>
+                    </div>
+                  : m.ip
+                  ? <div className="text-[12px] text-gray-400 italic flex items-center gap-1.5">
+                      <span>📍</span><span>IP address logged: {m.ip}</span>
+                    </div>
+                  : m.is_unsent_image_by_messenger_kid_parent
+                  ? <div className="text-[13px] text-gray-400 italic">Message removed</div>
+                  : m.is_unsent
                   ? <div className="text-[13px] text-gray-400 italic">Message removed</div>
                   : m.call_duration != null
                     ? null
                     : (() => {
                         if (m.content !== 'You sent an attachment.') {
-                          return m.content ? <div className="text-sm leading-relaxed text-gray-900 break-words">{mapFbEmoji(m.content)}</div> : null
+                          if (!m.content) return null
+                          if (m.content === '[Link]') return (
+                            <div className="text-[12px] text-gray-400 italic">🔗 Link (URL not captured)</div>
+                          )
+                          if (m.type === 'link' || /^https?:\/\/\S+$/.test(m.content)) return (
+                            <div className="text-base leading-relaxed break-all">
+                              <a href={m.content} target="_blank" rel="noopener" className="text-blue-500 hover:underline">
+                                {m.content}
+                              </a>
+                            </div>
+                          )
+                          return <div className="text-base leading-relaxed text-gray-900 break-words whitespace-pre-wrap">{mapFbEmoji(m.content)}</div>
                         }
-                        const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share)
+                        const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
                         return hasMedia ? null : <div className="text-[12px] text-gray-300 italic">Attachment unavailable</div>
                       })()
                 }
