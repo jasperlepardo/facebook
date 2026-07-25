@@ -413,6 +413,10 @@ export default function ViewerApp() {
   async function applyHashtags(hashtagIds: string[], newNames: string[]) {
     const blockIds = hashtagPicker?.blockIds ?? []
 
+    // Close modal immediately — API work runs in the background
+    setHashtagPicker(null)
+    clearSelection()
+
     const tagBlocks = (hashtagId: string) =>
       fetch('/api/hashtag-groups', {
         method: 'POST',
@@ -420,22 +424,18 @@ export default function ViewerApp() {
         body: JSON.stringify({ hashtagId, blockIds }),
       })
 
-    // Tag blocks onto existing hashtags — one request per hashtag
-    await Promise.all(hashtagIds.map(tagBlocks))
-
-    // Create new hashtags then tag (resolve existing by name to avoid duplicates)
-    await Promise.all(newNames.map(async name => {
-      const alreadyExists = hashtags.find(h => h.name === name)
-      const id = alreadyExists
-        ? alreadyExists.id
-        : await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
-            .then(r => r.json()).then(d => d.doc?.id)
-      if (id) await tagBlocks(id)
-    }))
-
-    setHashtagPicker(null)
-    clearSelection()
-    reloadHashtags()
+    ;(async () => {
+      await Promise.all(hashtagIds.map(tagBlocks))
+      await Promise.all(newNames.map(async name => {
+        const alreadyExists = hashtags.find(h => h.name === name)
+        const id = alreadyExists
+          ? alreadyExists.id
+          : await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+              .then(r => r.json()).then(d => d.doc?.id)
+        if (id) await tagBlocks(id)
+      }))
+      reloadHashtags()
+    })()
   }
 
   // ─── Resizer ─────────────────────────────────────────────────────────────────
