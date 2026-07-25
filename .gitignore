@@ -30,3 +30,8 @@ __pycache__/
 ciara_conversation/
 .vercel
 .env*
+
+# local notes and scripts
+FIGHTS.md
+TIMELINE.md
+scripts/
