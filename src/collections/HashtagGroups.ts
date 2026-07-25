@@ -10,15 +10,17 @@ async function resyncHashtag(hashtagId: string, req: PayloadRequest) {
     depth: 0,
     overrideAccess: true,
   })
-  await req.payload.update({
-    collection: 'hashtags',
-    id: hashtagId,
-    data: {
-      groupCount: result.totalDocs,
-      ...(result.docs[0]?.firstMsgTs != null ? { firstMsgTs: result.docs[0].firstMsgTs } : {}),
-    },
-    overrideAccess: true,
-  })
+  try {
+    await req.payload.update({
+      collection: 'hashtags',
+      id: hashtagId,
+      data: {
+        groupCount: result.totalDocs,
+        ...(result.docs[0]?.firstMsgTs != null ? { firstMsgTs: result.docs[0].firstMsgTs } : {}),
+      },
+      overrideAccess: true,
+    })
+  } catch { /* hashtag may have been deleted — ignore */ }
 }
 
 export const HashtagGroups: CollectionConfig = {

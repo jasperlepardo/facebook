@@ -53,34 +53,58 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST { hashtagId, blockId } — idempotent tag
+// POST { hashtagId, blockIds: string[] } — idempotent batch tag
 export async function POST(req: NextRequest) {
   try {
-    const { hashtagId, blockId } = await req.json()
-    if (!hashtagId || !blockId) return NextResponse.json({ error: 'hashtagId and blockId required' }, { status: 400, headers: CORS })
+    const body = await req.json()
+    const hashtagId: string = body.hashtagId
+    // Support both single blockId and batch blockIds
+    const blockIds: string[] = body.blockIds ?? (body.blockId ? [body.blockId] : [])
+    if (!hashtagId || !blockIds.length) return NextResponse.json({ error: 'hashtagId and blockIds required' }, { status: 400, headers: CORS })
 
     const payload = await getPayload({ config })
+    const model = (payload.db as any).collections['hashtag-groups']
 
-    const existing = await payload.find({
-      collection: 'hashtag-groups',
-      where: { hashtagId: { equals: hashtagId }, blockId: { equals: blockId } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-    })
-    if (existing.totalDocs > 0) return NextResponse.json({ ok: true }, { headers: CORS })
+    // Find which blockIds already exist in one query
+    const existing = await model.find({ hashtagId, blockId: { $in: blockIds } }).lean()
+    const existingSet = new Set((existing as { blockId: string }[]).map(d => d.blockId))
+    const newBlockIds = blockIds.filter(bid => !existingSet.has(bid))
 
-    // messages is not a Payload collection — raw MongoDB for firstMsgTs lookup only
-    const msgs = await getMessages()
-    const msg = await msgs.findOne({ blockId }, { sort: { timestamp_ms: 1 } } as any)
-    const firstMsgTs: number | undefined = (msg as any)?.timestamp_ms
+    if (newBlockIds.length > 0) {
+      // Fetch firstMsgTs for all new blocks in one query
+      const msgs = await getMessages()
+      const msgDocs = await msgs.find(
+        { blockId: { $in: newBlockIds } },
+        { projection: { blockId: 1, timestamp_ms: 1 } }
+      ).sort({ timestamp_ms: 1 }).toArray()
+      const tsMap = new Map<string, number>()
+      for (const m of msgDocs) {
+        const bid = String(m.blockId)
+        if (!tsMap.has(bid)) tsMap.set(bid, m.timestamp_ms as number)
+      }
 
-    // afterChange hook on HashtagGroups will resync groupCount + firstMsgTs on Hashtag
-    await payload.create({
-      collection: 'hashtag-groups',
-      data: { hashtagId, blockId, ...(firstMsgTs !== undefined ? { firstMsgTs } : {}) },
-      overrideAccess: true,
-    })
+      // Bulk insert, bypassing per-doc hooks to avoid concurrent resyncs
+      const now = new Date()
+      await model.insertMany(newBlockIds.map(blockId => ({
+        hashtagId,
+        blockId,
+        ...(tsMap.has(blockId) ? { firstMsgTs: tsMap.get(blockId) } : {}),
+        createdAt: now,
+        updatedAt: now,
+        __v: 0,
+      })))
+
+      // Single resync after all inserts
+      const allGroups = await model.find({ hashtagId }).sort({ firstMsgTs: 1 }).lean() as { firstMsgTs?: number }[]
+      const groupCount = allGroups.length
+      const firstMsgTs = allGroups[0]?.firstMsgTs
+      await payload.update({
+        collection: 'hashtags',
+        id: hashtagId,
+        data: { groupCount, ...(firstMsgTs != null ? { firstMsgTs } : {}) },
+        overrideAccess: true,
+      })
+    }
 
     return NextResponse.json({ ok: true }, { headers: CORS })
   } catch (e) {

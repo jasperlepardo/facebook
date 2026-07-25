@@ -189,7 +189,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
           {(['context', 'messages'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2 text-xs font-semibold capitalize transition-colors ${activeTab === tab ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
-              {tab === 'messages' ? `Messages (${allMsgs.length})` : 'Context'}
+              {tab === 'messages' ? `Messages (${allMsgs.length} msgs · ${selected.groupCount ?? 0} blocks)` : 'Context'}
             </button>
           ))}
         </div>
@@ -324,7 +324,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
               className="w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors group">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-semibold text-blue-600">#{h.name}</span>
-                {count > 0 && <span className="text-[11px] text-gray-400">{count} message{count !== 1 ? 's' : ''}</span>}
+                {count > 0 && <span className="text-[11px] text-gray-400">{count} block{count !== 1 ? 's' : ''}</span>}
               </div>
               {h.context
                 ? <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{h.context}</p>

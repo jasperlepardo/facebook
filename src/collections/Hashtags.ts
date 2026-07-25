@@ -1,10 +1,20 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, PayloadRequest } from 'payload'
+
+async function deleteGroups(hashtagId: string, req: PayloadRequest) {
+  // Delete directly via the Mongoose model to bypass per-doc afterDelete hooks
+  // (each hook would try to resync the already-deleted hashtag and fail)
+  const model = (req.payload.db as any).collections['hashtag-groups']
+  await model.deleteMany({ hashtagId })
+}
 
 export const Hashtags: CollectionConfig = {
   slug: 'hashtags',
   versions: { maxPerDoc: 100 },
   access: { read: () => true, create: ({ req }) => !!req.user, update: ({ req }) => !!req.user, delete: ({ req }) => !!req.user },
   admin: { useAsTitle: 'name', defaultColumns: ['name', 'context', 'groupCount'] },
+  hooks: {
+    afterDelete: [({ doc, req }) => deleteGroups(doc.id, req)],
+  },
   fields: [
     { name: 'name', type: 'text', required: true, admin: { description: 'Hyphenated, e.g. first-date' } },
     { name: 'context', type: 'textarea' },

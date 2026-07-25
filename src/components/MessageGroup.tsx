@@ -79,7 +79,7 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
 interface MessageGroupProps {
   block: MessageBlock
   isSelected: boolean
-  onToggle: (id: string, ts: number, tsEnd: number, allIds: string[]) => void
+  onToggle: (id: string, ts: number, tsEnd: number, allIds: string[], blockId: string) => void
   onLightbox: (s: LightboxState) => void
   onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
 }
@@ -92,7 +92,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('a,button,audio,video,img')) return
-    onToggle(first._id, first.timestamp_ms, last.timestamp_ms, allIds)
+    onToggle(first._id, first.timestamp_ms, last.timestamp_ms, allIds, first.blockId ?? first._id)
   }
 
   return (
@@ -145,7 +145,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
           type="checkbox"
           checked={isSelected}
           onChange={() => {}}
-          onClick={e => { e.stopPropagation(); onToggle(first._id, first.timestamp_ms, last.timestamp_ms, allIds) }}
+          onClick={e => { e.stopPropagation(); onToggle(first._id, first.timestamp_ms, last.timestamp_ms, allIds, first.blockId ?? first._id) }}
           className="self-start mt-0.5 w-4 h-4 cursor-pointer opacity-0 group-hover:opacity-100 accent-blue-600 flex-shrink-0 transition-opacity"
           style={isSelected ? { opacity: 1 } : {}}
         />

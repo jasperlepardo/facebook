@@ -54,7 +54,7 @@ export default function ViewerApp() {
   const [hashtagPicker, setHashtagPicker] = useState<{ msgIds: string[]; blockIds: string[] } | null>(null)
 
   // Selection
-  const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[] }>())
+  const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[]; blockId: string }>())
 
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -353,10 +353,10 @@ export default function ViewerApp() {
 
   // ─── Selection ───────────────────────────────────────────────────────────────
 
-  function handleToggle(id: string, ts: number, tsEnd: number, allIds: string[]) {
+  function handleToggle(id: string, ts: number, tsEnd: number, allIds: string[], blockId: string) {
     setSelectedMsgs(prev => {
       const next = new Map(prev)
-      next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd, allIds })
+      next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd, allIds, blockId })
       return next
     })
   }
@@ -366,43 +366,34 @@ export default function ViewerApp() {
   }
 
   function openNoteFromSelection() {
-    const allIds = [...new Set([...selectedMsgs.values()].flatMap(v => v.allIds))]
-    const selectedMsgsData = messagesRef.current.filter(m => allIds.includes(m._id))
-    const blockIds = toBlockIds(selectedMsgsData, messagesRef.current)
+    const values = [...selectedMsgs.values()]
+    const allIds = [...new Set(values.flatMap(v => v.allIds))]
+    const blockIds = [...new Set(values.map(v => v.blockId).filter(Boolean))]
     setHashtagPicker({ msgIds: allIds, blockIds })
   }
 
   async function applyHashtags(hashtagIds: string[], newNames: string[]) {
     const blockIds = hashtagPicker?.blockIds ?? []
 
-    // Tag blocks onto existing hashtags
-    for (const hashtagId of hashtagIds) {
-      for (const blockId of blockIds) {
-        await fetch('/api/hashtag-groups', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hashtagId, blockId }),
-        })
-      }
-    }
+    const tagBlocks = (hashtagId: string) =>
+      fetch('/api/hashtag-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hashtagId, blockIds }),
+      })
+
+    // Tag blocks onto existing hashtags — one request per hashtag
+    await Promise.all(hashtagIds.map(tagBlocks))
 
     // Create new hashtags then tag (resolve existing by name to avoid duplicates)
-    for (const name of newNames) {
+    await Promise.all(newNames.map(async name => {
       const alreadyExists = hashtags.find(h => h.name === name)
       const id = alreadyExists
         ? alreadyExists.id
         : await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
             .then(r => r.json()).then(d => d.doc?.id)
-      if (id) {
-        for (const blockId of blockIds) {
-          await fetch('/api/hashtag-groups', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hashtagId: id, blockId }),
-          })
-        }
-      }
-    }
+      if (id) await tagBlocks(id)
+    }))
 
     setHashtagPicker(null)
     clearSelection()
