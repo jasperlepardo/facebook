@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
       const result = await payload.find({
         collection: 'hashtag-groups',
         where: { hashtagId: { equals: hashtagId } },
+        pagination: false,
         depth: 0,
         overrideAccess: true,
       })

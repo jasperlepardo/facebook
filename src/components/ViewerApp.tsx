@@ -386,17 +386,19 @@ export default function ViewerApp() {
       }
     }
 
-    // Create new hashtags then tag
+    // Create new hashtags then tag (resolve existing by name to avoid duplicates)
     for (const name of newNames) {
-      const res = await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
-      const created = await res.json()
-      const newId = created.doc?.id
-      if (newId) {
+      const alreadyExists = hashtags.find(h => h.name === name)
+      const id = alreadyExists
+        ? alreadyExists.id
+        : await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+            .then(r => r.json()).then(d => d.doc?.id)
+      if (id) {
         for (const blockId of blockIds) {
           await fetch('/api/hashtag-groups', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ hashtagId: newId, blockId }),
+            body: JSON.stringify({ hashtagId: id, blockId }),
           })
         }
       }

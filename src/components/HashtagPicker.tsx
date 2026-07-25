@@ -64,7 +64,8 @@ export default function HashtagPicker({ hashtags, blockIds, onClose, onApply }: 
     ? hashtags.filter(h => h.name.includes(input))
     : hashtags
 
-  const canApply = selected.size > 0 || newTags.length > 0
+  const pendingInput = input.trim()
+  const canApply = selected.size > 0 || newTags.length > 0 || !!pendingInput
 
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center">
@@ -110,7 +111,11 @@ export default function HashtagPicker({ hashtags, blockIds, onClose, onApply }: 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="px-3 py-1.5 text-sm text-gray-500 border border-gray-200 rounded-lg">Cancel</button>
           <button
-            onClick={() => canApply && onApply([...selected], newTags)}
+            onClick={() => {
+              if (!canApply) return
+              const allNew = pendingInput && !newTags.includes(pendingInput) ? [...newTags, pendingInput] : newTags
+              onApply([...selected], allNew)
+            }}
             disabled={!canApply}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg font-medium disabled:opacity-40"
           >Apply</button>

@@ -8,10 +8,11 @@ import { fmtDate } from '@/lib/format'
 import MessageGroup from './MessageGroup'
 import Lightbox from './Lightbox'
 
+const CHUNK = 60
+
 function buildBlocks(messages: Message[]): MessageBlock[] {
-  const sorted = [...messages].sort((a, b) => a.timestamp_ms - b.timestamp_ms)
   const groupMap = new Map<string, Message[]>()
-  for (const m of sorted) {
+  for (const m of messages) {
     const key = m.blockId!
     if (!groupMap.has(key)) groupMap.set(key, [])
     groupMap.get(key)!.push(m)
@@ -27,23 +28,6 @@ function buildBlocks(messages: Message[]): MessageBlock[] {
   }))
 }
 
-// Per-container lazy loader (same pattern as main chat)
-const ioCache = new Map<HTMLElement, IntersectionObserver>()
-function observeLazy(container: HTMLElement) {
-  let io = ioCache.get(container)
-  if (!io) {
-    io = new IntersectionObserver(entries => {
-      for (const { isIntersecting, target } of entries) {
-        if (!isIntersecting) continue
-        const el = target as HTMLImageElement | HTMLVideoElement | HTMLAudioElement
-        if (el.dataset.src) { el.src = el.dataset.src; delete el.dataset.src; io!.unobserve(el) }
-      }
-    }, { root: container, rootMargin: '300px' })
-    ioCache.set(container, io)
-  }
-  container.querySelectorAll<HTMLElement>('[data-src]').forEach(el => io!.observe(el))
-}
-
 interface HashtagsPaneProps {
   hashtags: Hashtag[]
   onReload: () => void
@@ -55,24 +39,46 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [activeTab, setActiveTab] = useState<'context' | 'messages'>('context')
   const [context, setContext] = useState('')
-  const [messages, setMessages] = useState<Message[]>([])
+  const [allMsgs, setAllMsgs] = useState<Message[]>([])
+  const [visibleCount, setVisibleCount] = useState(CHUNK)
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [editingContext, setEditingContext] = useState(false)
+  const [stickyDate, setStickyDate] = useState('')
   const ctxRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const nameRef = useRef<HTMLInputElement>(null)
   const newRef = useRef<HTMLInputElement>(null)
   const msgsScrollRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const allMsgsRef = useRef<Message[]>([])
+  allMsgsRef.current = allMsgs
 
-  useEffect(() => {
-    if (activeTab === 'messages' && msgsScrollRef.current) {
-      observeLazy(msgsScrollRef.current)
+  function handleMsgsScroll() {
+    const el = msgsScrollRef.current
+    if (!el) return
+    const top = el.getBoundingClientRect().top
+    let sticky = ''
+    for (const sep of el.querySelectorAll<HTMLElement>('.dsep')) {
+      if (sep.getBoundingClientRect().top <= top + 2) sticky = sep.textContent?.trim() ?? ''
+      else break
     }
-  }, [messages, activeTab])
+    setStickyDate(sticky)
+  }
+
+  // Expand visible window when sentinel enters view
+  useEffect(() => {
+    if (activeTab !== 'messages' || !sentinelRef.current || !msgsScrollRef.current) return
+    const io = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setVisibleCount(prev => Math.min(prev + CHUNK, allMsgsRef.current.length)) },
+      { root: msgsScrollRef.current, rootMargin: '300px' }
+    )
+    io.observe(sentinelRef.current)
+    return () => io.disconnect()
+  }, [activeTab, allMsgs.length, visibleCount])
 
   async function openDetail(h: Hashtag) {
     setSelected(h)
@@ -80,6 +86,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
     setActiveTab('context')
     setEditingName(false)
     setEditingContext(false)
+    setStickyDate('')
     await loadMessages(h)
   }
 
@@ -87,14 +94,16 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
     try {
       const res = await apiFetch<{ groups: { blockId: string }[] }>(`/api/hashtag-groups?hashtagId=${h.id}`)
       const blockIds = res.groups.map(g => g.blockId)
-      if (!blockIds.length) { setMessages([]); return }
+      if (!blockIds.length) { setAllMsgs([]); setVisibleCount(CHUNK); return }
       const data = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blockIds }),
       }).then(r => r.json())
-      setMessages((data.messages ?? []).sort((a: Message, b: Message) => a.timestamp_ms - b.timestamp_ms))
-    } catch { setMessages([]) }
+      const sorted = (data.messages ?? []).sort((a: Message, b: Message) => a.timestamp_ms - b.timestamp_ms)
+      setAllMsgs(sorted)
+      setVisibleCount(CHUNK)
+    } catch { setAllMsgs([]); setVisibleCount(CHUNK) }
   }
 
   function handleContextChange(v: string) {
@@ -146,7 +155,9 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
 
   // ─── Detail view ───────────────────────────────────────────────────────────
   if (selected) {
-    const msgCount = messages.length
+    const visibleMsgs = allMsgs.slice(0, visibleCount)
+    const blocks = buildBlocks(visibleMsgs)
+    const hasMore = visibleCount < allMsgs.length
 
     return (
       <>
@@ -178,12 +189,12 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
           {(['context', 'messages'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               className={`flex-1 py-2 text-xs font-semibold capitalize transition-colors ${activeTab === tab ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
-              {tab === 'messages' ? `Messages (${msgCount})` : 'Context'}
+              {tab === 'messages' ? `Messages (${allMsgs.length})` : 'Context'}
             </button>
           ))}
         </div>
 
-        {/* Tab content — each tab is its own independent scroll container */}
+        {/* Tab content */}
         <div className="flex-1 min-h-0 relative">
 
           {/* Context tab */}
@@ -228,13 +239,19 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
             </div>
           )}
 
-          {/* Messages tab — own scroll container so observeLazy root is correct */}
+          {/* Messages tab */}
           {activeTab === 'messages' && (
-            <div ref={msgsScrollRef} className="absolute inset-0 overflow-y-auto">
-              {messages.length === 0 && (
+            <div className="absolute inset-0 flex flex-col">
+              {stickyDate && (
+                <div className="absolute top-2 left-0 right-0 flex justify-center z-10 pointer-events-none">
+                  <span className="bg-white/90 border border-gray-200 rounded-full px-3 py-0.5 text-xs text-[#616061] font-semibold shadow-sm">{stickyDate}</span>
+                </div>
+              )}
+            <div ref={msgsScrollRef} onScroll={handleMsgsScroll} className="flex-1 overflow-y-auto">
+              {allMsgs.length === 0 && (
                 <p className="text-xs text-gray-400 text-center py-8">No messages tagged yet.</p>
               )}
-              {buildBlocks(messages).map((block, i) => (
+              {blocks.map((block, i) => (
                 <div key={block.msgs[0].blockId ?? i} className="relative group/block">
                   <MessageGroup
                     block={block}
@@ -254,6 +271,8 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
                   </div>
                 </div>
               ))}
+              {hasMore && <div ref={sentinelRef} className="h-8" />}
+            </div>
             </div>
           )}
 

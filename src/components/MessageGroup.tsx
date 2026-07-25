@@ -116,28 +116,28 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2 mb-0.5">
             <span className={`font-bold text-sm ${block.mine ? 'text-blue-600' : 'text-gray-900'}`}>{block.sender}</span>
-            <span className="text-[11px] text-gray-400 whitespace-nowrap">{fmtTime(first.timestamp_ms)}</span>
-            {first.blockId && <span className="text-[10px] text-gray-300 font-mono">grp:{first.blockId.slice(-6)}</span>}
           </div>
           {block.msgs.map((m, i) => (
-            <div key={m._id ?? i}>
-              <span id={`msg-${m._id}`} className="hidden" />
-              {m.is_unsent
-                ? <div className="text-[13px] text-gray-400 italic">Message removed</div>
-                : m.call_duration != null
-                  ? null
-                  : (() => {
-                      if (m.content !== 'You sent an attachment.') {
-                        return m.content ? <div className="text-sm leading-relaxed text-gray-900 break-words">{mapFbEmoji(m.content)}</div> : null
-                      }
-                      const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share)
-                      return hasMedia ? null : <div className="text-[12px] text-gray-300 italic">Attachment unavailable</div>
-                    })()
-              }
-              <Media m={m} onLightbox={onLightbox} />
-              <div className="text-[10px] text-gray-300 font-mono mt-0.5">
-                id:{m._id.slice(-6)} · grp:{(m.blockId ?? '—').slice(-6)}
+            <div key={m._id ?? i} className="flex items-baseline gap-2">
+              <div className="flex-1 min-w-0">
+                <span id={`msg-${m._id}`} className="hidden" />
+                {m.is_unsent
+                  ? <div className="text-[13px] text-gray-400 italic">Message removed</div>
+                  : m.call_duration != null
+                    ? null
+                    : (() => {
+                        if (m.content !== 'You sent an attachment.') {
+                          return m.content ? <div className="text-sm leading-relaxed text-gray-900 break-words">{mapFbEmoji(m.content)}</div> : null
+                        }
+                        const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share)
+                        return hasMedia ? null : <div className="text-[12px] text-gray-300 italic">Attachment unavailable</div>
+                      })()
+                }
+                <Media m={m} onLightbox={onLightbox} />
               </div>
+              <span className="text-[11px] text-gray-400 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                {fmtTime(m.timestamp_ms)}
+              </span>
             </div>
           ))}
         </div>
