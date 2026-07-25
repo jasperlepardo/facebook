@@ -56,6 +56,8 @@ export default function ViewerApp() {
   // Selection
   const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[]; blockId: string }>())
   const lastSelectedAnchor = useRef<{ id: string; ts: number; tsEnd: number } | null>(null)
+  const [preloadedHashtagIds, setPreloadedHashtagIds] = useState<Set<string> | null>(null)
+  const preloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -401,7 +403,22 @@ export default function ViewerApp() {
   function clearSelection() {
     setSelectedMsgs(new Map())
     lastSelectedAnchor.current = null
+    setPreloadedHashtagIds(null)
   }
+
+  // Preload hashtag membership whenever the selection settles
+  useEffect(() => {
+    clearTimeout(preloadTimer.current)
+    if (selectedMsgs.size === 0) { setPreloadedHashtagIds(null); return }
+    const blockIds = [...new Set([...selectedMsgs.values()].map(v => v.blockId).filter(Boolean))]
+    preloadTimer.current = setTimeout(() => {
+      fetch(`/api/hashtag-groups?blockIds=${blockIds.join(',')}`)
+        .then(r => r.json())
+        .then(d => setPreloadedHashtagIds(new Set<string>(d.hashtagIds ?? [])))
+        .catch(() => {})
+    }, 300)
+    return () => clearTimeout(preloadTimer.current)
+  }, [selectedMsgs])
 
   function openNoteFromSelection() {
     const values = [...selectedMsgs.values()]
@@ -410,10 +427,10 @@ export default function ViewerApp() {
     setHashtagPicker({ msgIds: allIds, blockIds })
   }
 
-  async function applyHashtags(hashtagIds: string[], newNames: string[]) {
-    const blockIds = hashtagPicker?.blockIds ?? []
+  function applyHashtags(hashtagIds: string[], newNames: string[]) {
+    const blockIds     = hashtagPicker?.blockIds ?? []
+    const snapHashtags = hashtags
 
-    // Close modal immediately — API work runs in the background
     setHashtagPicker(null)
     clearSelection()
 
@@ -424,18 +441,15 @@ export default function ViewerApp() {
         body: JSON.stringify({ hashtagId, blockIds }),
       })
 
-    ;(async () => {
-      await Promise.all(hashtagIds.map(tagBlocks))
-      await Promise.all(newNames.map(async name => {
-        const alreadyExists = hashtags.find(h => h.name === name)
-        const id = alreadyExists
-          ? alreadyExists.id
-          : await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
-              .then(r => r.json()).then(d => d.doc?.id)
-        if (id) await tagBlocks(id)
-      }))
-      reloadHashtags()
-    })()
+    // Create new hashtags first, then tag all blocks, then reload
+    Promise.all(newNames.map(name => {
+      const existing = snapHashtags.find(h => h.name === name)
+      if (existing) return Promise.resolve(existing.id as string | undefined)
+      return fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+        .then(r => r.json()).then(d => d.doc?.id as string | undefined)
+    }))
+      .then(ids => Promise.all([...hashtagIds, ...ids.filter((id): id is string => !!id)].map(tagBlocks)))
+      .then(() => reloadHashtags())
   }
 
   // ─── Resizer ─────────────────────────────────────────────────────────────────
@@ -583,6 +597,7 @@ export default function ViewerApp() {
         <HashtagPicker
           hashtags={hashtags}
           blockIds={hashtagPicker.blockIds}
+          initialSelected={preloadedHashtagIds ?? undefined}
           onClose={() => setHashtagPicker(null)}
           onApply={applyHashtags}
         />

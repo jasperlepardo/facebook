@@ -12,12 +12,14 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
-// GET ?hashtagId=xxx  → blockIds for that hashtag
-// GET ?blockId=xxx    → hashtagIds that contain that block
+// GET ?hashtagId=xxx           → groups for that hashtag
+// GET ?blockId=xxx             → hashtagIds for that block
+// GET ?blockIds=id1,id2,...    → union of hashtagIds across all blocks (batch pre-check)
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const hashtagId = searchParams.get('hashtagId')
-  const blockId   = searchParams.get('blockId')
+  const hashtagId  = searchParams.get('hashtagId')
+  const blockId    = searchParams.get('blockId')
+  const blockIds   = searchParams.get('blockIds')
 
   try {
     const payload = await getPayload({ config })
@@ -33,6 +35,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         groups: result.docs.map(d => ({ id: d.id, hashtagId: d.hashtagId, blockId: d.blockId, firstMsgTs: d.firstMsgTs })),
       }, { headers: CORS })
+    }
+
+    if (blockIds) {
+      const ids = blockIds.split(',').filter(Boolean)
+      const result = await payload.find({
+        collection: 'hashtag-groups',
+        where: { blockId: { in: ids } },
+        pagination: false,
+        depth: 0,
+        overrideAccess: true,
+      })
+      const hashtagIds = [...new Set(result.docs.map(d => d.hashtagId as string))]
+      return NextResponse.json({ hashtagIds }, { headers: CORS })
     }
 
     if (blockId) {

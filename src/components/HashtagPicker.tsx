@@ -6,29 +6,24 @@ import { toSlug } from '@/lib/utils'
 interface HashtagPickerProps {
   hashtags: Hashtag[]
   blockIds: string[]
+  initialSelected?: Set<string>
   onClose: () => void
-  onApply: (hashtagIds: string[], newNames: string[]) => Promise<void>
+  onApply: (hashtagIds: string[], newNames: string[]) => void
 }
 
-export default function HashtagPicker({ hashtags, blockIds, onClose, onApply }: HashtagPickerProps) {
+export default function HashtagPicker({ hashtags, blockIds, initialSelected, onClose, onApply }: HashtagPickerProps) {
   const [input, setInput] = useState('')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<Set<string>>(initialSelected ?? new Set())
   const [newTags, setNewTags] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  // Pre-check hashtags that already contain any of the selected blocks
+  // If preloaded data arrives after the modal opens, apply it once
   useEffect(() => {
-    if (!blockIds.length) return
-    Promise.all(
-      blockIds.map(bid => fetch(`/api/hashtag-groups?blockId=${bid}`).then(r => r.json()))
-    ).then(results => {
-      const ids = new Set(results.flatMap((r: { groups?: { hashtagId: string }[] }) => (r.groups ?? []).map(g => g.hashtagId)))
-      if (ids.size) setSelected(ids)
-    }).catch(() => {})
-  }, [blockIds])
+    if (initialSelected) setSelected(initialSelected)
+  }, [initialSelected])
 
   useEffect(() => {
     const handleEscapeKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -112,11 +107,11 @@ export default function HashtagPicker({ hashtags, blockIds, onClose, onApply }: 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} disabled={loading} className="px-3 py-1.5 text-sm text-gray-500 border border-gray-200 rounded-lg disabled:opacity-40">Cancel</button>
           <button
-            onClick={async () => {
+            onClick={() => {
               if (!canApply || loading) return
               const allNew = pendingInput && !newTags.includes(pendingInput) ? [...newTags, pendingInput] : newTags
               setLoading(true)
-              await onApply([...selected], allNew)
+              onApply([...selected], allNew)
             }}
             disabled={!canApply || loading}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg font-medium disabled:opacity-40 flex items-center gap-2 min-w-[64px] justify-center"
