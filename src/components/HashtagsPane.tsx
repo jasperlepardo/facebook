@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import { Hashtag, LightboxState, Message, MessageBlock } from '@/types'
 import { ME } from '@/lib/constants'
@@ -9,6 +10,7 @@ import MessageGroup from './MessageGroup'
 import Lightbox from './Lightbox'
 
 const CHUNK = 60
+const MAX_VISIBLE = CHUNK * 2  // max message blocks kept in DOM at once
 
 function buildBlocks(messages: Message[]): MessageBlock[] {
   const groupMap = new Map<string, Message[]>()
@@ -40,7 +42,9 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   const [activeTab, setActiveTab] = useState<'context' | 'messages'>('context')
   const [context, setContext] = useState('')
   const [allMsgs, setAllMsgs] = useState<Message[]>([])
-  const [visibleCount, setVisibleCount] = useState(CHUNK)
+  const [winStart, setWinStart] = useState(0)
+  const [winEnd, setWinEnd]   = useState(CHUNK)
+  const winRef = useRef({ start: 0, end: CHUNK })
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
   const [creating, setCreating] = useState(false)
@@ -52,10 +56,12 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const nameRef = useRef<HTMLInputElement>(null)
   const newRef = useRef<HTMLInputElement>(null)
-  const msgsScrollRef = useRef<HTMLDivElement>(null)
-  const sentinelRef = useRef<HTMLDivElement>(null)
+  const msgsScrollRef    = useRef<HTMLDivElement>(null)
+  const topSentinelRef   = useRef<HTMLDivElement>(null)
+  const botSentinelRef   = useRef<HTMLDivElement>(null)
   const allMsgsRef = useRef<Message[]>([])
   allMsgsRef.current = allMsgs
+  winRef.current = { start: winStart, end: winEnd }
 
   function handleMsgsScroll() {
     const el = msgsScrollRef.current
@@ -69,16 +75,51 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
     setStickyDate(sticky)
   }
 
-  // Expand visible window when sentinel enters view
+  // Bottom sentinel: append downward, cull from top
   useEffect(() => {
-    if (activeTab !== 'messages' || !sentinelRef.current || !msgsScrollRef.current) return
-    const io = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) setVisibleCount(prev => Math.min(prev + CHUNK, allMsgsRef.current.length)) },
-      { root: msgsScrollRef.current, rootMargin: '300px' }
-    )
-    io.observe(sentinelRef.current)
+    if (activeTab !== 'messages' || !botSentinelRef.current || !msgsScrollRef.current) return
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return
+      const all = allMsgsRef.current
+      const { start, end } = winRef.current
+      const newEnd = Math.min(end + CHUNK, all.length)
+      if (newEnd === end) return
+      const excess = (newEnd - start) - MAX_VISIBLE
+      if (excess > 0) {
+        const el = msgsScrollRef.current!
+        const prevH = el.scrollHeight
+        const newStart = start + excess
+        winRef.current = { start: newStart, end: newEnd }
+        flushSync(() => { setWinStart(newStart); setWinEnd(newEnd) })
+        el.scrollTop += el.scrollHeight - prevH
+      } else {
+        winRef.current = { start, end: newEnd }
+        setWinEnd(newEnd)
+      }
+    }, { root: msgsScrollRef.current, rootMargin: '300px' })
+    io.observe(botSentinelRef.current)
     return () => io.disconnect()
-  }, [activeTab, allMsgs.length, visibleCount])
+  }, [activeTab, winStart, winEnd, allMsgs.length])
+
+  // Top sentinel: append upward, cull from bottom
+  useEffect(() => {
+    if (activeTab !== 'messages' || !topSentinelRef.current || !msgsScrollRef.current || winStart === 0) return
+    const io = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return
+      const { start, end } = winRef.current
+      if (start === 0) return
+      const newStart = Math.max(0, start - CHUNK)
+      const excess = (end - newStart) - MAX_VISIBLE
+      const newEnd = excess > 0 ? end - excess : end
+      const el = msgsScrollRef.current!
+      const prevH = el.scrollHeight
+      winRef.current = { start: newStart, end: newEnd }
+      flushSync(() => { setWinStart(newStart); setWinEnd(newEnd) })
+      el.scrollTop += el.scrollHeight - prevH
+    }, { root: msgsScrollRef.current, rootMargin: '300px' })
+    io.observe(topSentinelRef.current)
+    return () => io.disconnect()
+  }, [activeTab, winStart, winEnd])
 
   async function openDetail(h: Hashtag) {
     setSelected(h)
@@ -94,16 +135,18 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
     try {
       const res = await apiFetch<{ groups: { blockId: string }[] }>(`/api/hashtag-groups?hashtagId=${h.id}`)
       const blockIds = res.groups.map(g => g.blockId)
-      if (!blockIds.length) { setAllMsgs([]); setVisibleCount(CHUNK); return }
+      if (!blockIds.length) { winRef.current = { start: 0, end: CHUNK }; setWinStart(0); setWinEnd(CHUNK); setAllMsgs([]); return }
       const data = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ blockIds }),
       }).then(r => r.json())
       const sorted = (data.messages ?? []).sort((a: Message, b: Message) => a.timestamp_ms - b.timestamp_ms)
+      const end = Math.min(CHUNK, sorted.length)
+      winRef.current = { start: 0, end }
+      setWinStart(0); setWinEnd(end)
       setAllMsgs(sorted)
-      setVisibleCount(CHUNK)
-    } catch { setAllMsgs([]); setVisibleCount(CHUNK) }
+    } catch { winRef.current = { start: 0, end: CHUNK }; setWinStart(0); setWinEnd(CHUNK); setAllMsgs([]) }
   }
 
   function handleContextChange(v: string) {
@@ -155,9 +198,10 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
 
   // ─── Detail view ───────────────────────────────────────────────────────────
   if (selected) {
-    const visibleMsgs = allMsgs.slice(0, visibleCount)
+    const visibleMsgs = allMsgs.slice(winStart, winEnd)
     const blocks = buildBlocks(visibleMsgs)
-    const hasMore = visibleCount < allMsgs.length
+    const hasMore   = winEnd < allMsgs.length
+    const hasBefore = winStart > 0
 
     return (
       <>
@@ -251,6 +295,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
               {allMsgs.length === 0 && (
                 <p className="text-xs text-gray-400 text-center py-8">No messages tagged yet.</p>
               )}
+              {hasBefore && <div ref={topSentinelRef} className="h-8" />}
               {blocks.map((block, i) => (
                 <div key={block.msgs[0].blockId ?? i} className="relative group/block">
                   <MessageGroup
@@ -271,7 +316,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
                   </div>
                 </div>
               ))}
-              {hasMore && <div ref={sentinelRef} className="h-8" />}
+              {hasMore && <div ref={botSentinelRef} className="h-8" />}
             </div>
             </div>
           )}
