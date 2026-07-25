@@ -55,6 +55,7 @@ export default function ViewerApp() {
 
   // Selection
   const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[]; blockId: string }>())
+  const lastSelectedAnchor = useRef<{ id: string; ts: number; tsEnd: number } | null>(null)
 
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -353,7 +354,43 @@ export default function ViewerApp() {
 
   // ─── Selection ───────────────────────────────────────────────────────────────
 
-  function handleToggle(id: string, ts: number, tsEnd: number, allIds: string[], blockId: string) {
+  async function handleToggle(id: string, ts: number, tsEnd: number, allIds: string[], blockId: string, shiftKey?: boolean) {
+    if (shiftKey && lastSelectedAnchor.current) {
+      const anchor = lastSelectedAnchor.current
+      const anchorIdx = blocks.findIndex(b => b.msgs[0]._id === anchor.id)
+      const clickedIdx = blocks.findIndex(b => b.msgs[0]._id === id)
+      if (anchorIdx !== -1 && clickedIdx !== -1) {
+        // Both visible in DOM — fast path
+        const [start, end] = anchorIdx < clickedIdx ? [anchorIdx, clickedIdx] : [clickedIdx, anchorIdx]
+        setSelectedMsgs(prev => {
+          const next = new Map(prev)
+          for (let i = start; i <= end; i++) {
+            const b = blocks[i]
+            const f = b.msgs[0]
+            const l = b.msgs[b.msgs.length - 1]
+            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map(m => m._id), blockId: f.blockId ?? f._id })
+          }
+          return next
+        })
+      } else {
+        // One or both blocks scrolled out of DOM — fetch full range by timestamp
+        const minTs = Math.min(anchor.ts, ts)
+        const maxTs = Math.max(anchor.tsEnd, tsEnd)
+        const data = await apiFetch<{ messages: Message[] }>(`/api/messages?tsFrom=${minTs}&tsTo=${maxTs}`)
+        const rangeBlocks = groupMessages(data.messages)
+        setSelectedMsgs(prev => {
+          const next = new Map(prev)
+          for (const b of rangeBlocks) {
+            const f = b.msgs[0]
+            const l = b.msgs[b.msgs.length - 1]
+            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map(m => m._id), blockId: f.blockId ?? f._id })
+          }
+          return next
+        })
+      }
+      return
+    }
+    lastSelectedAnchor.current = { id, ts, tsEnd }
     setSelectedMsgs(prev => {
       const next = new Map(prev)
       next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd, allIds, blockId })
@@ -363,6 +400,7 @@ export default function ViewerApp() {
 
   function clearSelection() {
     setSelectedMsgs(new Map())
+    lastSelectedAnchor.current = null
   }
 
   function openNoteFromSelection() {
@@ -508,7 +546,7 @@ export default function ViewerApp() {
           <div
             ref={chatRef}
             onScroll={handleScroll}
-            className="flex-1 overflow-y-auto flex flex-col min-h-0"
+            className={`flex-1 overflow-y-auto flex flex-col min-h-0${selectedMsgs.size > 0 ? ' select-none' : ''}`}
             style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
           >
             {searching && <div className="text-center py-2 text-[13px] text-gray-500">Searching…</div>}

@@ -48,6 +48,13 @@ export async function GET(req: NextRequest) {
   try {
     const msgs = await getMessages()
 
+    const tsFrom = searchParams.get('tsFrom')
+    const tsTo   = searchParams.get('tsTo')
+    if (tsFrom && tsTo) {
+      const docs = await msgs.find({ timestamp_ms: { $gte: parseInt(tsFrom), $lte: parseInt(tsTo) } }).sort({ timestamp_ms: 1 }).toArray()
+      return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
+    }
+
     if (groupIdsParam) {
       const rawIds = groupIdsParam.split(',').filter(Boolean)
       const blockIds = rawIds.map(id => { try { return new ObjectId(id) } catch { return id as unknown as ObjectId } })
