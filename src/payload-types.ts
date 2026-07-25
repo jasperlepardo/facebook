@@ -69,6 +69,7 @@ export interface Config {
     users: User;
     notes: Note;
     hashtags: Hashtag;
+    'hashtag-groups': HashtagGroup;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -78,6 +79,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     notes: NotesSelect<false> | NotesSelect<true>;
     hashtags: HashtagsSelect<false> | HashtagsSelect<true>;
+    'hashtag-groups': HashtagGroupsSelect<false> | HashtagGroupsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -188,12 +190,24 @@ export interface Hashtag {
   name: string;
   context?: string | null;
   /**
-   * Comma-separated group anchor IDs (first message _id of each groupMessages block)
+   * Timestamp (ms) of the earliest tagged message group — used for sorting
    */
-  groupIds?: string | null;
+  firstMsgTs?: number | null;
   /**
-   * Timestamp (ms) of the earliest tagged message — used for sorting
+   * Number of tagged message groups
    */
+  groupCount?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hashtag-groups".
+ */
+export interface HashtagGroup {
+  id: string;
+  hashtagId: string;
+  blockId: string;
   firstMsgTs?: number | null;
   updatedAt: string;
   createdAt: string;
@@ -216,6 +230,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'hashtags';
         value: string | Hashtag;
+      } | null)
+    | ({
+        relationTo: 'hashtag-groups';
+        value: string | HashtagGroup;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -298,7 +316,18 @@ export interface NotesSelect<T extends boolean = true> {
 export interface HashtagsSelect<T extends boolean = true> {
   name?: T;
   context?: T;
-  groupIds?: T;
+  firstMsgTs?: T;
+  groupCount?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "hashtag-groups_select".
+ */
+export interface HashtagGroupsSelect<T extends boolean = true> {
+  hashtagId?: T;
+  blockId?: T;
   firstMsgTs?: T;
   updatedAt?: T;
   createdAt?: T;

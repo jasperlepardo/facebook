@@ -4,9 +4,9 @@ import { LightboxState } from '@/types'
 
 export default function Lightbox({ state, onClose }: { state: LightboxState; onClose: () => void }) {
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
   return (

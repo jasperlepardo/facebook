@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Hashtag, LightboxState, Message, MessageBlock } from '@/types'
 import { ME } from '@/lib/constants'
+import { apiFetch, toSlug } from '@/lib/utils'
 import { fmtDate } from '@/lib/format'
 import MessageGroup from './MessageGroup'
 import Lightbox from './Lightbox'
@@ -43,19 +44,13 @@ function observeLazy(container: HTMLElement) {
   container.querySelectorAll<HTMLElement>('[data-src]').forEach(el => io!.observe(el))
 }
 
-interface Props {
+interface HashtagsPaneProps {
   hashtags: Hashtag[]
   onReload: () => void
   onJumpToMessage: (ts: number, msgId: string) => void
 }
 
-async function apiFetch<T>(url: string): Promise<T> {
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(String(r.status))
-  return r.json()
-}
-
-export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Props) {
+export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: HashtagsPaneProps) {
   const [filter, setFilter] = useState('')
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [activeTab, setActiveTab] = useState<'context' | 'messages'>('context')
@@ -89,18 +84,16 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
   }
 
   async function loadMessages(h: Hashtag) {
-    const ids = (h.groupIds ?? '').split(',').filter(Boolean)
-    if (!ids.length) { setMessages([]); return }
     try {
-      const CHUNK = 150
-      const chunks: string[][] = []
-      for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
-      const results = await Promise.all(
-        chunks.map(chunk => apiFetch<{ messages: Message[] }>(`/api/messages?groupIds=${chunk.join(',')}`))
-      )
-      const all = results.flatMap(r => r.messages ?? [])
-      all.sort((a, b) => a.timestamp_ms - b.timestamp_ms)
-      setMessages(all)
+      const res = await apiFetch<{ groups: { blockId: string }[] }>(`/api/hashtag-groups?hashtagId=${h.id}`)
+      const blockIds = res.groups.map(g => g.blockId)
+      if (!blockIds.length) { setMessages([]); return }
+      const data = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blockIds }),
+      }).then(r => r.json())
+      setMessages((data.messages ?? []).sort((a: Message, b: Message) => a.timestamp_ms - b.timestamp_ms))
     } catch { setMessages([]) }
   }
 
@@ -132,11 +125,14 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
 
   async function removeGroup(blockId: string) {
     if (!selected) return
-    const ids = (selected.groupIds ?? '').split(',').filter(id => id && id !== blockId)
-    const updated = { ...selected, groupIds: ids.join(',') }
-    await fetch(`/api/hashtags/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groupIds: updated.groupIds }) })
-    setSelected(updated)
-    await loadMessages(updated)
+    await fetch('/api/hashtag-groups', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hashtagId: selected.id, blockId }),
+    })
+    setSelected(prev => prev ? { ...prev, groupCount: Math.max(0, (prev.groupCount ?? 1) - 1) } : prev)
+    await loadMessages(selected)
+    onReload()
   }
 
   async function deleteHashtag() {
@@ -145,8 +141,6 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
     setSelected(null)
     onReload()
   }
-
-  function toSlug(v: string) { return v.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').toLowerCase() }
 
   const filtered = filter ? hashtags.filter(h => h.name.includes(filter.toLowerCase())) : hashtags
 
@@ -305,7 +299,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Pr
           <p className="text-xs text-gray-400 text-center py-8">{filter ? 'No matches.' : 'No hashtags yet. Create one above.'}</p>
         )}
         {filtered.map(h => {
-          const count = (h.groupIds ?? '').split(',').filter(Boolean).length
+          const count = h.groupCount ?? 0
           return (
             <button key={h.id} onClick={() => openDetail(h)}
               className="w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors group">

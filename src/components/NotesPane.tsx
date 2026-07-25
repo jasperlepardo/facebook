@@ -4,7 +4,7 @@ import { Note } from '@/types'
 import { TAG_COLORS, TAG_LABELS } from '@/lib/constants'
 import { fmtDateRange } from '@/lib/format'
 
-interface Props {
+interface NotesPaneProps {
   notes: Note[]
   onEdit: (note: Note) => void
   onNew: () => void
@@ -13,7 +13,7 @@ interface Props {
   onContextMenu: (e: React.MouseEvent, note: Note) => void
 }
 
-export default function NotesPane({ notes, onEdit, onNew, onJumpToDate, onJumpToMessage, onContextMenu }: Props) {
+export default function NotesPane({ notes, onEdit, onNew, onJumpToDate, onJumpToMessage, onContextMenu }: NotesPaneProps) {
   const [filter, setFilter] = useState('')
 
   const filtered = useMemo(() => {

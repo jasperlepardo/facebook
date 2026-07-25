@@ -17,3 +17,4 @@ export async function getMessages() {
 export async function getSettings() {
   return (await getClient()).db('ciara-notes').collection('settings')
 }
+

@@ -1,8 +1,9 @@
 'use client'
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import { flushSync } from 'react-dom'
-import { Message, Note, Tab, LightboxState, CtxMenuState, GalleryItem, Hashtag } from '@/types'
+import { Message, Note, Tab, LightboxState, ContextMenuState, GalleryItem, Hashtag } from '@/types'
 import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
+import { apiFetch } from '@/lib/utils'
 import { groupMessages } from '@/lib/groupMessages'
 import MessageGroup from './MessageGroup'
 import HashtagsPane from './HashtagsPane'
@@ -12,12 +13,6 @@ import Gallery from './Gallery'
 import FilesView from './FilesView'
 import Lightbox from './Lightbox'
 import ContextMenu from './ContextMenu'
-
-async function apiFetch<T>(url: string): Promise<T> {
-  const r = await fetch(url)
-  if (!r.ok) throw new Error(String(r.status))
-  return r.json()
-}
 
 // Given a set of selected messages and the full visible message list,
 // return the anchor ID (first _id) of each groupMessages block that contains a selected message.
@@ -56,14 +51,14 @@ export default function ViewerApp() {
 
   // Hashtags
   const [hashtags, setHashtags]         = useState<Hashtag[]>([])
-  const [hashtagPicker, setHashtagPicker] = useState<string[] | null>(null) // null=closed, string[]=msgIds to tag
+  const [hashtagPicker, setHashtagPicker] = useState<{ msgIds: string[]; blockIds: string[] } | null>(null)
 
   // Selection
   const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[] }>())
 
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
-  const [ctxMenu, setCtxMenu]   = useState<CtxMenuState | null>(null)
+  const [ctxMenu, setCtxMenu]   = useState<ContextMenuState | null>(null)
 
   // Notes pane width (resizable)
   const [notesWidth, setNotesWidth] = useState('50%')
@@ -71,12 +66,12 @@ export default function ViewerApp() {
   // Refs
   const chatRef       = useRef<HTMLDivElement>(null)
   const deviceId      = useRef('')
-  const bkLast        = useRef(0)
+  const lastBookmarkTime = useRef(0)
   const pendingJump   = useRef<string | null>(null)
   const queuedLoad    = useRef<'older' | 'newer' | null>(null)
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  const setMsg = (msgs: Message[]) => {
+  const applyMessages = (msgs: Message[]) => {
     const seen = new Set<string>()
     const deduped = msgs.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
     messagesRef.current = deduped
@@ -84,7 +79,7 @@ export default function ViewerApp() {
   }
 
   const reloadHashtags = useCallback(async () => {
-    const d = await apiFetch<{ docs: Hashtag[] }>('/api/hashtags?limit=200&sort=name&depth=0')
+    const d = await apiFetch<{ docs: Hashtag[] }>('/api/hashtags?limit=200&sort=firstMsgTs&depth=0')
     setHashtags(d.docs ?? [])
   }, [])
 
@@ -125,7 +120,7 @@ export default function ViewerApp() {
       const combined = [...data.messages, ...prev]
 
       // Step 1: prepend only — formula correct for pure prepend
-      flushSync(() => setMsg(combined))
+      flushSync(() => applyMessages(combined))
       if (el) {
         const newScrollTop = prevTop + el.scrollHeight - prevH
         el.scrollTop = newScrollTop
@@ -142,7 +137,7 @@ export default function ViewerApp() {
         const estCullH = Math.round(currentH * excess / combined.length)
         if (currentTop <= currentH - estCullH - clientH) {
           upperOffset.current -= excess
-          flushSync(() => setMsg(combined.slice(0, MAX_DOM)))
+          flushSync(() => applyMessages(combined.slice(0, MAX_DOM)))
         }
         // else: skip cull — DOM temporarily > MAX_DOM; will cull on next prepend
       }
@@ -157,7 +152,7 @@ export default function ViewerApp() {
         const culled = deduped.slice(-MAX_DOM)
 
         // Step 1: append only — no scroll adjustment (new content appears below viewport)
-        flushSync(() => setMsg(deduped))
+        flushSync(() => applyMessages(deduped))
 
         // Step 2: cull top only if user is safely above the culled region.
         // Estimate culled height proportionally; if scrollTop < culledH, skip to avoid clamping.
@@ -167,16 +162,16 @@ export default function ViewerApp() {
         const estCullH = Math.round(prevH2 * excess / deduped.length)
         if (prevTop2 > estCullH) {
           lowerOffset.current += excess
-          flushSync(() => setMsg(culled))
+          flushSync(() => applyMessages(culled))
           if (el) el.scrollTop = prevTop2 + el.scrollHeight - prevH2
         }
         // else: skip cull — DOM temporarily > MAX_DOM; will cull on next append
       } else {
-        setMsg(deduped)
+        applyMessages(deduped)
       }
     } else {
       upperOffset.current = lowerOffset.current + count
-      setMsg(data.messages)
+      applyMessages(data.messages)
       if (chatRef.current) chatRef.current.scrollTop = 0
     }
   }
@@ -234,8 +229,8 @@ export default function ViewerApp() {
     const id = deviceId.current
     if (id && !searchRef.current) {
       const now = Date.now()
-      if (now - bkLast.current >= 300) {
-        bkLast.current = now
+      if (now - lastBookmarkTime.current >= 300) {
+        lastBookmarkTime.current = now
         for (const g of el.querySelectorAll<HTMLElement>('.msg-group')) {
           const rect = g.getBoundingClientRect()
           if (rect.bottom > chatTop) {
@@ -372,26 +367,41 @@ export default function ViewerApp() {
 
   function openNoteFromSelection() {
     const allIds = [...new Set([...selectedMsgs.values()].flatMap(v => v.allIds))]
-    setHashtagPicker(allIds)
+    const selectedMsgsData = messagesRef.current.filter(m => allIds.includes(m._id))
+    const blockIds = toBlockIds(selectedMsgsData, messagesRef.current)
+    setHashtagPicker({ msgIds: allIds, blockIds })
   }
 
   async function applyHashtags(hashtagIds: string[], newNames: string[]) {
-    const msgIdList = hashtagPicker ?? []
-    // Convert selected message IDs → group anchor IDs (first _id of each groupMessages block)
-    const selectedMsgsData = messagesRef.current.filter(m => msgIdList.includes(m._id))
-    const anchorIds = toBlockIds(selectedMsgsData, messagesRef.current)
-    // Add to existing hashtags
-    for (const id of hashtagIds) {
-      const h = hashtags.find(x => x.id === id)
-      if (!h) continue
-      const existing = (h.groupIds ?? '').split(',').filter(Boolean)
-      const merged = [...new Set([...existing, ...anchorIds])].join(',')
-      await fetch(`/api/hashtags/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groupIds: merged }) })
+    const blockIds = hashtagPicker?.blockIds ?? []
+
+    // Tag blocks onto existing hashtags
+    for (const hashtagId of hashtagIds) {
+      for (const blockId of blockIds) {
+        await fetch('/api/hashtag-groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hashtagId, blockId }),
+        })
+      }
     }
-    // Create new hashtags
+
+    // Create new hashtags then tag
     for (const name of newNames) {
-      await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, groupIds: anchorIds.join(',') }) })
+      const res = await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+      const created = await res.json()
+      const newId = created.doc?.id
+      if (newId) {
+        for (const blockId of blockIds) {
+          await fetch('/api/hashtag-groups', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hashtagId: newId, blockId }),
+          })
+        }
+      }
     }
+
     setHashtagPicker(null)
     clearSelection()
     reloadHashtags()
@@ -437,7 +447,9 @@ export default function ViewerApp() {
 
   function handleMsgContextMenu(e: React.MouseEvent, msgIds: string[]) {
     e.preventDefault()
-    setHashtagPicker(msgIds)
+    const selectedMsgsData = messagesRef.current.filter(m => msgIds.includes(m._id))
+    const blockIds = toBlockIds(selectedMsgsData, messagesRef.current)
+    setHashtagPicker({ msgIds, blockIds })
   }
 
   // ─── Tabs ────────────────────────────────────────────────────────────────────
@@ -539,6 +551,7 @@ export default function ViewerApp() {
       {hashtagPicker && (
         <HashtagPicker
           hashtags={hashtags}
+          blockIds={hashtagPicker.blockIds}
           onClose={() => setHashtagPicker(null)}
           onApply={applyHashtags}
         />

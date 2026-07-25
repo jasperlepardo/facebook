@@ -1,14 +1,16 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { Hashtag } from '@/types'
+import { toSlug } from '@/lib/utils'
 
-interface Props {
+interface HashtagPickerProps {
   hashtags: Hashtag[]
+  blockIds: string[]
   onClose: () => void
   onApply: (hashtagIds: string[], newNames: string[]) => void
 }
 
-export default function HashtagPicker({ hashtags, onClose, onApply }: Props) {
+export default function HashtagPicker({ hashtags, blockIds, onClose, onApply }: HashtagPickerProps) {
   const [input, setInput] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [newTags, setNewTags] = useState<string[]>([])
@@ -16,15 +18,22 @@ export default function HashtagPicker({ hashtags, onClose, onApply }: Props) {
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
+  // Pre-check hashtags that already contain any of the selected blocks
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [onClose])
+    if (!blockIds.length) return
+    Promise.all(
+      blockIds.map(bid => fetch(`/api/hashtag-groups?blockId=${bid}`).then(r => r.json()))
+    ).then(results => {
+      const ids = new Set(results.flatMap((r: { groups?: { hashtagId: string }[] }) => (r.groups ?? []).map(g => g.hashtagId)))
+      if (ids.size) setSelected(ids)
+    }).catch(() => {})
+  }, [blockIds])
 
-  function toSlug(v: string) {
-    return v.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').toLowerCase()
-  }
+  useEffect(() => {
+    const handleEscapeKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleEscapeKey)
+    return () => document.removeEventListener('keydown', handleEscapeKey)
+  }, [onClose])
 
   function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
     setInput(toSlug(e.target.value))
@@ -93,7 +102,7 @@ export default function HashtagPicker({ hashtags, onClose, onApply }: Props) {
             <label key={h.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50">
               <input type="checkbox" checked={selected.has(h.id)} onChange={() => toggleExisting(h.id)} className="accent-blue-600" />
               <span className="text-sm text-gray-700">#{h.name}</span>
-              <span className="ml-auto text-xs text-gray-400">{(h.groupIds || '').split(',').filter(Boolean).length}</span>
+              <span className="ml-auto text-xs text-gray-400">{h.groupCount ?? 0}</span>
             </label>
           ))}
         </div>

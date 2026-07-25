@@ -1,21 +1,21 @@
 'use client'
 import { useEffect, useRef } from 'react'
-import { CtxMenuState, Note } from '@/types'
+import { ContextMenuState, Note } from '@/types'
 
-interface Props {
-  state: CtxMenuState
+interface ContextMenuProps {
+  state: ContextMenuState
   onClose: () => void
   onEditNote: (note: Note) => void
   onJumpToMessage: (ts: string, msgId: string | null) => void
 }
 
-export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessage }: Props) {
+export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessage }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
-    document.addEventListener('click', h, true)
-    return () => document.removeEventListener('click', h, true)
+    const handleOutsideClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
+    document.addEventListener('click', handleOutsideClick, true)
+    return () => document.removeEventListener('click', handleOutsideClick, true)
   }, [onClose])
 
   const left = Math.min(state.x, window.innerWidth - 145)

@@ -4,14 +4,14 @@ import { Note } from '@/types'
 import { ALL_TAGS, TAG_LABELS } from '@/lib/constants'
 import { fmtDateRange } from '@/lib/format'
 
-interface Props {
+interface NoteModalProps {
   note: Note | null
   msgIds: string[]
   onClose: () => void
   onSaved: () => void
 }
 
-export default function NoteModal({ note, msgIds, onClose, onSaved }: Props) {
+export default function NoteModal({ note, msgIds, onClose, onSaved }: NoteModalProps) {
   const [start, setStart]   = useState(note?.start ?? '')
   const [end, setEnd]       = useState(note?.end ?? '')
   const [title, setTitle]   = useState(note?.title ?? '')
@@ -32,17 +32,17 @@ export default function NoteModal({ note, msgIds, onClose, onSaved }: Props) {
 
   async function save() {
     setSaving(true)
-    const payload = { start, end: end || null, title, body, tags, msgIds: msgIds.length ? msgIds.join(',') : null }
+    const data = { start, end: end || null, title, body, tags, msgIds: msgIds.length ? msgIds.join(',') : null }
     try {
-      if (note) await fetch(`/api/notes/${note.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-      else       await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      if (note) await fetch(`/api/notes/${note.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+      else       await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
       onSaved()
       onClose()
     } catch { alert('Save failed') }
     finally { setSaving(false) }
   }
 
-  async function del() {
+  async function deleteNote() {
     if (!note || !confirm('Delete this note?')) return
     try {
       await fetch(`/api/notes/${note.id}`, { method: 'DELETE' })
@@ -97,7 +97,7 @@ export default function NoteModal({ note, msgIds, onClose, onSaved }: Props) {
 
         <div className="flex justify-between items-center mt-4 pt-3.5 border-t border-gray-200">
           {note
-            ? <button onClick={del} className="px-3.5 py-1.5 border border-red-500 text-red-500 rounded text-[13px] hover:bg-red-50">Delete</button>
+            ? <button onClick={deleteNote} className="px-3.5 py-1.5 border border-red-500 text-red-500 rounded text-[13px] hover:bg-red-50">Delete</button>
             : <span />
           }
           <div className="flex gap-2">

@@ -4,7 +4,7 @@ import { getMessages } from '@/lib/db'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
 }
 
@@ -17,6 +17,21 @@ function clean(doc: Record<string, unknown>) {
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
+}
+
+// POST { blockIds: string[] } — fetch all messages for a set of blocks (no URL length limit)
+export async function POST(req: NextRequest) {
+  try {
+    const { blockIds: rawIds } = await req.json()
+    if (!Array.isArray(rawIds) || !rawIds.length) return NextResponse.json({ messages: [] }, { headers: CORS })
+    const msgs = await getMessages()
+    // blockId in MongoDB is stored as ObjectId (same type as _id)
+    const blockIds = rawIds.map(id => { try { return new ObjectId(id) } catch { return id as unknown as ObjectId } })
+    const docs = await msgs.find({ blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
+    return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
+  } catch (e: unknown) {
+    return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
+  }
 }
 
 const GROUP_GAP = 5 * 60_000
@@ -34,7 +49,8 @@ export async function GET(req: NextRequest) {
     const msgs = await getMessages()
 
     if (groupIdsParam) {
-      const blockIds = groupIdsParam.split(',').filter(Boolean)
+      const rawIds = groupIdsParam.split(',').filter(Boolean)
+      const blockIds = rawIds.map(id => { try { return new ObjectId(id) } catch { return id as unknown as ObjectId } })
       const docs = await msgs.find({ blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
       return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
     }

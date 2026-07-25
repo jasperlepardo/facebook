@@ -76,7 +76,7 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
   )
 }
 
-interface Props {
+interface MessageGroupProps {
   block: MessageBlock
   isSelected: boolean
   onToggle: (id: string, ts: number, tsEnd: number, allIds: string[]) => void
@@ -84,7 +84,7 @@ interface Props {
   onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
 }
 
-const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox, onContextMenu }: Props) {
+const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox, onContextMenu }: MessageGroupProps) {
   const first = block.msgs[0]
   const last  = block.msgs[block.msgs.length - 1]
 
@@ -125,10 +125,14 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
               {m.is_unsent
                 ? <div className="text-[13px] text-gray-400 italic">Message removed</div>
                 : m.call_duration != null
-                  ? null // call rendering handled in Media
-                  : m.share
-                    ? (m.content && m.content !== 'You sent an attachment.' && <div className="text-sm leading-relaxed text-gray-900 break-words">{mapFbEmoji(m.content)}</div>)
-                    : m.content && <div className="text-sm leading-relaxed text-gray-900 break-words">{mapFbEmoji(m.content)}</div>
+                  ? null
+                  : (() => {
+                      if (m.content !== 'You sent an attachment.') {
+                        return m.content ? <div className="text-sm leading-relaxed text-gray-900 break-words">{mapFbEmoji(m.content)}</div> : null
+                      }
+                      const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share)
+                      return hasMedia ? null : <div className="text-[12px] text-gray-300 italic">Attachment unavailable</div>
+                    })()
               }
               <Media m={m} onLightbox={onLightbox} />
               <div className="text-[10px] text-gray-300 font-mono mt-0.5">

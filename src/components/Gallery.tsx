@@ -2,15 +2,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { GalleryItem, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
-import { GLIMIT } from '@/lib/constants'
+import { GALLERY_LIMIT } from '@/lib/constants'
 
-interface Props {
+interface GalleryProps {
   type: 'photos' | 'videos'
   onLightbox: (s: LightboxState) => void
   onContextMenu: (e: React.MouseEvent, item: GalleryItem) => void
 }
 
-export default function Gallery({ type, onLightbox, onContextMenu }: Props) {
+export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProps) {
   const [items, setItems]     = useState<GalleryItem[]>([])
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
@@ -21,11 +21,11 @@ export default function Gallery({ type, onLightbox, onContextMenu }: Props) {
   async function load() {
     if (!hasMore || loading) return
     setLoading(true)
-    const res = await fetch(`/api/attachments?type=${type}&offset=${offset.current}&limit=${GLIMIT}`)
+    const res = await fetch(`/api/attachments?type=${type}&offset=${offset.current}&limit=${GALLERY_LIMIT}`)
     const data = await res.json()
     setItems(prev => [...prev, ...data.items])
     setHasMore(data.has_more)
-    offset.current += GLIMIT
+    offset.current += GALLERY_LIMIT
     setLoading(false)
   }
 

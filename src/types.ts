@@ -51,7 +51,7 @@ export interface LightboxState {
   caption: string
 }
 
-export interface CtxMenuState {
+export interface ContextMenuState {
   x: number
   y: number
   kind: 'note' | 'gallery'
@@ -66,5 +66,13 @@ export interface Hashtag {
   id: string
   name: string
   context?: string
-  groupIds?: string
+  firstMsgTs?: number
+  groupCount?: number
+}
+
+export interface HashtagGroup {
+  id: string
+  hashtagId: string
+  blockId: string
+  firstMsgTs?: number
 }
