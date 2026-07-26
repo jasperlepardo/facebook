@@ -6,7 +6,7 @@ import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
 import { apiFetch } from '@/lib/utils'
 import { r2 } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
-import MessageGroup from './MessageGroup'
+import MessageGroup, { DateMenu } from './MessageGroup'
 import HashtagsPane from './HashtagsPane'
 import HashtagPicker from './HashtagPicker'
 import NoteModal from './NoteModal'
@@ -50,7 +50,6 @@ export default function ViewerApp() {
   const [searchInput, setSearchInput] = useState('')
   const searchRef   = useRef('')
   const [chatVisible, setChatVisible] = useState(false)
-  const [stickyDate, setStickyDate]   = useState('')
   const [currentUser, setCurrentUser] = useState('')
 
   // Hashtags
@@ -256,14 +255,7 @@ export default function ViewerApp() {
     const el = chatRef.current
     if (!el) return
 
-    // Sticky date
     const chatTop = el.getBoundingClientRect().top
-    let sticky = ''
-    for (const sep of el.querySelectorAll<HTMLElement>('.dsep')) {
-      if (sep.getBoundingClientRect().top <= chatTop + 2) sticky = sep.textContent?.trim() ?? ''
-      else break
-    }
-    setStickyDate(sticky)
 
     // Bookmark
     const id = deviceId.current
@@ -656,11 +648,6 @@ export default function ViewerApp() {
         <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
 
           {/* Sticky date */}
-          {stickyDate && (
-            <div className="absolute top-2 left-0 right-0 flex justify-center z-10 pointer-events-none">
-              <span className="bg-white/93 border border-gray-200 rounded-full px-4 py-0.5 text-xs text-[#616061] font-semibold shadow-sm">{stickyDate}</span>
-            </div>
-          )}
 
           {/* Selection bar */}
           {selectedMsgs.size > 0 && (
@@ -679,16 +666,43 @@ export default function ViewerApp() {
             style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
           >
             {searching && <div className="text-center py-2 text-[13px] text-gray-500">Searching…</div>}
-            {currentTab === 'chat' && blocks.map((b, i) => (
-              <MessageGroup
-                key={b.msgs[0]._id ?? i}
-                block={b}
-                isSelected={selectedMsgs.has(b.msgs[0]._id)}
-                onToggle={handleToggle}
-                onLightbox={handleMsgLightbox}
-                onContextMenu={handleMsgContextMenu}
-              />
-            ))}
+            {currentTab === 'chat' && (() => {
+              const jumpTo = async (target: string) => {
+                if (target === 'recent') {
+                  const d = await apiFetch<{ total: number }>('/api/messages?offset=0&limit=1&asc=1')
+                  lowerOffset.current = Math.max(0, d.total - LIMIT)
+                  upperOffset.current = lowerOffset.current
+                  loadMessages('fresh')
+                }
+                else if (target === 'beginning')  { lowerOffset.current = 0; upperOffset.current = 0; loadMessages('fresh') }
+                else handleDateJump(target)
+              }
+              // Group blocks into day sections so sticky headers push each other
+              const days: { date: string; blocks: typeof blocks }[] = []
+              for (const b of blocks) {
+                if (b.newDate) days.push({ date: b.date, blocks: [] })
+                days[days.length - 1]?.blocks.push(b)
+              }
+              return days.map(day => (
+                <div key={day.date + day.blocks[0].msgs[0]._id} className="flex flex-col">
+                  <div className="dsep sticky top-0 z-10 flex items-center py-1.5 bg-white/90 backdrop-blur-sm text-xs text-[#616061]">
+                    <span className="flex-1 border-t border-gray-200" />
+                    <DateMenu date={day.date} ts={day.blocks[0].msgs[0].timestamp_ms} onJumpTo={jumpTo} />
+                    <span className="flex-1 border-t border-gray-200" />
+                  </div>
+                  {day.blocks.map((b, i) => (
+                    <MessageGroup
+                      key={b.msgs[0]._id ?? i}
+                      block={b}
+                      isSelected={selectedMsgs.has(b.msgs[0]._id)}
+                      onToggle={handleToggle}
+                      onLightbox={handleMsgLightbox}
+                      onContextMenu={handleMsgContextMenu}
+                    />
+                  ))}
+                </div>
+              ))
+            })()}
             {currentTab === 'photos' && <Gallery type="photos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} />}
             {currentTab === 'videos' && <Gallery type="videos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} />}
             {currentTab === 'files'  && <FilesView />}
@@ -721,7 +735,7 @@ export default function ViewerApp() {
         onClose={() => {
           const { ts, msgId } = lightbox
           setLightbox(null)
-          if (msgId && !document.getElementById('msg-' + msgId)) jumpToMessage(Number(ts), msgId)
+          if (currentTab === 'chat' && msgId && !document.getElementById('msg-' + msgId)) jumpToMessage(Number(ts), msgId)
         }}
         onJumpToMessage={(ts, msgId) => { setLightbox(null); jumpToMessage(ts, msgId) }}
       />}

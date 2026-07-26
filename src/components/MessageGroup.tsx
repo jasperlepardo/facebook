@@ -1,8 +1,41 @@
 'use client'
-import { memo } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Message, MessageBlock, LightboxState } from '@/types'
 import { r2, fmtTime } from '@/lib/format'
 import { mapFbEmoji } from '@/lib/fbEmoji'
+
+function VideoThumb({ src, onClick }: { src: string; onClick: () => void }) {
+  const [thumb, setThumb] = useState<string | null>(null)
+  useEffect(() => {
+    const video = document.createElement('video')
+    video.crossOrigin = 'anonymous'
+    video.muted = true
+    video.playsInline = true
+    video.preload = 'metadata'
+    video.src = src
+    video.onloadedmetadata = () => { video.currentTime = 0.5 }
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      canvas.getContext('2d')?.drawImage(video, 0, 0)
+      setThumb(canvas.toDataURL('image/jpeg', 0.8))
+      video.src = ''
+    }
+  }, [src])
+
+  return (
+    <div className="relative max-w-[360px] mt-1 cursor-pointer group bg-black rounded overflow-hidden min-h-[120px]" onClick={onClick}>
+      {thumb
+        ? <img src={thumb} className="w-full rounded block" />
+        : <div className="w-full min-h-[120px] bg-gray-900 rounded" />
+      }
+      <div className="absolute inset-0 flex items-center justify-center bg-black/25 rounded group-hover:bg-black/40 transition-colors">
+        <span className="text-white text-4xl drop-shadow">▶</span>
+      </div>
+    </div>
+  )
+}
 
 function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) => void }) {
   return (
@@ -14,13 +47,8 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
       {m.videos?.map((v, i) => (
-        <div key={i} className="relative max-w-[360px] mt-1 cursor-pointer group"
-          onClick={() => onLightbox({ src: r2(v.uri), type: 'video', mediaType: 'videos', caption: '', msgId: m._id, ts: m.timestamp_ms })}>
-          <video src={r2(v.uri)} preload="none" className="rounded block w-full pointer-events-none" />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded group-hover:bg-black/30 transition-colors">
-            <span className="text-white text-4xl">▶</span>
-          </div>
-        </div>
+        <VideoThumb key={i} src={r2(v.uri)}
+          onClick={() => onLightbox({ src: r2(v.uri), type: 'video', mediaType: 'videos', caption: '', msgId: m._id, ts: m.timestamp_ms })} />
       ))}
       {m.audio_files?.map((a, i) => (
         <audio key={i} src={r2(a.uri)} controls preload="none" className="w-[280px] my-1 block" />
@@ -82,6 +110,100 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
   )
 }
 
+export function DateMenu({ date, ts, onJumpTo }: { date: string; ts?: number; onJumpTo: (target: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [showDateInput, setShowDateInput] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => { setSticky(''); setOpen(false); setShowDateInput(false) }
+    const clickHandler = (e: MouseEvent) => {
+      if (!btnRef.current?.contains(e.target as Node) && !dropRef.current?.contains(e.target as Node)) close()
+    }
+    document.addEventListener('mousedown', clickHandler)
+    document.addEventListener('scroll', close, true)
+    return () => {
+      document.removeEventListener('mousedown', clickHandler)
+      document.removeEventListener('scroll', close, true)
+    }
+  }, [open])
+
+  const setSticky = (z: string) => {
+    const el = btnRef.current?.closest<HTMLElement>('.dsep')
+    if (el) el.style.zIndex = z
+  }
+
+  const openMenu = () => {
+    setOpen(o => { if (!o) setSticky('50'); return !o })
+    setShowDateInput(false)
+  }
+
+  const select = (target: string) => { setSticky(''); setOpen(false); setShowDateInput(false); onJumpTo(target) }
+
+  const localISO = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+  const iso = (offset: number) => {
+    const d = new Date(ts ?? Date.now())
+    d.setDate(d.getDate() + offset)
+    return localISO(d)
+  }
+  const isoMonth = (offset: number) => {
+    const d = new Date(ts ?? Date.now())
+    d.setMonth(d.getMonth() + offset, 1)
+    return localISO(d)
+  }
+
+  const options = [
+    { label: 'Start from the beginning', val: 'beginning' },
+    { label: 'Previous month',           val: isoMonth(-1) },
+    { label: 'Previous week',            val: iso(-7) },
+    { label: 'Previous day',             val: iso(-1) },
+    { label: 'Next day',                 val: iso(1) },
+    { label: 'Next week',                val: iso(7) },
+    { label: 'Next month',               val: isoMonth(1) },
+    { label: 'Most recent',              val: 'recent' },
+  ]
+
+  return (
+    <div className="relative">
+      <button ref={btnRef} onClick={openMenu}
+        className="flex items-center gap-1 px-4 py-0.5 rounded-full font-semibold bg-white/93 border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors whitespace-nowrap"
+      >
+        {date} <span className="text-[10px] opacity-60">▾</span>
+      </button>
+
+      {open && (
+        <div ref={dropRef}
+          className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-56 py-2 text-left text-[13px]">
+          <div className="px-4 py-1 text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Jump to…</div>
+          {options.map(o => (
+            <button key={o.label} onClick={() => select(o.val)}
+              className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
+              {o.label}
+            </button>
+          ))}
+          <div className="border-t border-gray-100 mt-1 pt-1">
+            {showDateInput
+              ? <input type="date" autoFocus className="mx-4 my-1 text-[13px] border border-gray-300 rounded px-2 py-1 outline-none"
+                  onChange={e => { if (e.target.value) select(e.target.value) }} />
+              : <button onClick={() => setShowDateInput(true)}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
+                  Jump to a specific date
+                </button>
+            }
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface MessageGroupProps {
   block: MessageBlock
   isSelected: boolean
@@ -104,13 +226,6 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
 
   return (
     <>
-      {block.newDate && (
-        <div className="dsep text-center my-5 mb-2 text-xs text-[#616061] relative flex items-center">
-          <span className="flex-1 border-t border-gray-200" />
-          <span className="px-2.5 font-semibold bg-gray-50 whitespace-nowrap">{block.date}</span>
-          <span className="flex-1 border-t border-gray-200" />
-        </div>
-      )}
       <div
         data-id={first._id}
         className={`msg-group flex py-2 px-5 gap-3 items-start relative cursor-pointer group transition-colors ${isSelected ? '!bg-blue-50' : 'hover:bg-gray-50'}`}
