@@ -79,6 +79,7 @@ export default function ViewerApp() {
   const lastBookmarkTime = useRef(0)
   const pendingJump         = useRef<string | null>(null)
   const pendingScrollReset  = useRef(false)
+  const pendingScrollBottom = useRef(false)
   const pendingLightboxScroll = useRef<string | null>(null)
   const queuedLoad    = useRef<'older' | 'newer' | null>(null)
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -122,6 +123,11 @@ export default function ViewerApp() {
     if (pendingScrollReset.current) {
       pendingScrollReset.current = false
       if (chatRef.current) chatRef.current.scrollTop = 0
+      return
+    }
+    if (pendingScrollBottom.current) {
+      pendingScrollBottom.current = false
+      if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
       return
     }
     // Pending jump (chat navigation)
@@ -717,6 +723,7 @@ export default function ViewerApp() {
                   const d = await apiFetch<{ total: number }>('/api/messages?offset=0&limit=1&asc=1')
                   lowerOffset.current = Math.max(0, d.total - LIMIT)
                   upperOffset.current = lowerOffset.current
+                  pendingScrollBottom.current = true
                   loadMessages('fresh')
                 }
                 else if (target === 'beginning')  { lowerOffset.current = 0; upperOffset.current = 0; loadMessages('fresh') }
