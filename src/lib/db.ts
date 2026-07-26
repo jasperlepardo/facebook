@@ -10,8 +10,15 @@ async function getClient() {
   return client
 }
 
+let messagesIndexed = false
+
 export async function getMessages() {
-  return (await getClient()).db('ciara-notes').collection('messages')
+  const col = (await getClient()).db('ciara-notes').collection('messages')
+  if (!messagesIndexed) {
+    messagesIndexed = true
+    col.createIndex({ timestamp_ms: 1 }, { background: true }).catch(() => {})
+  }
+  return col
 }
 
 export async function getSettings() {

@@ -1,7 +1,7 @@
 'use client'
 import { memo, useEffect, useRef, useState } from 'react'
-import { Message, MessageBlock, LightboxState } from '@/types'
-import { r2, fmtTime } from '@/lib/format'
+import { Message, MessageBlock, LightboxState, DateIndex } from '@/types'
+import { r2, fmtTime, fmtDate } from '@/lib/format'
 import { mapFbEmoji } from '@/lib/fbEmoji'
 
 function VideoThumb({ src, onClick }: { src: string; onClick: () => void }) {
@@ -110,8 +110,54 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
   )
 }
 
-export function DateMenu({ date, ts, onJumpTo }: { date: string; ts?: number; onJumpTo: (target: string) => void }) {
-  const [open, setOpen] = useState(false)
+function tsToIsoWeek(ts: number)  { const d = new Date(ts); const dow = d.getUTCDay(); return new Date(ts - (dow === 0 ? 6 : dow - 1) * 86400000).toISOString().split('T')[0] }
+function tsToIsoMonth(ts: number) { const d = new Date(ts); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01` }
+
+function computeDynamicOptions(
+  ts: number,
+  index: DateIndex,
+  prevDayTs?: number,
+  nextDayTs?: number,
+): { label: string; val: string }[] {
+  const curWeek  = tsToIsoWeek(ts)
+  const curMonth = tsToIsoMonth(ts)
+  const curDate  = new Date(ts)
+
+  // A UTC ISO date boundary (at UTC midnight) can land on the same LOCAL day as ts
+  // due to timezone offset — skip those to avoid "Go to August 1" when already there.
+  const sameLocalDay = (iso: string) => {
+    const d = new Date(iso + 'T00:00:00Z')
+    return d.getFullYear() === curDate.getFullYear() &&
+      d.getMonth() === curDate.getMonth() &&
+      d.getDate() === curDate.getDate()
+  }
+  const findNext = <T extends { iso: string }>(arr: T[], afterIso: string): T | null =>
+    arr.find(e => e.iso > afterIso && !sameLocalDay(e.iso)) ?? null
+
+  // Day prev/next: only from adjacent rendered blocks — UTC-index labels are
+  // unreliable across timezones and can point to days with no local messages.
+  const pd = prevDayTs != null ? { label: fmtDate(prevDayTs), iso: `ts:${prevDayTs}` } : null
+  const nd = nextDayTs != null ? { label: fmtDate(nextDayTs), iso: `ts:${nextDayTs}` } : null
+
+  const pw = index.weeks.findLast(w => w.iso < curWeek) ?? null
+  const nw = findNext(index.weeks, curWeek)
+  const pm = index.months.findLast(m => m.iso < curMonth) ?? null
+  const nm = findNext(index.months, curMonth)
+
+  const seen = new Set<string>()
+  return [
+    pm && { label: `Go back to ${pm.label}`, val: pm.iso },
+    pw && { label: `Go back to ${pw.label}`, val: pw.iso },
+    pd && { label: `Go back to ${pd.label}`, val: pd.iso },
+    nd && { label: `Go to ${nd.label}`,      val: nd.iso },
+    nw && { label: `Go to ${nw.label}`,      val: nw.iso },
+    nm && { label: `Go to ${nm.label}`,      val: nm.iso },
+  ].filter((o): o is { label: string; val: string } => !!o && !seen.has(o.val) && seen.add(o.val) !== undefined)
+}
+
+export function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, onJumpTo }: { date: string; ts?: number; prevDayTs?: number; nextDayTs?: number; dateIndex?: DateIndex | null; onJumpTo: (target: string) => void }) {
+  const [open, setOpen]               = useState(false)
+  const [above, setAbove]             = useState(false)
   const [showDateInput, setShowDateInput] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
@@ -136,39 +182,14 @@ export function DateMenu({ date, ts, onJumpTo }: { date: string; ts?: number; on
   }
 
   const openMenu = () => {
+    if (btnRef.current) setAbove(btnRef.current.getBoundingClientRect().bottom > window.innerHeight * 0.6)
     setOpen(o => { if (!o) setSticky('50'); return !o })
     setShowDateInput(false)
   }
 
   const select = (target: string) => { setSticky(''); setOpen(false); setShowDateInput(false); onJumpTo(target) }
 
-  const localISO = (d: Date) => {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  }
-  const iso = (offset: number) => {
-    const d = new Date(ts ?? Date.now())
-    d.setDate(d.getDate() + offset)
-    return localISO(d)
-  }
-  const isoMonth = (offset: number) => {
-    const d = new Date(ts ?? Date.now())
-    d.setMonth(d.getMonth() + offset, 1)
-    return localISO(d)
-  }
-
-  const options = [
-    { label: 'Start from the beginning', val: 'beginning' },
-    { label: 'Previous month',           val: isoMonth(-1) },
-    { label: 'Previous week',            val: iso(-7) },
-    { label: 'Previous day',             val: iso(-1) },
-    { label: 'Next day',                 val: iso(1) },
-    { label: 'Next week',                val: iso(7) },
-    { label: 'Next month',               val: isoMonth(1) },
-    { label: 'Most recent',              val: 'recent' },
-  ]
+  const dynamicOptions = ts && dateIndex ? computeDynamicOptions(ts, dateIndex, prevDayTs, nextDayTs) : []
 
   return (
     <div className="relative">
@@ -180,15 +201,27 @@ export function DateMenu({ date, ts, onJumpTo }: { date: string; ts?: number; on
 
       {open && (
         <div ref={dropRef}
-          className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-56 py-2 text-left text-[13px]">
-          <div className="px-4 py-1 text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Jump to…</div>
-          {options.map(o => (
-            <button key={o.label} onClick={() => select(o.val)}
-              className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
-              {o.label}
-            </button>
-          ))}
+          className={`absolute left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-64 py-2 text-left text-[13px] ${above ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
+          <button onClick={() => select('beginning')} className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
+            Start from the beginning
+          </button>
+
+          {dynamicOptions.length > 0 && (
+            <>
+              <div className="border-t border-gray-100 my-1" />
+              {dynamicOptions.map(o => (
+                <button key={o.val} onClick={() => select(o.val)}
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
+                  {o.label}
+                </button>
+              ))}
+            </>
+          )}
+
           <div className="border-t border-gray-100 mt-1 pt-1">
+            <button onClick={() => select('recent')} className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
+              Most recent
+            </button>
             {showDateInput
               ? <input type="date" autoFocus className="mx-4 my-1 text-[13px] border border-gray-300 rounded px-2 py-1 outline-none"
                   onChange={e => { if (e.target.value) select(e.target.value) }} />

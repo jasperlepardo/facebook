@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
 import { flushSync } from 'react-dom'
-import { Message, Note, Tab, LightboxState, ContextMenuState, GalleryItem, Hashtag } from '@/types'
+import { Message, Note, Tab, LightboxState, ContextMenuState, GalleryItem, Hashtag, DateIndex } from '@/types'
 import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
 import { apiFetch } from '@/lib/utils'
 import { r2 } from '@/lib/format'
@@ -37,6 +37,7 @@ export default function ViewerApp() {
   const [total, setTotal]         = useState(0)
   const [hasMore, setHasMore]     = useState(false)
   const [searching, setSearching] = useState(false)
+  const [jumping,   setJumping]   = useState(false)
   const lowerOffset = useRef(0)
   const upperOffset = useRef(0)
   const loadingRef  = useRef(false)
@@ -51,6 +52,9 @@ export default function ViewerApp() {
   const searchRef   = useRef('')
   const [chatVisible, setChatVisible] = useState(false)
   const [currentUser, setCurrentUser] = useState('')
+
+  // Date index (loaded once on mount for DateMenu navigation)
+  const [dateIndex, setDateIndex] = useState<DateIndex | null>(null)
 
   // Hashtags
   const [hashtags, setHashtags]         = useState<Hashtag[]>([])
@@ -74,6 +78,7 @@ export default function ViewerApp() {
   const deviceId      = useRef('')
   const lastBookmarkTime = useRef(0)
   const pendingJump         = useRef<string | null>(null)
+  const pendingScrollReset  = useRef(false)
   const pendingLightboxScroll = useRef<string | null>(null)
   const queuedLoad    = useRef<'older' | 'newer' | null>(null)
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -113,6 +118,12 @@ export default function ViewerApp() {
   // ─── Scroll to pending jump target after messages render ────────────────────
 
   useEffect(() => {
+    // After a fresh date-jump, override any scroll-anchor adjustment the browser made
+    if (pendingScrollReset.current) {
+      pendingScrollReset.current = false
+      if (chatRef.current) chatRef.current.scrollTop = 0
+      return
+    }
     // Pending jump (chat navigation)
     const jumpId = pendingJump.current
     if (jumpId) {
@@ -227,16 +238,6 @@ export default function ViewerApp() {
 
   // ─── Jump ────────────────────────────────────────────────────────────────────
 
-  async function jumpToDate(date: string) {
-    setCurrentTab('chat')
-    const d = await apiFetch<{ index: number | null }>('/api/jump?date=' + date)
-    if (d.index == null) return
-    lowerOffset.current = Math.max(0, d.index - Math.floor(LIMIT / 2))
-    upperOffset.current = lowerOffset.current
-    searchRef.current = ''; setSearchInput('')
-    await loadMessages('fresh')
-  }
-
   async function jumpToMessage(ts: number, msgId: string | null) {
     setCurrentTab('chat')
     const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`
@@ -312,6 +313,7 @@ export default function ViewerApp() {
 
     fetch('/api/users/me').then(r => r.json()).then(d => { if (d?.user?.name) setCurrentUser(d.user.name) }).catch(() => {})
     reloadHashtags()
+    apiFetch<DateIndex>('/api/date-index').then(setDateIndex).catch(() => {})
 
     Promise.all(['photos', 'videos', 'files'].map(t =>
       apiFetch<{ total: number }>(`/api/attachments?type=${t}&limit=1`).then(d => ({ t, n: d.total ?? 0 })).catch(() => ({ t, n: 0 }))
@@ -404,12 +406,42 @@ export default function ViewerApp() {
 
   async function handleDateJump(date: string) {
     if (!date) return
-    const d = await apiFetch<{ index: number | null }>('/api/jump?date=' + date)
-    if (d.index == null) return
-    lowerOffset.current = Math.max(0, d.index - Math.floor(LIMIT / 2))
-    upperOffset.current = lowerOffset.current
-    searchRef.current = ''; setSearchInput('')
-    await loadMessages('fresh')
+    setJumping(true)
+    try {
+      let offset: number | null = null
+
+      if (date.startsWith('ts:')) {
+        // Exact message timestamp from an adjacent rendered block — resolve without API call
+        const ts = parseInt(date.slice(3))
+        const msgIdx = messagesRef.current.findIndex(m => m.timestamp_ms === ts)
+        if (msgIdx !== -1) {
+          offset = lowerOffset.current + msgIdx
+        } else {
+          // Message scrolled out of window — fall back to API with exact timestamp
+          const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(ts).toISOString()}`)
+          offset = d.index
+        }
+      } else {
+        // YYYY-MM-DD ISO: check pre-computed index (days, weeks, months)
+        offset = dateIndex
+          ? (dateIndex.days.find(d => d.iso === date) ?? dateIndex.weeks.find(w => w.iso === date) ?? dateIndex.months.find(m => m.iso === date))?.offset ?? null
+          : null
+        if (offset == null) {
+          const d = await apiFetch<{ index: number | null }>('/api/jump?date=' + date)
+          offset = d.index
+        }
+      }
+
+      if (offset == null) return
+      lowerOffset.current = offset
+      upperOffset.current = offset
+      searchRef.current = ''; setSearchInput('')
+      pendingScrollReset.current = true
+      await loadMessages('fresh')
+
+    } finally {
+      setJumping(false)
+    }
   }
 
   // ─── Selection ───────────────────────────────────────────────────────────────
@@ -658,11 +690,24 @@ export default function ViewerApp() {
             </div>
           )}
 
+          {/* Date-jump loading overlay */}
+          {jumping && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 backdrop-blur-[2px] pointer-events-none">
+              <div className="flex items-center gap-2 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 text-[13px] text-gray-600">
+                <svg className="animate-spin w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                Loading…
+              </div>
+            </div>
+          )}
+
           {/* Chat scroll */}
           <div
             ref={chatRef}
             onScroll={handleScroll}
-            className={`flex-1 overflow-y-auto flex flex-col min-h-0${selectedMsgs.size > 0 ? ' select-none' : ''}`}
+            className={`flex-1 overflow-y-auto flex flex-col min-h-0 [overflow-anchor:none]${selectedMsgs.size > 0 ? ' select-none' : ''}`}
             style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
           >
             {searching && <div className="text-center py-2 text-[13px] text-gray-500">Searching…</div>}
@@ -683,11 +728,20 @@ export default function ViewerApp() {
                 if (b.newDate) days.push({ date: b.date, blocks: [] })
                 days[days.length - 1]?.blocks.push(b)
               }
-              return days.map(day => (
-                <div key={day.date + day.blocks[0].msgs[0]._id} className="flex flex-col">
+              return days.map((day, dayIdx) => (
+                <div key={day.date + day.blocks[0].msgs[0]._id}
+                  id={`day-${new Date(Number(day.blocks[0].msgs[0].timestamp_ms)).toISOString().split('T')[0]}`}
+                  className="flex flex-col">
                   <div className="dsep sticky top-0 z-10 flex items-center py-1.5 bg-white/90 backdrop-blur-sm text-xs text-[#616061]">
                     <span className="flex-1 border-t border-gray-200" />
-                    <DateMenu date={day.date} ts={day.blocks[0].msgs[0].timestamp_ms} onJumpTo={jumpTo} />
+                    <DateMenu
+                      date={day.date}
+                      ts={day.blocks[0].msgs[0].timestamp_ms}
+                      prevDayTs={dayIdx > 0 ? days[dayIdx - 1].blocks[0].msgs[0].timestamp_ms : undefined}
+                      nextDayTs={dayIdx < days.length - 1 ? days[dayIdx + 1].blocks[0].msgs[0].timestamp_ms : undefined}
+                      dateIndex={dateIndex}
+                      onJumpTo={jumpTo}
+                    />
                     <span className="flex-1 border-t border-gray-200" />
                   </div>
                   {day.blocks.map((b, i) => (

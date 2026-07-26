@@ -86,3 +86,6 @@ export interface HashtagGroup {
   blockId: string
   firstMsgTs?: number
 }
+
+export interface DateBoundary { iso: string; label: string; offset: number }
+export interface DateIndex { days: DateBoundary[]; weeks: DateBoundary[]; months: DateBoundary[] }
