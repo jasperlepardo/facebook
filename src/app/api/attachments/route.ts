@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const atype = searchParams.get('type') ?? 'photos'
   const off   = parseInt(searchParams.get('offset') ?? '0')
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '60'), 200)
-  const field = ({ photos: 'photos', videos: 'videos', files: 'files', audio: 'audio_files' } as Record<string, string>)[atype] ?? 'photos'
+  const field = ({ photos: 'photos', videos: 'videos', gifs: 'gifs', files: 'files', audio: 'audio_files' } as Record<string, string>)[atype] ?? 'photos'
 
   try {
     const msgs  = await getMessages()

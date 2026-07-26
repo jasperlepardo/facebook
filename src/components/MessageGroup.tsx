@@ -10,11 +10,17 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
       {m.photos?.map((p, i) => (
         <img key={i} src={r2(p.uri)} loading="lazy"
           className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1 hover:opacity-90"
-          onClick={() => onLightbox({ src: r2(p.uri), type: 'photo', caption: '', msgId: m._id, ts: m.timestamp_ms })}
+          onClick={() => onLightbox({ src: r2(p.uri), type: 'photo', mediaType: 'photos', caption: '', msgId: m._id, ts: m.timestamp_ms })}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
       {m.videos?.map((v, i) => (
-        <video key={i} src={r2(v.uri)} controls preload="none" className="max-w-[360px] rounded block mt-1" />
+        <div key={i} className="relative max-w-[360px] mt-1 cursor-pointer group"
+          onClick={() => onLightbox({ src: r2(v.uri), type: 'video', mediaType: 'videos', caption: '', msgId: m._id, ts: m.timestamp_ms })}>
+          <video src={r2(v.uri)} preload="none" className="rounded block w-full pointer-events-none" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded group-hover:bg-black/30 transition-colors">
+            <span className="text-white text-4xl">▶</span>
+          </div>
+        </div>
       ))}
       {m.audio_files?.map((a, i) => (
         <audio key={i} src={r2(a.uri)} controls preload="none" className="w-[280px] my-1 block" />
@@ -22,7 +28,7 @@ function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) =
       {m.gifs?.map((g, i) => (
         <img key={i} src={r2(g.uri)} loading="lazy"
           className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1"
-          onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', caption: '', msgId: m._id, ts: m.timestamp_ms })}
+          onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', mediaType: 'gifs', caption: '', msgId: m._id, ts: m.timestamp_ms })}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
       {m.sticker && (

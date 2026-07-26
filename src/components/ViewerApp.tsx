@@ -42,6 +42,9 @@ export default function ViewerApp() {
   const loadingRef  = useRef(false)
   const hasMoreRef  = useRef(false)
 
+  // Media counts
+  const [mediaCounts, setMediaCounts] = useState<{ photos: number; videos: number; files: number }>({ photos: 0, videos: 0, files: 0 })
+
   // UI
   const [currentTab, setCurrentTab]   = useState<Tab>('chat')
   const [searchInput, setSearchInput] = useState('')
@@ -318,6 +321,13 @@ export default function ViewerApp() {
     fetch('/api/users/me').then(r => r.json()).then(d => { if (d?.user?.name) setCurrentUser(d.user.name) }).catch(() => {})
     reloadHashtags()
 
+    Promise.all(['photos', 'videos', 'files'].map(t =>
+      apiFetch<{ total: number }>(`/api/attachments?type=${t}&limit=1`).then(d => ({ t, n: d.total ?? 0 })).catch(() => ({ t, n: 0 }))
+    )).then(results => {
+      const c = Object.fromEntries(results.map(r => [r.t, r.n])) as { photos: number; videos: number; files: number }
+      setMediaCounts(c)
+    })
+
     async function init() {
       let startIdx = 0, anchorMsgId: string | null = null, anchorOffset = 0
       try {
@@ -558,12 +568,13 @@ export default function ViewerApp() {
   async function handleMsgLightbox(state: LightboxState) {
     if (!state.ts) { setLightbox(state); return }
 
-    // Find document offset of this photo in the full sorted photos list
+    const mtype = state.mediaType ?? 'photos'
+    // Find document offset of this item in the full sorted media list
     const { offset: docOff } = await apiFetch<{ offset: number }>(
-      `/api/attachments?type=photos&offsetOf=${state.ts}`
+      `/api/attachments?type=${mtype}&offsetOf=${state.ts}`
     )
     const { items, total } = await apiFetch<{ items: { uri: string; ts: number; sender: string; msgId: string }[]; total: number }>(
-      `/api/attachments?type=photos&offset=${Math.max(0, docOff - 1)}&limit=3`
+      `/api/attachments?type=${mtype}&offset=${Math.max(0, docOff - 1)}&limit=3`
     )
     const baseOff  = Math.max(0, docOff - 1)
     const localIdx = items.findIndex(i => i.msgId === state.msgId || i.ts === state.ts)
@@ -571,16 +582,19 @@ export default function ViewerApp() {
 
     type PhotoItem = { uri: string; ts: number; sender: string; msgId: string }
 
+    const typeMap: Record<string, LightboxState['type']> = { photos: 'photo', videos: 'video', gifs: 'gif' }
+
     const mkState = (absOff: number, item: PhotoItem): LightboxState => ({
-      src:     r2(item.uri),
-      type:    'photo',
-      caption: `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
-      msgId:   item.msgId,
-      ts:      item.ts,
+      src:       r2(item.uri),
+      type:      typeMap[mtype] ?? 'photo',
+      mediaType: mtype,
+      caption:   `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
+      msgId:     item.msgId,
+      ts:        item.ts,
       onPrev:  absOff > 0
         ? async () => {
             const { items: pi } = await apiFetch<{ items: PhotoItem[] }>(
-              `/api/attachments?type=photos&offset=${absOff - 1}&limit=1`
+              `/api/attachments?type=${mtype}&offset=${absOff - 1}&limit=1`
             )
             if (pi[0]) setLightbox(mkState(absOff - 1, pi[0]))
           }
@@ -588,7 +602,7 @@ export default function ViewerApp() {
       onNext:  absOff < total - 1
         ? async () => {
             const { items: ni } = await apiFetch<{ items: PhotoItem[] }>(
-              `/api/attachments?type=photos&offset=${absOff + 1}&limit=1`
+              `/api/attachments?type=${mtype}&offset=${absOff + 1}&limit=1`
             )
             if (ni[0]) setLightbox(mkState(absOff + 1, ni[0]))
           }
@@ -602,9 +616,9 @@ export default function ViewerApp() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'chat',   label: 'Chat' },
-    { key: 'photos', label: 'Photos (4,955)' },
-    { key: 'videos', label: 'Videos (155)' },
-    { key: 'files',  label: 'Files & Audio' },
+    { key: 'photos', label: `Photos${mediaCounts.photos ? ` (${mediaCounts.photos.toLocaleString()})` : ''}` },
+    { key: 'videos', label: `Videos${mediaCounts.videos ? ` (${mediaCounts.videos.toLocaleString()})` : ''}` },
+    { key: 'files',  label: `Files & Audio${mediaCounts.files ? ` (${mediaCounts.files.toLocaleString()})` : ''}` },
   ]
 
   // ─── Render ──────────────────────────────────────────────────────────────────

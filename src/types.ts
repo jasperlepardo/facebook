@@ -53,6 +53,7 @@ export interface GalleryItem {
 export interface LightboxState {
   src: string
   type: 'photo' | 'video' | 'gif'
+  mediaType?: 'photos' | 'videos' | 'gifs'
   caption: string
   msgId?: string
   ts?: number
