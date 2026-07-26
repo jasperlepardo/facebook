@@ -169,12 +169,14 @@ export function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, onJumpTo }
       if (!btnRef.current?.contains(e.target as Node) && !dropRef.current?.contains(e.target as Node)) close()
     }
     document.addEventListener('mousedown', clickHandler)
-    document.addEventListener('scroll', close, true)
+    // Don't close on scroll while the date picker is open — the native calendar
+    // popup triggers scroll events that would dismiss the input before the user picks.
+    if (!showDateInput) document.addEventListener('scroll', close, true)
     return () => {
       document.removeEventListener('mousedown', clickHandler)
       document.removeEventListener('scroll', close, true)
     }
-  }, [open])
+  }, [open, showDateInput])
 
   const setSticky = (z: string) => {
     const el = btnRef.current?.closest<HTMLElement>('.dsep')
@@ -224,6 +226,7 @@ export function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, onJumpTo }
             </button>
             {showDateInput
               ? <input type="date" autoFocus className="mx-4 my-1 text-[13px] border border-gray-300 rounded px-2 py-1 outline-none"
+                  onKeyDown={e => { if (e.key === 'Enter' && e.currentTarget.value) select(e.currentTarget.value) }}
                   onChange={e => { if (e.target.value) select(e.target.value) }} />
               : <button onClick={() => setShowDateInput(true)}
                   className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
