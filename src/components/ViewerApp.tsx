@@ -695,7 +695,7 @@ export default function ViewerApp() {
   const sectionTitle = section === 'chat' ? 'Chat' : section === 'media' ? 'Media' : section === 'settings' ? 'Settings' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
 
   return (
-    <div className="font-sans bg-white dark:bg-gray-900 h-dvh flex flex-col overflow-hidden">
+    <div className="font-sans bg-white dark:bg-gray-900 h-svh flex flex-col overflow-hidden">
 
       {/* Blue status-bar fill — covers the top safe area on iOS */}
       <div className="flex-shrink-0 bg-blue-600" style={{ height: 'env(safe-area-inset-top)' }} />
