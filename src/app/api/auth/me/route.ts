@@ -14,6 +14,7 @@ export async function GET() {
     id: user.id,
     name: user.name,
     email: user.email,
+    superAdmin: !!(user as any).superAdmin,
     passkeys: (user.passkeys ?? []).map((p: any) => ({
       credentialID: p.credentialID,
       deviceType: p.deviceType,

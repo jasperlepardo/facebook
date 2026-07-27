@@ -45,16 +45,40 @@ function imgCtx(e: React.MouseEvent, uri: string) {
   window.dispatchEvent(new CustomEvent('media-ctx', { detail: { x: e.clientX, y: e.clientY, uri } }))
 }
 
-export default function Media({ m, onLightbox, hideImages, hiddenUris }: { m: Message; onLightbox: (s: LightboxState) => void; hideImages?: boolean; hiddenUris?: Set<string> }) {
+export default function Media({ m, onLightbox, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri }: { m: Message; onLightbox: (s: LightboxState) => void; hideImages?: boolean; hiddenUris?: Set<string>; isSuperAdmin?: boolean; onHideUri?: (uri: string) => void; onUnhideUri?: (uri: string) => void }) {
   return (
     <>
-      {!hideImages && m.photos?.filter(p => !hiddenUris?.has(p.uri)).map((p, i) => (
-        <img key={i} src={r2(p.uri)} loading="lazy"
-          className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1 hover:opacity-90"
-          onClick={() => onLightbox({ src: r2(p.uri), type: 'photo', mediaType: 'photos', caption: '', msgId: m._id, ts: m.timestamp_ms })}
-          onContextMenu={e => imgCtx(e, p.uri)}
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-      ))}
+      {!hideImages && m.photos?.map((p, i) => {
+        const hidden = hiddenUris?.has(p.uri)
+        if (hidden && !isSuperAdmin) return null
+        if (hidden && isSuperAdmin) return (
+          <div key={i} className="relative mt-1 w-fit group/img">
+            <div className="w-[180px] h-[120px] rounded bg-gray-200 dark:bg-gray-700 flex flex-col items-center justify-center gap-1 border border-dashed border-gray-400 dark:border-gray-500">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hidden</span>
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); onUnhideUri?.(p.uri) }}
+              className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity text-[11px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded-full"
+            >Unhide</button>
+          </div>
+        )
+        return (
+          <div key={i} className="relative mt-1 w-fit group/img">
+            <img src={r2(p.uri)} loading="lazy"
+              className="max-w-[360px] max-h-[280px] rounded block cursor-pointer hover:opacity-90"
+              onClick={() => onLightbox({ src: r2(p.uri), uri: p.uri, type: 'photo', mediaType: 'photos', caption: '', msgId: m._id, ts: m.timestamp_ms })}
+              onContextMenu={e => imgCtx(e, p.uri)}
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+            {isSuperAdmin && onHideUri && (
+              <button
+                onClick={e => { e.stopPropagation(); onHideUri(p.uri) }}
+                className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity text-[11px] bg-black/60 hover:bg-black/80 text-white px-2 py-0.5 rounded-full"
+              >Hide</button>
+            )}
+          </div>
+        )
+      })}
       {!hideImages && m.videos?.filter(v => !hiddenUris?.has(v.uri)).map((v, i) => (
         <VideoThumb key={i} src={r2(v.uri)}
           onClick={() => onLightbox({ src: r2(v.uri), type: 'video', mediaType: 'videos', caption: '', msgId: m._id, ts: m.timestamp_ms })} />
@@ -69,11 +93,11 @@ export default function Media({ m, onLightbox, hideImages, hiddenUris }: { m: Me
           onContextMenu={e => imgCtx(e, g.uri)}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
-      {!hideImages && m.sticker && !hiddenUris?.has(m.sticker.uri) && (
+      {!hideImages && m.sticker && (hiddenUris?.has(m.sticker.uri) ? null : (
         <img src={r2(m.sticker.uri)} loading="lazy" className="max-w-[72px] max-h-[72px]"
           onContextMenu={e => imgCtx(e, m.sticker!.uri)}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-      )}
+      ))}
       {m.files?.map((f, i) => {
         const name = f.uri.split('/').pop() ?? ''
         return (

@@ -52,6 +52,7 @@ export interface GalleryItem {
 
 export interface LightboxState {
   src: string
+  uri?: string
   type: 'photo' | 'video' | 'gif'
   mediaType?: 'photos' | 'videos' | 'gifs'
   caption: string
@@ -64,11 +65,13 @@ export interface LightboxState {
 export interface ContextMenuState {
   x: number
   y: number
-  kind: 'note' | 'gallery' | 'media'
+  kind: 'note' | 'gallery' | 'media' | 'message'
   note?: Note
   galTs?: string
   galMsgId?: string | null
   mediaUri?: string
+  msgIds?: string[]
+  msgTs?: number
 }
 
 export type Tab = 'chat' | 'photos' | 'videos' | 'files'
@@ -79,6 +82,7 @@ export interface Hashtag {
   id: string
   name: string
   context?: string
+  createdBy?: string
   firstMsgTs?: number
   groupCount?: number
 }

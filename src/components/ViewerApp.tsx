@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { Message, Section, MediaTab, LightboxState, ContextMenuState, GalleryItem, Hashtag, DateIndex } from '@/types'
-import { LIMIT, MAX_DOM, LOAD_THRESHOLD, BLOCKED_URIS } from '@/lib/constants'
+import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
 import { apiFetch } from '@/lib/utils'
 import { r2 } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
@@ -16,6 +16,7 @@ import ContextMenu from './ContextMenu'
 import SettingsPane from './SettingsPane'
 import AppHeader from './AppHeader'
 import AppNav from './AppNav'
+import DatePickerModal from './DatePickerModal'
 
 function toBlockIds(selected: Message[], allMsgs: Message[]): string[] {
   const blocks = groupMessages(allMsgs)
@@ -56,10 +57,15 @@ export default function ViewerApp() {
     if (typeof window === 'undefined') return new Set()
     try { return new Set(JSON.parse(localStorage.getItem('hiddenUris') ?? '[]')) } catch { return new Set() }
   })
-  const allHiddenUris = useMemo(() => new Set([...BLOCKED_URIS, ...hiddenUris]), [hiddenUris])
+  const [dbHiddenItems, setDbHiddenItems] = useState<{ _id: string; type: 'message' | 'uri'; value: string }[]>([])
+  const dbHiddenUris    = useMemo(() => new Set(dbHiddenItems.filter(i => i.type === 'uri').map(i => i.value)), [dbHiddenItems])
+  const dbHiddenMsgIds  = useMemo(() => new Set(dbHiddenItems.filter(i => i.type === 'message').map(i => i.value)), [dbHiddenItems])
+  const allHiddenUris   = useMemo(() => new Set([...dbHiddenUris, ...hiddenUris]), [dbHiddenUris, hiddenUris])
   const searchRef   = useRef('')
   const [chatVisible, setChatVisible] = useState(false)
   const [currentUser, setCurrentUser] = useState('')
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
+  const [showHidden, setShowHidden] = useState(false)
 
   // Date index
   const [dateIndex, setDateIndex] = useState<DateIndex | null>(null)
@@ -85,6 +91,7 @@ export default function ViewerApp() {
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [ctxMenu, setCtxMenu]   = useState<ContextMenuState | null>(null)
+  const [showDatePicker, setShowDatePicker] = useState(false)
 
 
   // Refs
@@ -199,6 +206,7 @@ export default function ViewerApp() {
     const params = new URLSearchParams({ offset: String(offset), limit: String(LIMIT), asc: '1' })
     const q = searchRef.current
     if (q) { params.delete('asc'); params.set('offset', '0'); params.set('search', q) }
+    if (showHidden) params.set('showHidden', '1')
 
     const data = await apiFetch<{ messages: Message[]; total: number; has_more: boolean }>('/api/messages?' + params)
     setTotal(data.total)
@@ -351,7 +359,18 @@ export default function ViewerApp() {
     if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id) }
     deviceId.current = id
 
-    fetch('/api/auth/me').then(r => r.json()).then(d => { if (d?.name) setCurrentUser(d.name) }).catch(() => {})
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      if (d?.name) setCurrentUser(d.name)
+      if (d?.superAdmin) {
+        setIsSuperAdmin(true)
+        setShowHidden(true)
+      }
+    }).catch(() => {})
+
+    fetch('/api/hidden-items').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d?.items) return
+      setDbHiddenItems(d.items.map((i: any) => ({ _id: i._id, type: i.type, value: i.value })))
+    }).catch(() => {})
     reloadHashtags()
     apiFetch<DateIndex>('/api/date-index').then(setDateIndex).catch(() => {})
 
@@ -605,6 +624,32 @@ export default function ViewerApp() {
     })
   }
 
+  async function handleHideMessage(msgId: string) {
+    const res = await fetch('/api/hidden-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'message', value: msgId }) })
+    const { item } = await res.json()
+    if (item) setDbHiddenItems(prev => [...prev.filter(i => !(i.type === 'message' && i.value === msgId)), { _id: item._id, type: 'message', value: msgId }])
+  }
+
+  async function handleUnhideMessage(msgId: string) {
+    const item = dbHiddenItems.find(i => i.type === 'message' && i.value === msgId)
+    if (!item) return
+    await fetch(`/api/hidden-items?id=${item._id}`, { method: 'DELETE' })
+    setDbHiddenItems(prev => prev.filter(i => i._id !== item._id))
+  }
+
+  async function handleHideDbUri(uri: string) {
+    const res = await fetch('/api/hidden-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'uri', value: uri }) })
+    const { item } = await res.json()
+    if (item) setDbHiddenItems(prev => [...prev.filter(i => !(i.type === 'uri' && i.value === uri)), { _id: item._id, type: 'uri', value: uri }])
+  }
+
+  async function handleUnhideDbUri(uri: string) {
+    const item = dbHiddenItems.find(i => i.type === 'uri' && i.value === uri)
+    if (!item) return
+    await fetch(`/api/hidden-items?id=${item._id}`, { method: 'DELETE' })
+    setDbHiddenItems(prev => prev.filter(i => i._id !== item._id))
+  }
+
   function handleGalleryContextMenu(e: React.MouseEvent, item: GalleryItem) {
     e.preventDefault()
     setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'gallery', galTs: String(item.ts), galMsgId: item.msgId ?? null, mediaUri: item.uri })
@@ -612,6 +657,11 @@ export default function ViewerApp() {
 
   function handleMsgContextMenu(e: React.MouseEvent, msgIds: string[]) {
     e.preventDefault()
+    if (isSuperAdmin) {
+      const firstMsg = messagesRef.current.find(m => msgIds.includes(m._id))
+      setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'message', msgIds, msgTs: firstMsg?.timestamp_ms })
+      return
+    }
     const selectedMsgsData = messagesRef.current.filter(m => msgIds.includes(m._id))
     const blockIds = toBlockIds(selectedMsgsData, messagesRef.current)
     setHashtagPicker({ msgIds, blockIds })
@@ -623,14 +673,15 @@ export default function ViewerApp() {
     if (!state.ts) { setLightbox(state); return }
 
     const mtype = state.mediaType ?? 'photos'
-    const { offset: docOff } = await apiFetch<{ offset: number }>(
-      `/api/attachments?type=${mtype}&offsetOf=${state.ts}`
+    const uriParam = state.uri ? `&uri=${encodeURIComponent(state.uri)}` : ''
+    const { offset: photoOff } = await apiFetch<{ offset: number }>(
+      `/api/attachments?type=${mtype}&offsetOf=${state.ts}${uriParam}`
     )
     const { items, total } = await apiFetch<{ items: { uri: string; ts: number; sender: string; msgId: string }[]; total: number }>(
-      `/api/attachments?type=${mtype}&offset=${Math.max(0, docOff - 1)}&limit=3`
+      `/api/attachments?type=${mtype}&offset=${Math.max(0, photoOff - 1)}&limit=3`
     )
-    const baseOff  = Math.max(0, docOff - 1)
-    const localIdx = items.findIndex(i => i.msgId === state.msgId || i.ts === state.ts)
+    const baseOff  = Math.max(0, photoOff - 1)
+    const localIdx = items.findIndex(i => i.uri === state.uri || (i.msgId === state.msgId && i.ts === state.ts))
     const target   = localIdx >= 0 ? localIdx : 0
 
     type PhotoItem = { uri: string; ts: number; sender: string; msgId: string }
@@ -639,6 +690,7 @@ export default function ViewerApp() {
 
     const mkState = (absOff: number, item: PhotoItem): LightboxState => ({
       src:       r2(item.uri),
+      uri:       item.uri,
       type:      typeMap[mtype] ?? 'photo',
       mediaType: mtype,
       caption:   `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
@@ -780,8 +832,15 @@ export default function ViewerApp() {
                 onContextMenu={handleMsgContextMenu}
                 dateIndex={dateIndex}
                 onJumpTo={handleChatJump}
+                onOpenDatePicker={() => setShowDatePicker(true)}
                 hideImages={hideImages}
                 hiddenUris={allHiddenUris}
+                isSuperAdmin={isSuperAdmin}
+                hiddenMsgIds={dbHiddenMsgIds}
+                onHideMessage={handleHideMessage}
+                onUnhideMessage={handleUnhideMessage}
+                onHideUri={handleHideDbUri}
+                onUnhideUri={handleUnhideDbUri}
               />
             </div>
           </div>
@@ -824,13 +883,35 @@ export default function ViewerApp() {
 
           {/* Settings section */}
           {section === 'settings' && (
-            <SettingsPane total={total} dateIndex={dateIndex} currentUser={currentUser} />
+            <SettingsPane
+              total={total}
+              dateIndex={dateIndex}
+              currentUser={currentUser}
+              isSuperAdmin={isSuperAdmin}
+              showHidden={showHidden}
+              onToggleShowHidden={() => setShowHidden(v => {
+                const next = !v
+                localStorage.setItem('showHidden', next ? '1' : '0')
+                return next
+              })}
+              hiddenUriCount={hiddenUris.size}
+              onClearHiddenUris={() => {
+                setHiddenUris(new Set())
+                localStorage.removeItem('hiddenUris')
+              }}
+            />
           )}
 
         </div>
       </div>
 
       {/* Overlays */}
+      {showDatePicker && (
+        <DatePickerModal
+          onClose={() => setShowDatePicker(false)}
+          onJump={handleChatJump}
+        />
+      )}
       {hashtagPicker && (
         <HashtagPicker
           hashtags={hashtags}
@@ -855,6 +936,11 @@ export default function ViewerApp() {
           onEditNote={() => setCtxMenu(null)}
           onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setCtxMenu(null) }}
           onHideUri={hideUri}
+          onTagMessages={msgIds => {
+            const selectedMsgsData = messagesRef.current.filter(m => msgIds.includes(m._id))
+            const blockIds = toBlockIds(selectedMsgsData, messagesRef.current)
+            setHashtagPicker({ msgIds, blockIds })
+          }}
         />
       )}
     </div>

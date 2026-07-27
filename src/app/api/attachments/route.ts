@@ -19,26 +19,54 @@ export async function GET(req: NextRequest) {
   const field = ({ photos: 'photos', videos: 'videos', gifs: 'gifs', files: 'files', audio: 'audio_files' } as Record<string, string>)[atype] ?? 'photos'
 
   try {
-    const msgs  = await getMessages()
-    const filt  = { [field]: { $exists: true, $not: { $size: 0 } } }
+    const msgs = await getMessages()
+    const filt = { [field]: { $exists: true, $not: { $size: 0 } } }
 
-    // ?offsetOf=TIMESTAMP — return the document offset of the first photo at/after that timestamp
+    // ?offsetOf=TIMESTAMP&uri=URI — return the photo-level offset of a specific photo
     const offsetOf = searchParams.get('offsetOf')
     if (offsetOf) {
       const ts  = parseInt(offsetOf)
-      const idx = await msgs.countDocuments({ ...filt, timestamp_ms: { $lt: ts } })
-      return NextResponse.json({ offset: idx }, { headers: CORS })
+      const uri = searchParams.get('uri') ?? ''
+
+      // Count individual photos in messages strictly before this timestamp
+      const beforeAgg = await msgs.aggregate([
+        { $match: { ...filt, timestamp_ms: { $lt: ts } } },
+        { $unwind: `$${field}` },
+        { $count: 'n' },
+      ]).toArray()
+      const base = (beforeAgg[0] as any)?.n ?? 0
+
+      // Find photo's position within the same-timestamp message
+      if (uri) {
+        const sameMsg = await msgs.findOne({ timestamp_ms: ts, ...filt })
+        if (sameMsg) {
+          const arr = (sameMsg[field] as { uri?: string }[]) ?? []
+          const idx = arr.findIndex(p => p.uri === uri)
+          return NextResponse.json({ offset: base + Math.max(0, idx) }, { headers: CORS })
+        }
+      }
+      return NextResponse.json({ offset: base }, { headers: CORS })
     }
 
-    const total = await msgs.countDocuments(filt)
-    const docs  = await msgs.find(filt, { projection: { [field]: 1, timestamp_ms: 1, sender_name: 1 } })
-      .sort({ timestamp_ms: 1 }).skip(off).limit(limit).toArray()
-    const items: { uri: string; ts: number; sender: string; msgId: string }[] = []
-    for (const m of docs) {
-      for (const att of (m[field] as { uri?: string }[] ?? [])) {
-        if (att.uri) items.push({ uri: att.uri, ts: m.timestamp_ms as number, sender: m.sender_name as string ?? '', msgId: String(m._id) })
-      }
-    }
+    // Photo-level total
+    const totalAgg = await msgs.aggregate([
+      { $match: filt },
+      { $unwind: `$${field}` },
+      { $count: 'total' },
+    ]).toArray()
+    const total = (totalAgg[0] as any)?.total ?? 0
+
+    // Photo-level paginated list
+    const docs = await msgs.aggregate([
+      { $match: filt },
+      { $sort: { timestamp_ms: 1 } },
+      { $unwind: `$${field}` },
+      { $skip: off },
+      { $limit: limit },
+      { $project: { uri: `$${field}.uri`, ts: '$timestamp_ms', sender: '$sender_name', msgId: { $toString: '$_id' } } },
+    ]).toArray()
+
+    const items = docs.map((d: any) => ({ uri: d.uri, ts: d.ts, sender: d.sender ?? '', msgId: d.msgId }))
     return NextResponse.json({ items, total, has_more: off + limit < total }, { headers: CORS })
   } catch (e: unknown) {
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })

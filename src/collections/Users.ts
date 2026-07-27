@@ -11,6 +11,11 @@ export const Users: CollectionConfig = {
       required: true,
     },
     {
+      name: 'superAdmin',
+      type: 'checkbox',
+      defaultValue: false,
+    },
+    {
       name: 'currentChallenge',
       type: 'text',
       admin: { hidden: true },

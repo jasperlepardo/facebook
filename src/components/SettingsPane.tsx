@@ -5,13 +5,26 @@ import { startRegistration } from '@simplewebauthn/browser'
 import { DateIndex } from '@/types'
 
 type Theme = 'light' | 'dark' | 'system'
-type View = 'main' | 'profile' | 'password'
+type View = 'main' | 'profile' | 'password' | 'hidden-items'
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
+
+interface HiddenItem {
+  _id: string
+  type: 'message' | 'uri'
+  value: string
+  note?: string
+  createdAt: string
+}
 
 interface SettingsPaneProps {
   total: number
   dateIndex: DateIndex | null
   currentUser: string
+  isSuperAdmin?: boolean
+  showHidden?: boolean
+  onToggleShowHidden?: () => void
+  hiddenUriCount?: number
+  onClearHiddenUris?: () => void
 }
 
 function SunIcon() {
@@ -36,7 +49,7 @@ const rowCls = 'flex items-center justify-between px-4 py-3'
 const labelCls = 'text-sm text-gray-500 dark:text-gray-400'
 const valueCls = 'text-sm font-medium text-gray-900 dark:text-gray-100'
 
-export default function SettingsPane({ total, dateIndex, currentUser }: SettingsPaneProps) {
+export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdmin, showHidden, onToggleShowHidden, hiddenUriCount, onClearHiddenUris }: SettingsPaneProps) {
   const router = useRouter()
   const [view, setView] = useState<View>('main')
 
@@ -72,6 +85,40 @@ export default function SettingsPane({ total, dateIndex, currentUser }: Settings
   })
 
   const [signingOut, setSigningOut] = useState(false)
+
+  // Hidden items (super admin)
+  const [hiddenItems, setHiddenItems] = useState<HiddenItem[]>([])
+  const [hiLoading, setHiLoading] = useState(false)
+  const [hiAddType, setHiAddType] = useState<'message' | 'uri'>('message')
+  const [hiAddValue, setHiAddValue] = useState('')
+  const [hiAddNote, setHiAddNote] = useState('')
+  const [hiAdding, setHiAdding] = useState(false)
+
+  async function loadHiddenItems() {
+    setHiLoading(true)
+    try {
+      const res = await fetch('/api/hidden-items')
+      if (res.ok) setHiddenItems((await res.json()).items ?? [])
+    } finally { setHiLoading(false) }
+  }
+
+  async function addHiddenItem() {
+    if (!hiAddValue.trim()) return
+    setHiAdding(true)
+    await fetch('/api/hidden-items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: hiAddType, value: hiAddValue.trim(), note: hiAddNote.trim() }),
+    })
+    setHiAddValue(''); setHiAddNote('')
+    await loadHiddenItems()
+    setHiAdding(false)
+  }
+
+  async function removeHiddenItem(id: string) {
+    await fetch(`/api/hidden-items?id=${id}`, { method: 'DELETE' })
+    setHiddenItems(prev => prev.filter(i => i._id !== id))
+  }
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
@@ -258,6 +305,73 @@ export default function SettingsPane({ total, dateIndex, currentUser }: Settings
     </div>
   )
 
+  // ─── Sub-view: Hidden Items ──────────────────────────────────────────────────
+
+  if (view === 'hidden-items') return (
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-lg mx-auto px-4 py-6">
+        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-6">
+          <BackIcon /> Back
+        </button>
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Hidden items</h1>
+
+        {/* Add form */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Add hidden item</p>
+          <div className="flex gap-2">
+            {(['message', 'uri'] as const).map(t => (
+              <button key={t} onClick={() => setHiAddType(t)}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${hiAddType === t ? 'border-blue-600 text-blue-600 bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                {t === 'message' ? 'Message ID' : 'Image URI'}
+              </button>
+            ))}
+          </div>
+          <input
+            value={hiAddValue}
+            onChange={e => setHiAddValue(e.target.value)}
+            placeholder={hiAddType === 'message' ? 'MongoDB ObjectId…' : 'media/photos/…'}
+            className={inputCls}
+          />
+          <input
+            value={hiAddNote}
+            onChange={e => setHiAddNote(e.target.value)}
+            placeholder="Note (optional)"
+            className={inputCls}
+          />
+          <button onClick={addHiddenItem} disabled={hiAdding || !hiAddValue.trim()}
+            className="w-full py-2.5 rounded-xl text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-colors">
+            {hiAdding ? 'Adding…' : 'Add'}
+          </button>
+        </div>
+
+        {/* List */}
+        {hiLoading ? (
+          <p className="text-sm text-gray-400 text-center py-4">Loading…</p>
+        ) : hiddenItems.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">No hidden items yet.</p>
+        ) : (
+          <div className={sectionCls}>
+            {hiddenItems.map(item => (
+              <div key={item._id} className={`${rowCls} gap-3`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${item.type === 'message' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
+                      {item.type === 'message' ? 'MSG' : 'URI'}
+                    </span>
+                    <span className="text-xs font-mono text-gray-600 dark:text-gray-300 truncate">{item.value}</span>
+                  </div>
+                  {item.note && <p className="text-xs text-gray-400 dark:text-gray-500">{item.note}</p>}
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{new Date(item.createdAt).toLocaleDateString()}</p>
+                </div>
+                <button onClick={() => removeHiddenItem(item._id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">Remove</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
   // ─── Main view ───────────────────────────────────────────────────────────────
 
   return (
@@ -390,8 +504,32 @@ export default function SettingsPane({ total, dateIndex, currentUser }: Settings
                 ))}
               </div>
             </div>
+            {!!hiddenUriCount && onClearHiddenUris && (
+              <button onClick={onClearHiddenUris} className={`${rowCls} w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
+                <span className="text-sm text-gray-900 dark:text-gray-100">Hidden images</span>
+                <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">Unhide all ({hiddenUriCount})</span>
+              </button>
+            )}
           </div>
         </section>
+
+        {isSuperAdmin && (
+          <section>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2 px-1">Super Admin</h2>
+            <div className={sectionCls}>
+              <button onClick={onToggleShowHidden} className={`${rowCls} w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
+                <span className="text-sm text-gray-900 dark:text-gray-100">Show hidden messages</span>
+                <div className={`w-10 h-6 rounded-full transition-colors ${showHidden ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'} relative`}>
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${showHidden ? 'translate-x-5' : 'translate-x-1'}`} />
+                </div>
+              </button>
+              <button onClick={() => { loadHiddenItems(); setView('hidden-items') }} className={`${rowCls} w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
+                <span className="text-sm text-gray-900 dark:text-gray-100">Hidden items</span>
+                <ChevronRight />
+              </button>
+            </div>
+          </section>
+        )}
 
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2 px-1">About</h2>

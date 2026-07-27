@@ -17,6 +17,10 @@ async function isAuthenticated(req: NextRequest): Promise<boolean> {
 }
 
 export async function middleware(req: NextRequest) {
+  if (process.env.SITE_DOWN === 'true') {
+    return new NextResponse(null, { status: 404 })
+  }
+
   const { pathname } = req.nextUrl
   const authed = await isAuthenticated(req)
 
@@ -37,5 +41,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/admin/:path*', '/auth/:path*', '/api/messages', '/api/attachments', '/api/jump', '/api/bookmark'],
+  matcher: ['/', '/admin/:path*', '/auth/:path*', '/api/messages', '/api/attachments', '/api/jump', '/api/bookmark', '/api/hidden-items'],
 }

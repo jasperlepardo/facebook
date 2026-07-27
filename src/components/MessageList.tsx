@@ -12,9 +12,16 @@ interface MessageListProps {
   onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
   dateIndex?: DateIndex | null
   onJumpTo?: (target: string) => void
+  onOpenDatePicker?: () => void
   renderBlockActions?: (block: MessageBlock) => React.ReactNode
   hideImages?: boolean
   hiddenUris?: Set<string>
+  isSuperAdmin?: boolean
+  hiddenMsgIds?: Set<string>
+  onHideMessage?: (msgId: string) => void
+  onUnhideMessage?: (msgId: string) => void
+  onHideUri?: (uri: string) => void
+  onUnhideUri?: (uri: string) => void
 }
 
 export default function MessageList({
@@ -25,9 +32,16 @@ export default function MessageList({
   onContextMenu,
   dateIndex,
   onJumpTo,
+  onOpenDatePicker,
   renderBlockActions,
   hideImages,
   hiddenUris,
+  isSuperAdmin,
+  hiddenMsgIds,
+  onHideMessage,
+  onUnhideMessage,
+  onHideUri,
+  onUnhideUri,
 }: MessageListProps) {
   const uid = useId()
   const days: { date: string; blocks: MessageBlock[] }[] = []
@@ -57,6 +71,7 @@ export default function MessageList({
                 nextDayTs={dayIdx < days.length - 1 ? days[dayIdx + 1].blocks[0].msgs[0].timestamp_ms : undefined}
                 dateIndex={dateIndex}
                 onJumpTo={onJumpTo}
+                onOpenDatePicker={onOpenDatePicker}
               />
             ) : (
               <span className="px-3 font-semibold dark:text-gray-300">{day.date}</span>
@@ -76,6 +91,12 @@ export default function MessageList({
                 onContextMenu={onContextMenu}
                 hideImages={hideImages}
                 hiddenUris={hiddenUris}
+                isSuperAdmin={isSuperAdmin}
+                hiddenMsgIds={hiddenMsgIds}
+                onHideMessage={onHideMessage}
+                onUnhideMessage={onUnhideMessage}
+                onHideUri={onHideUri}
+                onUnhideUri={onUnhideUri}
               />
               {renderBlockActions && (
                 <div className="absolute top-2 right-2 opacity-0 group-hover/block:opacity-100 transition-opacity flex gap-1 z-10">

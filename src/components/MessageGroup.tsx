@@ -5,6 +5,20 @@ import { fmtTime } from '@/lib/format'
 import { mapFbEmoji } from '@/lib/fbEmoji'
 import Media from './Media'
 
+function HideBtn({ isHidden, msgId, onHide, onUnhide, show, inline }: {
+  isHidden: boolean; msgId: string; onHide?: (id: string) => void; onUnhide?: (id: string) => void; show?: boolean; inline?: boolean
+}) {
+  if (!show || !msgId) return null
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); isHidden ? onUnhide?.(msgId) : onHide?.(msgId) }}
+      className={`opacity-0 group-hover/line:opacity-100 transition-opacity text-[11px] font-medium ${inline ? 'ml-1.5' : ''} ${isHidden ? 'text-blue-400 hover:text-blue-600' : 'text-red-400 hover:text-red-600'}`}
+    >
+      {isHidden ? 'Unhide' : 'Hide'}
+    </button>
+  )
+}
+
 interface MessageGroupProps {
   block: MessageBlock
   isSelected: boolean
@@ -13,9 +27,15 @@ interface MessageGroupProps {
   onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
   hideImages?: boolean
   hiddenUris?: Set<string>
+  isSuperAdmin?: boolean
+  hiddenMsgIds?: Set<string>
+  onHideMessage?: (msgId: string) => void
+  onUnhideMessage?: (msgId: string) => void
+  onHideUri?: (uri: string) => void
+  onUnhideUri?: (uri: string) => void
 }
 
-const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox, onContextMenu, hideImages, hiddenUris }: MessageGroupProps) {
+const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri }: MessageGroupProps) {
   const first = block.msgs[0]
   const last  = block.msgs[block.msgs.length - 1]
   const allIds = block.msgs.map(m => m._id)
@@ -41,54 +61,73 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
           <span className={`text-sm font-semibold ${block.mine ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'}`}>{block.sender}</span>
           <span className="text-[11px] text-gray-400 dark:text-gray-500">{fmtTime(first.timestamp_ms)}</span>
         </div>
-        {block.msgs.map((m, i) => (
-          <div key={m._id ?? i} className="[@media(hover:hover)]:flex [@media(hover:hover)]:items-end [@media(hover:hover)]:gap-3">
-            <div className="min-w-0 flex-1">
+        {block.msgs.map((m, i) => {
+          const isHidden = isSuperAdmin && !!m._id && !!hiddenMsgIds?.has(m._id)
+          return (
+          <div key={m._id ?? i} className="group/line [@media(hover:hover)]:flex [@media(hover:hover)]:items-end [@media(hover:hover)]:gap-3">
+            <div className={`min-w-0 flex-1${isHidden ? ' opacity-40' : ''}`}>
               <span id={`msg-${m._id}`} className="hidden" />
               {m.media_failed
-                ? <div className="text-[12px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1.5">
+                ? <div className="text-[12px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1.5 flex-wrap">
                     <span>🖼️</span><span>Media unavailable — Facebook could not export this file</span>
+                    <HideBtn isHidden={isHidden} msgId={m._id} onHide={onHideMessage} onUnhide={onUnhideMessage} show={isSuperAdmin} />
                   </div>
                 : m.content_unavailable
-                ? <div className="text-[12px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1.5">
+                ? <div className="text-[12px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1.5 flex-wrap">
                     <span>📎</span><span>Content unavailable — legacy format not exported</span>
+                    <HideBtn isHidden={isHidden} msgId={m._id} onHide={onHideMessage} onUnhide={onUnhideMessage} show={isSuperAdmin} />
                   </div>
                 : m.ip
-                ? <div className="text-[12px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1.5">
-                    <span>📍</span><span>IP address logged: {m.ip}</span>
-                  </div>
+                ? null
                 : m.is_unsent_image_by_messenger_kid_parent
-                ? <div className="text-[13px] text-gray-400 dark:text-gray-500 italic">Message removed</div>
+                ? <div className="text-[13px] text-gray-400 dark:text-gray-500 italic inline-flex items-center gap-1.5">
+                    <span>Message removed</span>
+                    <HideBtn isHidden={isHidden} msgId={m._id} onHide={onHideMessage} onUnhide={onUnhideMessage} show={isSuperAdmin} />
+                  </div>
                 : m.is_unsent
-                ? <div className="text-[13px] text-gray-400 dark:text-gray-500 italic">Message removed</div>
+                ? <div className="text-[13px] text-gray-400 dark:text-gray-500 italic inline-flex items-center gap-1.5">
+                    <span>Message removed</span>
+                    <HideBtn isHidden={isHidden} msgId={m._id} onHide={onHideMessage} onUnhide={onUnhideMessage} show={isSuperAdmin} />
+                  </div>
                 : m.call_duration != null
                   ? null
                   : (() => {
                       if (m.content !== 'You sent an attachment.') {
                         if (!m.content) return null
                         if (m.content === '[Link]') return (
-                          <div className="text-[12px] text-gray-400 dark:text-gray-500 italic">🔗 Link (URL not captured)</div>
-                        )
-                        if (m.type === 'link' || /^https?:\/\/\S+$/.test(m.content)) return (
-                          <div className="text-base leading-relaxed break-all">
-                            <a href={m.content} target="_blank" rel="noopener" className="text-blue-500 dark:text-blue-400 hover:underline">
-                              {m.content}
-                            </a>
+                          <div className="text-[12px] text-gray-400 dark:text-gray-500 italic inline-flex items-center gap-1.5">
+                            <span>🔗 Link (URL not captured)</span>
+                            <HideBtn isHidden={isHidden} msgId={m._id} onHide={onHideMessage} onUnhide={onUnhideMessage} show={isSuperAdmin} />
                           </div>
                         )
-                        return <div className="text-base leading-relaxed text-gray-900 dark:text-gray-100 break-words whitespace-pre-wrap">{mapFbEmoji(m.content)}</div>
+                        if (m.type === 'link' || /^https?:\/\/\S+$/.test(m.content)) return (
+                          <div className="text-base leading-relaxed break-all inline-flex items-baseline gap-1.5 flex-wrap">
+                            <a href={m.content} target="_blank" rel="noopener" className="text-blue-500 dark:text-blue-400 hover:underline">{m.content}</a>
+                            <HideBtn isHidden={isHidden} msgId={m._id} onHide={onHideMessage} onUnhide={onUnhideMessage} show={isSuperAdmin} />
+                          </div>
+                        )
+                        return (
+                          <div className={`text-base leading-relaxed text-gray-900 dark:text-gray-100 break-words whitespace-pre-wrap${isHidden ? ' line-through' : ''}`}>
+                            {mapFbEmoji(m.content)}
+                            <HideBtn isHidden={isHidden} msgId={m._id} onHide={onHideMessage} onUnhide={onUnhideMessage} show={isSuperAdmin} inline />
+                          </div>
+                        )
                       }
                       const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
-                      return hasMedia ? null : <div className="text-[12px] text-gray-400 dark:text-gray-600 italic">Attachment unavailable</div>
+                      return hasMedia ? null : <div className="text-[12px] text-gray-400 dark:text-gray-600 italic inline-flex items-center gap-1.5">
+                        <span>Attachment unavailable</span>
+                        <HideBtn isHidden={isHidden} msgId={m._id} onHide={onHideMessage} onUnhide={onUnhideMessage} show={isSuperAdmin} />
+                      </div>
                     })()
               }
-              <Media m={m} onLightbox={onLightbox} hideImages={hideImages} hiddenUris={hiddenUris} />
+              <Media m={m} onLightbox={onLightbox} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} />
             </div>
             <span className="text-[11px] text-gray-400 dark:text-gray-500 flex-shrink-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:pb-0.5">
               {fmtTime(m.timestamp_ms)}
             </span>
           </div>
-        ))}
+        )})}
+
       </div>
       <input
         type="checkbox"

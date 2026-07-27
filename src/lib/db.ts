@@ -31,3 +31,16 @@ export async function getMessages() {
 export async function getSettings() {
   return (await clientPromise).db('ciara-notes').collection('settings')
 }
+
+export async function getHiddenItems() {
+  return (await clientPromise).db('ciara-notes').collection<HiddenItem>('hidden_items')
+}
+
+export interface HiddenItem {
+  _id?: import('mongodb').ObjectId
+  type: 'message' | 'uri'
+  value: string
+  note?: string
+  createdAt: string
+  createdBy?: string
+}
