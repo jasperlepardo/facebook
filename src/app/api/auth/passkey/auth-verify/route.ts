@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     data: { passkeys: updatedPasskeys, currentChallenge: null },
   })
 
-  await createSession(String(user.id))
+  await createSession(String(user.id), !!user.superAdmin)
 
   const res = NextResponse.json({ verified: true })
   res.cookies.delete('webauthn-challenge')

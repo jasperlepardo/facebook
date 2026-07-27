@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       collection: 'users',
       data: { email, password },
     })
-    await createSession(String(user.id))
+    await createSession(String(user.id), !!(user as any).superAdmin)
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })

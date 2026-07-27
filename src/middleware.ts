@@ -5,14 +5,14 @@ const SECRET = new TextEncoder().encode(
   process.env.SESSION_SECRET || 'jc-session-secret-change-in-production'
 )
 
-async function isAuthenticated(req: NextRequest): Promise<boolean> {
+async function getSessionClaims(req: NextRequest): Promise<{ authed: boolean; superAdmin: boolean }> {
   const token = req.cookies.get('jc-session')?.value
-  if (!token) return false
+  if (!token) return { authed: false, superAdmin: false }
   try {
-    await jwtVerify(token, SECRET)
-    return true
+    const { payload } = await jwtVerify(token, SECRET)
+    return { authed: true, superAdmin: !!(payload.superAdmin) }
   } catch {
-    return false
+    return { authed: false, superAdmin: false }
   }
 }
 
@@ -22,10 +22,12 @@ export async function middleware(req: NextRequest) {
   }
 
   const { pathname } = req.nextUrl
-  const authed = await isAuthenticated(req)
+  const { authed, superAdmin } = await getSessionClaims(req)
 
   if (pathname.startsWith('/admin')) {
-    return NextResponse.redirect(new URL(authed ? '/' : '/auth/signin', req.url))
+    if (!authed) return NextResponse.redirect(new URL('/auth/signin', req.url))
+    if (!superAdmin) return NextResponse.redirect(new URL('/', req.url))
+    return NextResponse.next()
   }
 
   if (pathname.startsWith('/auth/')) {
