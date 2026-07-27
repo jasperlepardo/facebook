@@ -6,8 +6,7 @@
 @media (hover: none) {
   .msg-timestamp {
     opacity: var(--swipe-opacity, 0) !important;
-    transform: translateX(var(--swipe-px, 0px));
-    transition: opacity 0.15s ease-out, transform 0.15s ease-out !important;
+    transition: opacity 0.15s ease-out !important;
   }
 }
 

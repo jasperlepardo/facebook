@@ -776,24 +776,18 @@ export default function ViewerApp() {
               style={{
                 visibility: chatVisible ? 'visible' : 'hidden',
                 '--swipe-opacity': swipeOffset / 60,
-                '--swipe-px': `${swipeOffset}px`,
               } as React.CSSProperties}
             >
-              <div style={{
-                transform: swipeOffset ? `translateX(-${swipeOffset}px)` : undefined,
-                transition: swipeActiveRef.current ? 'none' : 'transform 0.25s ease-out',
-              }}>
-                {searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}
-                <MessageList
-                  blocks={blocks}
-                  onLightbox={handleMsgLightbox}
-                  isSelected={id => selectedMsgs.has(id)}
-                  onToggle={handleToggle}
-                  onContextMenu={handleMsgContextMenu}
-                  dateIndex={dateIndex}
-                  onJumpTo={handleChatJump}
-                />
-              </div>
+              {searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}
+              <MessageList
+                blocks={blocks}
+                onLightbox={handleMsgLightbox}
+                isSelected={id => selectedMsgs.has(id)}
+                onToggle={handleToggle}
+                onContextMenu={handleMsgContextMenu}
+                dateIndex={dateIndex}
+                onJumpTo={handleChatJump}
+              />
             </div>
           </div>
 
