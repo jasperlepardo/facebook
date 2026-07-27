@@ -39,8 +39,8 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
           <span className={`text-sm font-semibold ${block.mine ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'}`}>{block.sender}</span>
         </div>
         {block.msgs.map((m, i) => (
-          <div key={m._id ?? i} className="flex items-baseline gap-2 relative">
-            <div className="flex-1 min-w-0">
+          <div key={m._id ?? i}>
+            <div className="min-w-0">
               <span id={`msg-${m._id}`} className="hidden" />
               {m.media_failed
                 ? <div className="text-[12px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1.5">
@@ -81,7 +81,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
               }
               <Media m={m} onLightbox={onLightbox} />
             </div>
-            <span className="msg-timestamp text-[11px] text-gray-400 dark:text-gray-500 whitespace-nowrap opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity flex-shrink-0">
+            <span className="text-[11px] text-gray-400 dark:text-gray-500">
               {fmtTime(m.timestamp_ms)}
             </span>
           </div>

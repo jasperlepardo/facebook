@@ -2,19 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Swipe-to-reveal timestamps on touch devices */
-@media (hover: none) {
-  .msg-timestamp {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    pointer-events: none;
-    opacity: var(--swipe-opacity, 0) !important;
-    transition: opacity 0.15s ease-out !important;
-  }
-}
-
 /* Safe-area background: matches nav color so the home-indicator gap looks right */
 html {
   background: #f9fafb; /* gray-50 — light nav color */

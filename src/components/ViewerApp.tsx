@@ -80,9 +80,6 @@ export default function ViewerApp() {
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [ctxMenu, setCtxMenu]   = useState<ContextMenuState | null>(null)
 
-  // Swipe-to-reveal timestamps
-  const [swipeOffset, setSwipeOffset] = useState(0)
-  const swipeActiveRef = useRef(false)
 
   // Refs
   const chatRef       = useRef<HTMLDivElement>(null)
@@ -403,43 +400,6 @@ export default function ViewerApp() {
       }
     }
     init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Swipe-to-reveal timestamps ─────────────────────────────────────────────
-
-  useEffect(() => {
-    const el = chatRef.current
-    if (!el) return
-    let startX = 0, startY = 0, decided = false, isHorz = false
-
-    const onStart = (e: TouchEvent) => {
-      startX = e.touches[0].clientX; startY = e.touches[0].clientY
-      decided = false; isHorz = false; swipeActiveRef.current = false
-    }
-    const onMove = (e: TouchEvent) => {
-      const dx = startX - e.touches[0].clientX
-      const dy = Math.abs(e.touches[0].clientY - startY)
-      if (!decided) {
-        if (Math.abs(dx) < 5 && dy < 5) return
-        decided = true; isHorz = Math.abs(dx) > dy
-      }
-      if (!isHorz) return
-      e.preventDefault()
-      swipeActiveRef.current = true
-      setSwipeOffset(Math.max(0, Math.min(80, dx)))
-    }
-    const onEnd = () => { swipeActiveRef.current = false; setSwipeOffset(0) }
-
-    el.addEventListener('touchstart', onStart, { passive: true })
-    el.addEventListener('touchmove', onMove, { passive: false })
-    el.addEventListener('touchend', onEnd, { passive: true })
-    el.addEventListener('touchcancel', onEnd, { passive: true })
-    return () => {
-      el.removeEventListener('touchstart', onStart)
-      el.removeEventListener('touchmove', onMove)
-      el.removeEventListener('touchend', onEnd)
-      el.removeEventListener('touchcancel', onEnd)
-    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Search ──────────────────────────────────────────────────────────────────
@@ -772,11 +732,8 @@ export default function ViewerApp() {
             <div
               ref={chatRef}
               onScroll={handleScroll}
-              className={`flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 [overflow-anchor:none]${selectedMsgs.size > 0 ? ' select-none' : ''}`}
-              style={{
-                visibility: chatVisible ? 'visible' : 'hidden',
-                '--swipe-opacity': swipeOffset / 60,
-              } as React.CSSProperties}
+              className={`flex-1 overflow-y-auto flex flex-col min-h-0 [overflow-anchor:none]${selectedMsgs.size > 0 ? ' select-none' : ''}`}
+              style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
             >
               {searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}
               <MessageList
