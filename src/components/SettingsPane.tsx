@@ -51,8 +51,8 @@ export default function SettingsPane({ total, dateIndex, currentUser }: Settings
 
   async function signOut() {
     setSigningOut(true)
-    await fetch('/api/auth/signout', { method: 'POST' })
-    router.push('/auth/signin')
+    await fetch('/api/users/logout', { method: 'POST' })
+    router.push('/admin/login')
   }
   // Theme
   const [theme, setTheme] = useState<Theme>(() => {
