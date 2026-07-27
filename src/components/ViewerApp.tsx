@@ -13,6 +13,7 @@ import Gallery from './Gallery'
 import FilesView from './FilesView'
 import Lightbox from './Lightbox'
 import ContextMenu from './ContextMenu'
+import SettingsPane from './SettingsPane'
 
 function toBlockIds(selected: Message[], allMsgs: Message[]): string[] {
   const blocks = groupMessages(allMsgs)
@@ -56,25 +57,6 @@ function HashtagIcon() {
   )
 }
 
-function MoonIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-    </svg>
-  )
-}
-
-function SunIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="5"/>
-      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-    </svg>
-  )
-}
 
 export default function ViewerApp() {
   // Messages
@@ -120,16 +102,6 @@ export default function ViewerApp() {
   const lastSelectedAnchor = useRef<{ id: string; ts: number; tsEnd: number } | null>(null)
   const [preloadedHashtagIds, setPreloadedHashtagIds] = useState<Set<string> | null>(null)
   const preloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-
-  // Theme
-  const [isDark, setIsDark] = useState(false)
-  useEffect(() => { setIsDark(document.documentElement.classList.contains('dark')) }, [])
-  function toggleTheme() {
-    const next = !isDark
-    setIsDark(next)
-    document.documentElement.classList.toggle('dark', next)
-    localStorage.setItem('theme', next ? 'dark' : 'light')
-  }
 
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -229,7 +201,7 @@ export default function ViewerApp() {
       return
     }
     // Subsequent runs: state → URL
-    if (section === 'chat') { params.delete('s'); params.delete('t') }
+    if (section === 'chat' || section === 'settings') { params.delete('s'); params.delete('t') }
     else { params.set('s', section); params.delete('msg'); if (section === 'media') params.set('t', mediaTab); else params.delete('t') }
     const qs = params.toString()
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
@@ -720,7 +692,7 @@ export default function ViewerApp() {
     ? currentUser.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
     : ''
 
-  const sectionTitle = section === 'chat' ? 'Chat' : section === 'media' ? 'Media' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
+  const sectionTitle = section === 'chat' ? 'Chat' : section === 'media' ? 'Media' : section === 'settings' ? 'Settings' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
 
   return (
     <div className="font-sans bg-white dark:bg-gray-900 h-dvh flex flex-col overflow-hidden">
@@ -745,23 +717,23 @@ export default function ViewerApp() {
               <span className="text-[10px] font-semibold leading-none">{label}</span>
             </button>
           ))}
-          {/* Spacer pushes controls to bottom on desktop */}
+          {/* Spacer pushes avatar to bottom on desktop */}
           <div className="hidden md:flex flex-1" />
-          {/* Theme toggle */}
+          {/* Avatar — opens settings */}
           <button
-            onClick={toggleTheme}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="flex-1 md:flex-none md:w-12 rounded-xl flex flex-col items-center justify-center gap-0.5 py-2 md:py-2.5 px-1 transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            {isDark ? <SunIcon /> : <MoonIcon />}
-            <span className="text-[10px] font-semibold leading-none">Theme</span>
-          </button>
-          {/* Avatar nav item — matches other nav items, future settings entry point */}
-          <button
+            onClick={() => setSection(section === 'settings' ? 'chat' : 'settings')}
             title="Settings"
-            className="flex-1 md:flex-none md:w-12 rounded-xl flex flex-col items-center justify-center gap-0.5 py-2 md:py-2.5 px-1 transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 md:mb-1"
+            className={`flex-1 md:flex-none md:w-12 rounded-xl flex flex-col items-center justify-center gap-0.5 py-2 md:py-2.5 px-1 transition-colors md:mb-1 ${
+              section === 'settings'
+                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
           >
-            <div className="w-5 h-5 rounded-full bg-blue-200 dark:bg-blue-800 flex items-center justify-center text-blue-700 dark:text-blue-300 text-[10px] font-bold select-none">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold select-none ${
+              section === 'settings'
+                ? 'bg-blue-600 text-white'
+                : 'bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300'
+            }`}>
               {initials || '?'}
             </div>
             <span className="text-[10px] font-semibold leading-none">You</span>
@@ -947,6 +919,11 @@ export default function ViewerApp() {
               onActionsChange={a => { hashtagActionsRef.current = a }}
             />
           </div>
+
+          {/* Settings section */}
+          {section === 'settings' && (
+            <SettingsPane total={total} dateIndex={dateIndex} currentUser={currentUser} />
+          )}
 
         </div>
       </div>

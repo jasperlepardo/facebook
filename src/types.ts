@@ -71,7 +71,7 @@ export interface ContextMenuState {
 }
 
 export type Tab = 'chat' | 'photos' | 'videos' | 'files'
-export type Section = 'chat' | 'media' | 'hashtags'
+export type Section = 'chat' | 'media' | 'hashtags' | 'settings'
 export type MediaTab = 'photos' | 'videos' | 'files'
 
 export interface Hashtag {
