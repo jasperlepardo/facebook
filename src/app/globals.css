@@ -5,6 +5,11 @@
 /* Swipe-to-reveal timestamps on touch devices */
 @media (hover: none) {
   .msg-timestamp {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
     opacity: var(--swipe-opacity, 0) !important;
     transition: opacity 0.15s ease-out !important;
   }

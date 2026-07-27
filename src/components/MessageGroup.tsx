@@ -39,7 +39,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
           <span className={`text-sm font-semibold ${block.mine ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'}`}>{block.sender}</span>
         </div>
         {block.msgs.map((m, i) => (
-          <div key={m._id ?? i} className="flex items-baseline gap-2">
+          <div key={m._id ?? i} className="flex items-baseline gap-2 relative">
             <div className="flex-1 min-w-0">
               <span id={`msg-${m._id}`} className="hidden" />
               {m.media_failed
