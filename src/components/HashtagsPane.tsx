@@ -40,9 +40,10 @@ interface HashtagsPaneProps {
   onCreatingChange: (v: boolean) => void
   onActiveHashtagChange: (name: string | null) => void
   onActionsChange: (actions: { back: () => void; delete: () => void; rename: (name: string) => Promise<void> } | null) => void
+  isSuperAdmin?: boolean
 }
 
-export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filter, onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange }: HashtagsPaneProps) {
+export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filter, onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, isSuperAdmin }: HashtagsPaneProps) {
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [activeTab, setActiveTab] = useState<'context' | 'messages'>('context')
   const [context, setContext] = useState('')
@@ -257,6 +258,26 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
           ))}
         </div>
 
+        {/* Super-admin privacy toggle */}
+        {isSuperAdmin && (
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1">
+              {selected.isPrivate ? '🔒' : '🌐'} {selected.isPrivate ? 'Private — only visible to you' : 'Public — visible to all users'}
+            </span>
+            <button
+              onClick={async () => {
+                const next = !selected.isPrivate
+                await fetch(`/api/hashtags/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPrivate: next }) })
+                setSelected(prev => prev ? { ...prev, isPrivate: next } : prev)
+                onReload()
+              }}
+              className="text-[11px] px-2 py-0.5 rounded border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              {selected.isPrivate ? 'Make public' : 'Make private'}
+            </button>
+          </div>
+        )}
+
         {/* Tab content */}
         <div className="flex-1 min-h-0 relative">
 
@@ -369,13 +390,18 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
             <button key={h.id} onClick={() => openDetail(h)}
               className="w-full text-left px-4 py-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">#{h.name}</span>
+                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  {h.isPrivate && <span title="Private">🔒</span>}#{h.name}
+                </span>
                 {count > 0 && <span className="text-[11px] text-gray-400 dark:text-gray-500">{count} block{count !== 1 ? 's' : ''}</span>}
               </div>
               {h.context
                 ? <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{h.context}</p>
                 : <p className="text-xs text-gray-400 dark:text-gray-600 italic">No context yet</p>
               }
+              {h.createdBy && (
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">by {h.createdBy}</p>
+              )}
             </button>
           )
         })}

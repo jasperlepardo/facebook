@@ -1,22 +1,40 @@
 import config from '@payload-config'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPayload } from 'payload'
+import { getSession } from '@/lib/session'
+import { getPayloadClient } from '@/lib/payload-access'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'PATCH, DELETE, OPTIONS',
 }
 
+async function isSuperAdmin(): Promise<boolean> {
+  const session = await getSession()
+  if (!session) return false
+  try {
+    const payload = await getPayloadClient()
+    const user = await payload.findByID({ collection: 'users', id: session.userId, overrideAccess: true })
+    return !!(user as any)?.superAdmin
+  } catch { return false }
+}
+
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
-// PATCH { name?, context?, groupCount?, firstMsgTs? }
+// PATCH { name?, context?, groupCount?, firstMsgTs?, isPrivate? }
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const body = await req.json()
     const payload = await getPayload({ config })
+
+    // Only super admins may set isPrivate
+    if ('isPrivate' in body && !(await isSuperAdmin())) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: CORS })
+    }
+
     const doc = await payload.update({
       collection: 'hashtags',
       id,

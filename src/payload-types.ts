@@ -121,6 +121,7 @@ export interface UserAuthOperations {
 export interface User {
   id: string;
   name: string;
+  superAdmin?: boolean | null;
   currentChallenge?: string | null;
   passkeys?:
     | {
@@ -158,6 +159,18 @@ export interface Hashtag {
    */
   name: string;
   context?: string | null;
+  /**
+   * If true, only visible to the author (createdById) and super admins
+   */
+  isPrivate?: boolean | null;
+  /**
+   * Name of the user who created this hashtag
+   */
+  createdBy?: string | null;
+  /**
+   * User ID of the creator — used for private visibility checks
+   */
+  createdById?: string | null;
   /**
    * Timestamp (ms) of the earliest tagged message group — used for sorting
    */
@@ -248,6 +261,7 @@ export interface PayloadMigration {
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
+  superAdmin?: T;
   currentChallenge?: T;
   passkeys?:
     | T
@@ -280,6 +294,9 @@ export interface UsersSelect<T extends boolean = true> {
 export interface HashtagsSelect<T extends boolean = true> {
   name?: T;
   context?: T;
+  isPrivate?: T;
+  createdBy?: T;
+  createdById?: T;
   firstMsgTs?: T;
   groupCount?: T;
   updatedAt?: T;

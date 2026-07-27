@@ -82,7 +82,9 @@ export interface Hashtag {
   id: string
   name: string
   context?: string
+  isPrivate?: boolean
   createdBy?: string
+  createdById?: string
   firstMsgTs?: number
   groupCount?: number
 }

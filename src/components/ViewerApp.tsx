@@ -860,8 +860,8 @@ export default function ViewerApp() {
                   </button>
                 ))}
               </div>
-              {mediaTab === 'photos' && <Gallery type="photos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} hideImages={hideImages} hiddenUris={allHiddenUris} />}
-              {mediaTab === 'videos' && <Gallery type="videos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} hideImages={hideImages} hiddenUris={allHiddenUris} />}
+              {mediaTab === 'photos' && <Gallery type="photos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} hideImages={hideImages} hiddenUris={allHiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={handleHideDbUri} onUnhideUri={handleUnhideDbUri} />}
+              {mediaTab === 'videos' && <Gallery type="videos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} hideImages={hideImages} hiddenUris={allHiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={handleHideDbUri} onUnhideUri={handleUnhideDbUri} />}
               {mediaTab === 'files'  && <FilesView />}
             </div>
           )}
@@ -878,6 +878,7 @@ export default function ViewerApp() {
               onCreatingChange={setHashtagCreating}
               onActiveHashtagChange={setActiveHashtagName}
               onActionsChange={a => { hashtagActionsRef.current = a }}
+              isSuperAdmin={isSuperAdmin}
             />
           </div>
 
