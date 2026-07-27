@@ -39,30 +39,39 @@ function VideoThumb({ src, onClick }: { src: string; onClick: () => void }) {
   )
 }
 
-export default function Media({ m, onLightbox }: { m: Message; onLightbox: (s: LightboxState) => void }) {
+function imgCtx(e: React.MouseEvent, uri: string) {
+  e.preventDefault()
+  e.stopPropagation()
+  window.dispatchEvent(new CustomEvent('media-ctx', { detail: { x: e.clientX, y: e.clientY, uri } }))
+}
+
+export default function Media({ m, onLightbox, hideImages, hiddenUris }: { m: Message; onLightbox: (s: LightboxState) => void; hideImages?: boolean; hiddenUris?: Set<string> }) {
   return (
     <>
-      {m.photos?.map((p, i) => (
+      {!hideImages && m.photos?.filter(p => !hiddenUris?.has(p.uri)).map((p, i) => (
         <img key={i} src={r2(p.uri)} loading="lazy"
           className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1 hover:opacity-90"
           onClick={() => onLightbox({ src: r2(p.uri), type: 'photo', mediaType: 'photos', caption: '', msgId: m._id, ts: m.timestamp_ms })}
+          onContextMenu={e => imgCtx(e, p.uri)}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
-      {m.videos?.map((v, i) => (
+      {!hideImages && m.videos?.filter(v => !hiddenUris?.has(v.uri)).map((v, i) => (
         <VideoThumb key={i} src={r2(v.uri)}
           onClick={() => onLightbox({ src: r2(v.uri), type: 'video', mediaType: 'videos', caption: '', msgId: m._id, ts: m.timestamp_ms })} />
       ))}
       {m.audio_files?.map((a, i) => (
         <audio key={i} src={r2(a.uri)} controls preload="none" className="w-[280px] my-1 block" />
       ))}
-      {m.gifs?.map((g, i) => (
+      {!hideImages && m.gifs?.filter(g => !hiddenUris?.has(g.uri)).map((g, i) => (
         <img key={i} src={r2(g.uri)} loading="lazy"
           className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1"
           onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', mediaType: 'gifs', caption: '', msgId: m._id, ts: m.timestamp_ms })}
+          onContextMenu={e => imgCtx(e, g.uri)}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ))}
-      {m.sticker && (
+      {!hideImages && m.sticker && !hiddenUris?.has(m.sticker.uri) && (
         <img src={r2(m.sticker.uri)} loading="lazy" className="max-w-[72px] max-h-[72px]"
+          onContextMenu={e => imgCtx(e, m.sticker!.uri)}
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       )}
       {m.files?.map((f, i) => {

@@ -130,6 +130,9 @@ export interface User {
         deviceType?: string | null;
         backedUp?: boolean | null;
         transports?: string | null;
+        nickname?: string | null;
+        createdAt?: string | null;
+        lastUsedAt?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -255,6 +258,9 @@ export interface UsersSelect<T extends boolean = true> {
         deviceType?: T;
         backedUp?: T;
         transports?: T;
+        nickname?: T;
+        createdAt?: T;
+        lastUsedAt?: T;
         id?: T;
       };
   updatedAt?: T;

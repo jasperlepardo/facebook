@@ -8,9 +8,11 @@ interface GalleryProps {
   type: 'photos' | 'videos'
   onLightbox: (s: LightboxState) => void
   onContextMenu: (e: React.MouseEvent, item: GalleryItem) => void
+  hideImages?: boolean
+  hiddenUris?: Set<string>
 }
 
-export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProps) {
+export default function Gallery({ type, onLightbox, onContextMenu, hideImages, hiddenUris }: GalleryProps) {
   const [items, setItems]     = useState<GalleryItem[]>([])
   const itemsRef    = useRef<GalleryItem[]>([])
   const [hasMore, setHasMore] = useState(true)
@@ -96,10 +98,16 @@ export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProp
     return () => io.disconnect()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (hideImages) return (
+    <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
+      <p className="text-sm text-gray-400 dark:text-gray-500">Images are hidden</p>
+    </div>
+  )
+
   return (
     <div ref={galleryRef} className="flex-1 overflow-y-auto p-3 bg-white dark:bg-gray-900" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
       <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
-        {items.map((item, i) => (
+        {items.filter(item => !hiddenUris?.has(item.uri)).map((item, i) => (
           <div key={i}
             className="aspect-square overflow-hidden cursor-pointer rounded-sm bg-gray-200 dark:bg-gray-700 relative hover:opacity-85"
             onClick={() => {

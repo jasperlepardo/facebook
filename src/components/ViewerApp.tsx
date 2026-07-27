@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { Message, Section, MediaTab, LightboxState, ContextMenuState, GalleryItem, Hashtag, DateIndex } from '@/types'
-import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
+import { LIMIT, MAX_DOM, LOAD_THRESHOLD, BLOCKED_URIS } from '@/lib/constants'
 import { apiFetch } from '@/lib/utils'
 import { r2 } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
@@ -51,6 +51,12 @@ export default function ViewerApp() {
   const [section, setSection]     = useState<Section>('chat')
   const [mediaTab, setMediaTab]   = useState<MediaTab>('photos')
   const [searchInput, setSearchInput] = useState('')
+  const [hideImages, setHideImages] = useState(false)
+  const [hiddenUris, setHiddenUris] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set()
+    try { return new Set(JSON.parse(localStorage.getItem('hiddenUris') ?? '[]')) } catch { return new Set() }
+  })
+  const allHiddenUris = useMemo(() => new Set([...BLOCKED_URIS, ...hiddenUris]), [hiddenUris])
   const searchRef   = useRef('')
   const [chatVisible, setChatVisible] = useState(false)
   const [currentUser, setCurrentUser] = useState('')
@@ -103,6 +109,11 @@ export default function ViewerApp() {
   const reloadHashtags = useCallback(async () => {
     const d = await apiFetch<{ docs: Hashtag[] }>('/api/hashtags?limit=200&sort=firstMsgTs&depth=0')
     setHashtags(d.docs ?? [])
+  }, [])
+
+  // Sync hideImages from localStorage after hydration
+  useEffect(() => {
+    setHideImages(localStorage.getItem('hideImages') === '1')
   }, [])
 
   // ─── Scroll chat to current lightbox photo in background ───────────────────
@@ -576,9 +587,27 @@ export default function ViewerApp() {
 
   // ─── Context menu ────────────────────────────────────────────────────────────
 
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { x, y, uri } = (e as CustomEvent).detail
+      setCtxMenu({ x, y, kind: 'media', mediaUri: uri })
+    }
+    window.addEventListener('media-ctx', handler)
+    return () => window.removeEventListener('media-ctx', handler)
+  }, [])
+
+  function hideUri(uri: string) {
+    setHiddenUris(prev => {
+      const next = new Set(prev)
+      next.add(uri)
+      localStorage.setItem('hiddenUris', JSON.stringify([...next]))
+      return next
+    })
+  }
+
   function handleGalleryContextMenu(e: React.MouseEvent, item: GalleryItem) {
     e.preventDefault()
-    setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'gallery', galTs: String(item.ts), galMsgId: item.msgId ?? null })
+    setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'gallery', galTs: String(item.ts), galMsgId: item.msgId ?? null, mediaUri: item.uri })
   }
 
   function handleMsgContextMenu(e: React.MouseEvent, msgIds: string[]) {
@@ -692,6 +721,12 @@ export default function ViewerApp() {
             showHashtagMenu={showHashtagMenu}
             setShowHashtagMenu={setShowHashtagMenu}
             scrollContainerRef={chatRef}
+            hideImages={hideImages}
+            onToggleHideImages={() => setHideImages(v => {
+              const next = !v
+              localStorage.setItem('hideImages', next ? '1' : '0')
+              return next
+            })}
           />
 
           {/* Chat section — always mounted, hidden when not active */}
@@ -745,6 +780,8 @@ export default function ViewerApp() {
                 onContextMenu={handleMsgContextMenu}
                 dateIndex={dateIndex}
                 onJumpTo={handleChatJump}
+                hideImages={hideImages}
+                hiddenUris={allHiddenUris}
               />
             </div>
           </div>
@@ -764,8 +801,8 @@ export default function ViewerApp() {
                   </button>
                 ))}
               </div>
-              {mediaTab === 'photos' && <Gallery type="photos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} />}
-              {mediaTab === 'videos' && <Gallery type="videos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} />}
+              {mediaTab === 'photos' && <Gallery type="photos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} hideImages={hideImages} hiddenUris={allHiddenUris} />}
+              {mediaTab === 'videos' && <Gallery type="videos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} hideImages={hideImages} hiddenUris={allHiddenUris} />}
               {mediaTab === 'files'  && <FilesView />}
             </div>
           )}
@@ -817,6 +854,7 @@ export default function ViewerApp() {
           onClose={() => setCtxMenu(null)}
           onEditNote={() => setCtxMenu(null)}
           onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setCtxMenu(null) }}
+          onHideUri={hideUri}
         />
       )}
     </div>

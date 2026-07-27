@@ -13,6 +13,8 @@ interface MessageListProps {
   dateIndex?: DateIndex | null
   onJumpTo?: (target: string) => void
   renderBlockActions?: (block: MessageBlock) => React.ReactNode
+  hideImages?: boolean
+  hiddenUris?: Set<string>
 }
 
 export default function MessageList({
@@ -24,6 +26,8 @@ export default function MessageList({
   dateIndex,
   onJumpTo,
   renderBlockActions,
+  hideImages,
+  hiddenUris,
 }: MessageListProps) {
   const uid = useId()
   const days: { date: string; blocks: MessageBlock[] }[] = []
@@ -70,6 +74,8 @@ export default function MessageList({
                 onToggle={onToggle ?? (() => {})}
                 onLightbox={onLightbox}
                 onContextMenu={onContextMenu}
+                hideImages={hideImages}
+                hiddenUris={hiddenUris}
               />
               {renderBlockActions && (
                 <div className="absolute top-2 right-2 opacity-0 group-hover/block:opacity-100 transition-opacity flex gap-1 z-10">

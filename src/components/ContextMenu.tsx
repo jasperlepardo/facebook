@@ -7,9 +7,10 @@ interface ContextMenuProps {
   onClose: () => void
   onEditNote: (note: Note) => void
   onJumpToMessage: (ts: string, msgId: string | null) => void
+  onHideUri?: (uri: string) => void
 }
 
-export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessage }: ContextMenuProps) {
+export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessage, onHideUri }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -30,6 +31,10 @@ export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessag
       {state.kind === 'gallery' && (
         <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"
           onClick={() => { onJumpToMessage(state.galTs!, state.galMsgId ?? null); onClose() }}>Go to message</div>
+      )}
+      {(state.kind === 'gallery' || state.kind === 'media') && state.mediaUri && onHideUri && (
+        <div className="px-3.5 py-1.5 cursor-pointer text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 select-none"
+          onClick={() => { onHideUri(state.mediaUri!); onClose() }}>Hide image</div>
       )}
     </div>
   )

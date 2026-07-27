@@ -11,9 +11,11 @@ interface MessageGroupProps {
   onToggle: (id: string, ts: number, tsEnd: number, allIds: string[], blockId: string, shiftKey?: boolean) => void
   onLightbox: (s: LightboxState) => void
   onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
+  hideImages?: boolean
+  hiddenUris?: Set<string>
 }
 
-const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox, onContextMenu }: MessageGroupProps) {
+const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox, onContextMenu, hideImages, hiddenUris }: MessageGroupProps) {
   const first = block.msgs[0]
   const last  = block.msgs[block.msgs.length - 1]
   const allIds = block.msgs.map(m => m._id)
@@ -80,7 +82,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
                       return hasMedia ? null : <div className="text-[12px] text-gray-400 dark:text-gray-600 italic">Attachment unavailable</div>
                     })()
               }
-              <Media m={m} onLightbox={onLightbox} />
+              <Media m={m} onLightbox={onLightbox} hideImages={hideImages} hiddenUris={hiddenUris} />
             </div>
             <span className="text-[11px] text-gray-400 dark:text-gray-500 flex-shrink-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:pb-0.5">
               {fmtTime(m.timestamp_ms)}

@@ -64,10 +64,11 @@ export interface LightboxState {
 export interface ContextMenuState {
   x: number
   y: number
-  kind: 'note' | 'gallery'
+  kind: 'note' | 'gallery' | 'media'
   note?: Note
   galTs?: string
   galMsgId?: string | null
+  mediaUri?: string
 }
 
 export type Tab = 'chat' | 'photos' | 'videos' | 'files'

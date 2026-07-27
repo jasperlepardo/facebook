@@ -21,6 +21,8 @@ interface AppHeaderProps {
   showHashtagMenu: boolean
   setShowHashtagMenu: (v: boolean | ((prev: boolean) => boolean)) => void
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>
+  hideImages?: boolean
+  onToggleHideImages?: () => void
 }
 
 export default function AppHeader({
@@ -42,6 +44,8 @@ export default function AppHeader({
   showHashtagMenu,
   setShowHashtagMenu,
   scrollContainerRef,
+  hideImages,
+  onToggleHideImages,
 }: AppHeaderProps) {
   const lastScrollY = useRef(0)
   const [searchVisible, setSearchVisible] = useState(true)
@@ -159,6 +163,29 @@ export default function AppHeader({
 
         {/* Right: action area — ml-auto pushes to right on mobile (center col is hidden); md:ml-0 lets grid handle it */}
         <div className="flex items-center gap-2 ml-auto md:ml-0 justify-end">
+          {/* Hide images toggle */}
+          {section === 'chat' && onToggleHideImages && (
+            <button
+              onClick={onToggleHideImages}
+              title={hideImages ? 'Show images' : 'Hide images'}
+              className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${hideImages ? 'bg-white/30 text-white' : 'hover:bg-white/20 text-white/70 hover:text-white'}`}
+            >
+              {hideImages ? (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="2" y1="2" x2="22" y2="22"/>
+                  <path d="M10.94 6.08A6.93 6.93 0 0 1 12 6c3.18 0 6 2.5 7.73 5A13.16 13.16 0 0 1 18 13.7"/>
+                  <path d="M6.61 6.61A13.526 13.526 0 0 0 4.27 11C6 13.5 8.82 16 12 16a9.77 9.77 0 0 0 2.94-.5"/>
+                  <path d="M7.51 7.51A7 7 0 0 0 12 18c1.93 0 3.68-.79 4.95-2.05"/>
+                </svg>
+              ) : (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <path d="M21 15l-5-5L5 21"/>
+                </svg>
+              )}
+            </button>
+          )}
           {/* + New button for hashtag list */}
           {section === 'hashtags' && !activeHashtagName && (
             <button
