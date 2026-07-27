@@ -10,5 +10,23 @@ export const Users: CollectionConfig = {
       type: 'text',
       required: true,
     },
+    {
+      name: 'currentChallenge',
+      type: 'text',
+      admin: { hidden: true },
+    },
+    {
+      name: 'passkeys',
+      type: 'array',
+      admin: { hidden: true },
+      fields: [
+        { name: 'credentialID', type: 'text', required: true },
+        { name: 'publicKey', type: 'text', required: true },
+        { name: 'counter', type: 'number', required: true },
+        { name: 'deviceType', type: 'text' },
+        { name: 'backedUp', type: 'checkbox' },
+        { name: 'transports', type: 'text' },
+      ],
+    },
   ],
 }

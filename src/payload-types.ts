@@ -121,6 +121,18 @@ export interface UserAuthOperations {
 export interface User {
   id: string;
   name: string;
+  currentChallenge?: string | null;
+  passkeys?:
+    | {
+        credentialID: string;
+        publicKey: string;
+        counter: number;
+        deviceType?: string | null;
+        backedUp?: boolean | null;
+        transports?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -233,6 +245,18 @@ export interface PayloadMigration {
  */
 export interface UsersSelect<T extends boolean = true> {
   name?: T;
+  currentChallenge?: T;
+  passkeys?:
+    | T
+    | {
+        credentialID?: T;
+        publicKey?: T;
+        counter?: T;
+        deviceType?: T;
+        backedUp?: T;
+        transports?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
   email?: T;
