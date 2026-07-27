@@ -872,6 +872,16 @@ export default function ViewerApp() {
               </div>
             )}
 
+            {/* Initial load spinner */}
+            {!chatVisible && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <svg className="animate-spin w-6 h-6 text-blue-400 opacity-60" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+              </div>
+            )}
+
             {/* Chat scroll */}
             <div
               ref={chatRef}
