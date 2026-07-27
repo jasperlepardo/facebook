@@ -704,7 +704,7 @@ export default function ViewerApp() {
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
 
         {/* Nav — left on desktop, bottom on mobile */}
-        <nav className="flex-shrink-0 flex flex-col md:flex-row order-last md:order-first bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 md:border-t-0 md:border-r md:w-16">
+        <nav className="flex-shrink-0 flex flex-col md:flex-row order-last md:order-first bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 md:border-t-0 md:border-r md:w-16 pb-[env(safe-area-inset-bottom)] md:pb-0">
           {/* Button row — fixed h-14 on mobile, fills height on desktop */}
           <div className="flex flex-row md:flex-col h-14 md:h-auto md:flex-1 md:pt-3 items-stretch md:items-center gap-0.5 md:gap-1 px-1 md:px-0">
             {navItems.map(({ key, label, icon }) => (
@@ -744,8 +744,6 @@ export default function ViewerApp() {
               <span className="text-[10px] font-semibold leading-none">You</span>
             </button>
           </div>
-          {/* Safe-area spacer below buttons — only visible on mobile */}
-          <div className="flex-shrink-0 md:hidden" style={{ height: 'env(safe-area-inset-bottom)' }} />
         </nav>
 
         {/* Main content */}
