@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import { getPayloadClient } from '@/lib/payload-access'
-import { createSession } from '@/lib/session'
+import { createSession, setPayloadToken } from '@/lib/session'
 
 const RP_ID = process.env.WEBAUTHN_RP_ID || 'localhost'
 const ORIGIN = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3001'
@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
   })
 
   await createSession(String(user.id), !!user.superAdmin)
+  await setPayloadToken(String(user.id), user.email as string)
 
   const res = NextResponse.json({ verified: true })
   res.cookies.delete('webauthn-challenge')
