@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyAuthenticationResponse } from '@simplewebauthn/server'
 import { getPayloadClient } from '@/lib/payload-access'
-import { createSession, setPayloadToken } from '@/lib/session'
+import { createSession } from '@/lib/session'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — Payload's internal jwt helper, not in public types
+import { jwtSign } from 'payload/dist/auth/jwt.js'
 
 const RP_ID = process.env.WEBAUTHN_RP_ID || 'localhost'
 const ORIGIN = process.env.WEBAUTHN_ORIGIN || 'http://localhost:3001'
@@ -67,9 +70,17 @@ export async function POST(req: NextRequest) {
   })
 
   await createSession(String(user.id), !!user.superAdmin)
-  await setPayloadToken(String(user.id), user.email as string)
 
+  // Mint a Payload-compatible token using Payload's own jwtSign
+  const collection = payload.collections['users']
+  const tokenExpiration = collection.config.auth.tokenExpiration ?? 7200
+  const { token: payloadToken } = await jwtSign({
+    fieldsToSign: { id: user.id, collection: 'users', email: user.email },
+    secret: payload.secret,
+    tokenExpiration,
+  })
   const res = NextResponse.json({ verified: true })
+  res.cookies.set('payload-token', payloadToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' })
   res.cookies.delete('webauthn-challenge')
   return res
 }
