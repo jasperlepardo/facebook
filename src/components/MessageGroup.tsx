@@ -37,10 +37,11 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5">
           <span className={`text-sm font-semibold ${block.mine ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-gray-100'}`}>{block.sender}</span>
+          <span className="text-[11px] text-gray-400 dark:text-gray-500">{fmtTime(first.timestamp_ms)}</span>
         </div>
         {block.msgs.map((m, i) => (
-          <div key={m._id ?? i}>
-            <div className="min-w-0">
+          <div key={m._id ?? i} className="[@media(hover:hover)]:flex [@media(hover:hover)]:items-end [@media(hover:hover)]:gap-3">
+            <div className="min-w-0 flex-1">
               <span id={`msg-${m._id}`} className="hidden" />
               {m.media_failed
                 ? <div className="text-[12px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1.5">
@@ -81,7 +82,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
               }
               <Media m={m} onLightbox={onLightbox} />
             </div>
-            <span className="text-[11px] text-gray-400 dark:text-gray-500">
+            <span className="text-[11px] text-gray-400 dark:text-gray-500 flex-shrink-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:pb-0.5">
               {fmtTime(m.timestamp_ms)}
             </span>
           </div>

@@ -691,6 +691,7 @@ export default function ViewerApp() {
             onHashtagCreatingChange={setHashtagCreating}
             showHashtagMenu={showHashtagMenu}
             setShowHashtagMenu={setShowHashtagMenu}
+            scrollContainerRef={chatRef}
           />
 
           {/* Chat section — always mounted, hidden when not active */}
