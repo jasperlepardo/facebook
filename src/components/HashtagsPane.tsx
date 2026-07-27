@@ -34,10 +34,15 @@ interface HashtagsPaneProps {
   hashtags: Hashtag[]
   onReload: () => void
   onJumpToMessage: (ts: number, msgId: string) => void
+  filter: string
+  onFilterChange: (v: string) => void
+  creating: boolean
+  onCreatingChange: (v: boolean) => void
+  onActiveHashtagChange: (name: string | null) => void
+  onActionsChange: (actions: { back: () => void; delete: () => void; rename: (name: string) => Promise<void> } | null) => void
 }
 
-export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: HashtagsPaneProps) {
-  const [filter, setFilter] = useState('')
+export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filter, onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange }: HashtagsPaneProps) {
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [activeTab, setActiveTab] = useState<'context' | 'messages'>('context')
   const [context, setContext] = useState('')
@@ -45,16 +50,14 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   const [winStart, setWinStart] = useState(0)
   const [winEnd, setWinEnd]   = useState(CHUNK)
   const winRef = useRef({ start: 0, end: CHUNK })
-  const [editingName, setEditingName] = useState(false)
-  const [nameInput, setNameInput] = useState('')
-  const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [editingContext, setEditingContext] = useState(false)
   const ctxRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const nameRef = useRef<HTMLInputElement>(null)
   const newRef = useRef<HTMLInputElement>(null)
+  const deleteRef = useRef<() => Promise<void>>(async () => {})
+  const renameRef = useRef<(name: string) => Promise<void>>(async () => {})
   const msgsScrollRef    = useRef<HTMLDivElement>(null)
   const topSentinelRef   = useRef<HTMLDivElement>(null)
   const botSentinelRef   = useRef<HTMLDivElement>(null)
@@ -147,9 +150,9 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   async function openDetail(h: Hashtag) {
     setHashtagParam(h.id)
     setSelected(h)
+    onActiveHashtagChange(h.name)
     setContext(h.context ?? '')
     setActiveTab('context')
-    setEditingName(false)
     setEditingContext(false)
     await loadMessages(h)
   }
@@ -181,20 +184,11 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
     }, 600)
   }
 
-  async function saveName() {
-    if (!selected || !nameInput.trim()) { setEditingName(false); return }
-    const slug = nameInput.trim()
-    await fetch(`/api/hashtags/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: slug }) })
-    setSelected(prev => prev ? { ...prev, name: slug } : prev)
-    setEditingName(false)
-    onReload()
-  }
-
   async function createHashtag() {
     const slug = newName.trim()
     if (!slug) return
     await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: slug }) })
-    setNewName(''); setCreating(false)
+    setNewName(''); onCreatingChange(false)
     onReload()
   }
 
@@ -215,8 +209,30 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
     await fetch(`/api/hashtags/${selected.id}`, { method: 'DELETE' })
     setHashtagParam(null)
     setSelected(null)
+    onActiveHashtagChange(null)
+    onActionsChange(null)
     onReload()
   }
+
+  // Keep action refs current every render so ViewerApp always calls the latest version
+  deleteRef.current = deleteHashtag
+  renameRef.current = async (name: string) => {
+    if (!selected) return
+    await fetch(`/api/hashtags/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+    setSelected(prev => prev ? { ...prev, name } : prev)
+    onActiveHashtagChange(name)
+    onReload()
+  }
+
+  // Re-register actions whenever the selected hashtag changes
+  useEffect(() => {
+    if (!selected) { onActionsChange(null); return }
+    onActionsChange({
+      back:   () => { setHashtagParam(null); setSelected(null); onActiveHashtagChange(null); onActionsChange(null) },
+      delete: () => deleteRef.current(),
+      rename: (name: string) => renameRef.current(name),
+    })
+  }, [selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = filter ? hashtags.filter(h => h.name.includes(filter.toLowerCase())) : hashtags
 
@@ -231,28 +247,6 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
     return (
       <>
       <div className="flex flex-col h-full min-h-0 bg-white">
-        {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200 flex-shrink-0">
-          <button onClick={() => { setHashtagParam(null); setSelected(null) }} className="text-gray-400 hover:text-gray-700 text-lg leading-none px-1">←</button>
-          {editingName ? (
-            <input
-              ref={nameRef}
-              value={nameInput}
-              onChange={e => setNameInput(toSlug(e.target.value))}
-              onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false) }}
-              onBlur={saveName}
-              className="flex-1 text-sm font-bold border-b border-blue-500 outline-none px-0.5 text-blue-700"
-              autoFocus
-            />
-          ) : (
-            <button
-              onClick={() => { setNameInput(selected.name); setEditingName(true) }}
-              className="flex-1 text-left text-sm font-bold text-blue-700 hover:underline truncate"
-            >#{selected.name}</button>
-          )}
-          <button onClick={deleteHashtag} className="text-xs text-red-400 hover:text-red-600 flex-shrink-0">Delete</button>
-        </div>
-
         {/* Tabs */}
         <div className="flex border-b border-gray-200 flex-shrink-0">
           {(['context', 'messages'] as const).map(tab => (
@@ -348,30 +342,20 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   // ─── List view ─────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col h-full min-h-0 bg-white">
-      <div className="px-3 py-2.5 border-b border-gray-200 flex items-center gap-2 flex-shrink-0">
-        <span className="text-sm font-bold text-gray-800 flex-1"># Hashtags</span>
-        <input
-          value={filter} onChange={e => setFilter(e.target.value)}
-          placeholder="Filter…"
-          className="px-2 py-1 text-xs border border-gray-200 rounded-full outline-none w-24"
-        />
-        <button onClick={() => { setCreating(true); setTimeout(() => newRef.current?.focus(), 50) }}
-          className="text-xs px-2.5 py-1 bg-blue-600 text-white rounded-full font-semibold">+ New</button>
-      </div>
-
       {creating && (
-        <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2">
+        <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
           <span className="text-sm text-gray-400">#</span>
           <input
             ref={newRef}
             value={newName}
             onChange={e => setNewName(toSlug(e.target.value))}
-            onKeyDown={e => { if (e.key === 'Enter') createHashtag(); if (e.key === 'Escape') { setCreating(false); setNewName('') } }}
+            onKeyDown={e => { if (e.key === 'Enter') createHashtag(); if (e.key === 'Escape') { onCreatingChange(false); setNewName('') } }}
             placeholder="hashtag-name"
             className="flex-1 text-sm outline-none"
+            autoFocus
           />
           <button onClick={createHashtag} className="text-xs text-blue-600 font-semibold">Add</button>
-          <button onClick={() => { setCreating(false); setNewName('') }} className="text-xs text-gray-400">✕</button>
+          <button onClick={() => { onCreatingChange(false); setNewName('') }} className="text-xs text-gray-400">✕</button>
         </div>
       )}
 
