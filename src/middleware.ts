@@ -17,13 +17,25 @@ async function isAuthenticated(req: NextRequest): Promise<boolean> {
 }
 
 export async function middleware(req: NextRequest) {
-  if (!(await isAuthenticated(req))) {
-    const signin = new URL('/auth/signin', req.url)
-    return NextResponse.redirect(signin)
+  const { pathname } = req.nextUrl
+  const authed = await isAuthenticated(req)
+
+  if (pathname.startsWith('/admin')) {
+    return NextResponse.redirect(new URL(authed ? '/' : '/auth/signin', req.url))
   }
+
+  if (pathname.startsWith('/auth/')) {
+    if (authed) return NextResponse.redirect(new URL('/', req.url))
+    return NextResponse.next()
+  }
+
+  if (!authed) {
+    return NextResponse.redirect(new URL('/auth/signin', req.url))
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/', '/api/messages', '/api/attachments', '/api/jump', '/api/bookmark'],
+  matcher: ['/', '/admin/:path*', '/auth/:path*', '/api/messages', '/api/attachments', '/api/jump', '/api/bookmark'],
 }

@@ -18,9 +18,12 @@ export const viewport: Viewport = {
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){var s=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(s==='dark'||(s!=='light'&&d))document.documentElement.classList.add('dark')})()` }} />
+      </head>
+      <body className={`${inter.className} bg-gray-50 dark:bg-gray-900`} suppressHydrationWarning>
+        <div className="min-h-screen flex items-center justify-center px-4">
           {children}
         </div>
       </body>

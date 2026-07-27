@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
       deviceType: credentialDeviceType,
       backedUp: credentialBackedUp,
       transports: JSON.stringify(credential.response?.transports ?? []),
+      createdAt: new Date().toISOString(),
+      lastUsedAt: new Date().toISOString(),
     },
   ]
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { startAuthentication } from '@simplewebauthn/browser'
 import Link from 'next/link'
 
-const inputCls = 'w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+const inputCls = 'w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 export default function SigninPage() {
   const router = useRouter()
@@ -36,11 +36,13 @@ export default function SigninPage() {
   }
 
   async function handlePasskeySignin() {
-    if (!email) { setError('Enter your email first'); return }
     setError('')
     setPkLoading(true)
     try {
-      const optRes = await fetch(`/api/auth/passkey/auth-options?email=${encodeURIComponent(email)}`)
+      const url = email
+        ? `/api/auth/passkey/auth-options?email=${encodeURIComponent(email)}`
+        : '/api/auth/passkey/auth-options'
+      const optRes = await fetch(url)
       if (!optRes.ok) {
         const d = await optRes.json()
         throw new Error(d.error)
@@ -50,7 +52,7 @@ export default function SigninPage() {
       const verRes = await fetch('/api/auth/passkey/auth-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, credential }),
+        body: JSON.stringify({ userId: userId ?? undefined, credential }),
       })
       const data = await verRes.json()
       if (!verRes.ok) throw new Error(data.error)
@@ -74,13 +76,13 @@ export default function SigninPage() {
         <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <span className="text-white text-2xl font-bold">J</span>
         </div>
-        <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
-        <p className="text-sm text-gray-500 mt-1">Jasper & Ciara</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Sign in</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Jasper & Ciara</p>
       </div>
 
       <form onSubmit={handlePasswordSignin} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
           <input
             type="email"
             value={email}
@@ -91,7 +93,7 @@ export default function SigninPage() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
           <input
             type="password"
             value={password}
@@ -102,28 +104,28 @@ export default function SigninPage() {
           />
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
+          className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
         >
           {pwLoading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
 
       <div className="flex items-center gap-3 my-4">
-        <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-xs text-gray-400">or</span>
-        <div className="flex-1 h-px bg-gray-200" />
+        <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+        <span className="text-xs text-gray-400 dark:text-gray-500">or</span>
+        <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
       </div>
 
       <button
         type="button"
         onClick={handlePasskeySignin}
         disabled={loading}
-        className="w-full py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+        className="w-full py-2.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 2a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4"/>
@@ -135,9 +137,9 @@ export default function SigninPage() {
         {pkLoading ? 'Waiting for passkey…' : 'Sign in with passkey'}
       </button>
 
-      <p className="text-center text-sm text-gray-500 mt-6">
+      <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
         No account?{' '}
-        <Link href="/auth/signup" className="text-blue-600 font-medium">Sign up</Link>
+        <Link href="/auth/signup" className="text-blue-600 dark:text-blue-400 font-medium">Sign up</Link>
       </p>
     </div>
   )

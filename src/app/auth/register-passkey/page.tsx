@@ -71,6 +71,12 @@ function RegisterPasskeyInner() {
           <p className="text-xs text-gray-400 mt-4">
             Your passkey syncs via iCloud Keychain or Google Password Manager.
           </p>
+          <button
+            onClick={() => router.push('/')}
+            className="mt-3 text-sm text-gray-400 hover:text-gray-600"
+          >
+            Skip for now
+          </button>
         </>
       )}
     </div>

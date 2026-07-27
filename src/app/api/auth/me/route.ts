@@ -18,6 +18,11 @@ export async function GET() {
       credentialID: p.credentialID,
       deviceType: p.deviceType,
       backedUp: p.backedUp,
+      transports: p.transports,
+      counter: p.counter,
+      createdAt: p.createdAt,
+      lastUsedAt: p.lastUsedAt,
+      nickname: p.nickname,
     })),
   })
 }

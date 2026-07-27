@@ -169,12 +169,12 @@ export default function ViewerApp() {
       mountedRef.current = true
       const s = params.get('s')
       const t = params.get('t')
-      if (s === 'media' || s === 'hashtags') setSection(s)
+      if (s === 'media' || s === 'hashtags' || s === 'settings') setSection(s)
       if (t === 'videos' || t === 'files') setMediaTab(t)
       return
     }
     // Subsequent runs: state → URL
-    if (section === 'chat' || section === 'settings') { params.delete('s'); params.delete('t') }
+    if (section === 'chat') { params.delete('s'); params.delete('t') }
     else { params.set('s', section); params.delete('msg'); if (section === 'media') params.set('t', mediaTab); else params.delete('t') }
     const qs = params.toString()
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
@@ -339,7 +339,7 @@ export default function ViewerApp() {
     if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id) }
     deviceId.current = id
 
-    fetch('/api/users/me').then(r => r.json()).then(d => { if (d?.user?.name) setCurrentUser(d.user.name) }).catch(() => {})
+    fetch('/api/auth/me').then(r => r.json()).then(d => { if (d?.name) setCurrentUser(d.name) }).catch(() => {})
     reloadHashtags()
     apiFetch<DateIndex>('/api/date-index').then(setDateIndex).catch(() => {})
 
