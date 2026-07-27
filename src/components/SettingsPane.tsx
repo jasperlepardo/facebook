@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { DateIndex } from '@/types'
 
 type Theme = 'light' | 'dark' | 'system'
@@ -44,6 +45,14 @@ const inputCls = 'w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dar
 const btnCls = 'px-4 py-2 rounded-lg text-sm font-semibold transition-colors'
 
 export default function SettingsPane({ total, dateIndex, currentUser }: SettingsPaneProps) {
+  const router = useRouter()
+  const [signingOut, setSigningOut] = useState(false)
+
+  async function signOut() {
+    setSigningOut(true)
+    await fetch('/api/auth/signout', { method: 'POST' })
+    router.push('/auth/signin')
+  }
   // Theme
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'system'
@@ -242,6 +251,20 @@ export default function SettingsPane({ total, dateIndex, currentUser }: Settings
                 <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{fmt(lastDate)}</span>
               </div>
             )}
+          </div>
+        </section>
+
+        {/* Account */}
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Account</h2>
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
+            <button
+              onClick={signOut}
+              disabled={signingOut}
+              className={`${btnCls} bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 disabled:opacity-60`}
+            >
+              {signingOut ? 'Signing out…' : 'Sign out'}
+            </button>
           </div>
         </section>
 
