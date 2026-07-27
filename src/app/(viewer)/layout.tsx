@@ -1,13 +1,22 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { Inter } from 'next/font/google'
+import ServiceWorker from '@/components/ServiceWorker'
 import '../globals.css'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
 export const metadata: Metadata = {
   title: 'Jasper & Ciara',
-  other: { 'apple-mobile-web-app-capable': 'yes' },
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Jasper & Ciara',
+  },
+  icons: {
+    apple: '/icons/icon-192x192.png',
+  },
 }
 
 export const viewport: Viewport = {
@@ -23,7 +32,10 @@ export default function ViewerLayout({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: `(function(){var s=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(s==='dark'||(s!=='light'&&d))document.documentElement.classList.add('dark')})()` }} />
       </head>
-      <body className={inter.className} suppressHydrationWarning>{children}</body>
+      <body className={inter.className} suppressHydrationWarning>
+        {children}
+        <ServiceWorker />
+      </body>
     </html>
   )
 }
