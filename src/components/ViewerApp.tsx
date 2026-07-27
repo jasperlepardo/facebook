@@ -692,13 +692,13 @@ export default function ViewerApp() {
   const sectionTitle = section === 'chat' ? 'Chat' : section === 'media' ? 'Media' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
 
   return (
-    <div className="font-sans bg-white h-screen flex flex-col overflow-hidden">
+    <div className="font-sans bg-white h-dvh flex flex-col overflow-hidden">
 
       {/* Body */}
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
 
         {/* Nav — left on desktop, bottom on mobile */}
-        <nav className="flex-shrink-0 flex flex-row md:flex-col items-stretch bg-gray-50 border-t border-gray-200 md:border-t-0 md:border-r md:w-16 md:pt-3 h-14 md:h-auto gap-0.5 md:gap-1 order-last md:order-first px-1 md:px-0 md:items-center">
+        <nav className="flex-shrink-0 flex flex-row md:flex-col items-stretch bg-gray-50 border-t border-gray-200 md:border-t-0 md:border-r md:w-16 md:pt-3 h-14 md:h-auto gap-0.5 md:gap-1 order-last md:order-first px-1 md:px-0 md:items-center pb-[env(safe-area-inset-bottom)] md:pb-0">
           {navItems.map(({ key, label, icon }) => (
             <button
               key={key}

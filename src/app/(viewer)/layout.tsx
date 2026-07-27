@@ -4,7 +4,16 @@ import '../globals.css'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
-export const metadata = { title: 'Jasper & Ciara' }
+export const metadata = {
+  title: 'Jasper & Ciara',
+  other: { 'apple-mobile-web-app-capable': 'yes' },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
 
 export default function ViewerLayout({ children }: { children: ReactNode }) {
   return (
