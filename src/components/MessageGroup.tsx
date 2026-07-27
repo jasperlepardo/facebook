@@ -27,7 +27,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
   return (
     <div
       data-id={first._id}
-      className={`msg-group flex py-2 px-5 gap-3 items-start relative cursor-pointer group transition-colors ${isSelected ? '!bg-blue-50 dark:!bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+      className={`msg-group flex py-2 px-5 gap-3 items-start relative cursor-pointer group transition-colors ${isSelected ? '!bg-blue-50 dark:!bg-blue-900/20' : '[@media(hover:hover)]:hover:bg-gray-50 dark:[@media(hover:hover)]:hover:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-800/60'}`}
       onClick={handleClick}
       onContextMenu={e => onContextMenu?.(e, block.msgs.map(m => m._id))}
     >
@@ -81,7 +81,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
               }
               <Media m={m} onLightbox={onLightbox} />
             </div>
-            <span className="text-[11px] text-gray-400 dark:text-gray-500 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            <span className="text-[11px] text-gray-400 dark:text-gray-500 whitespace-nowrap opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity flex-shrink-0">
               {fmtTime(m.timestamp_ms)}
             </span>
           </div>
@@ -92,7 +92,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
         checked={isSelected}
         onChange={() => {}}
         onClick={e => { e.stopPropagation(); onToggle(first._id, first.timestamp_ms, last.timestamp_ms, allIds, first.blockId ?? first._id, e.shiftKey) }}
-        className="self-start mt-0.5 w-4 h-4 cursor-pointer opacity-0 group-hover:opacity-100 accent-blue-600 flex-shrink-0 transition-opacity"
+        className="self-start mt-0.5 w-4 h-4 cursor-pointer opacity-0 [@media(hover:hover)]:group-hover:opacity-100 accent-blue-600 flex-shrink-0 transition-opacity"
         style={isSelected ? { opacity: 1 } : {}}
       />
     </div>
