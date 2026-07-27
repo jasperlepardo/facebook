@@ -1,6 +1,5 @@
-const CACHE = 'jc-v1'
+const CACHE = 'jc-v2'
 const STATIC = [
-  '/',
   '/manifest.json',
 ]
 
