@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Hashtag } from '@/types'
 import { toSlug } from '@/lib/utils'
 
@@ -56,9 +56,10 @@ export default function HashtagPicker({ hashtags, blockIds, initialSelected, onC
     setNewTags(prev => prev.filter(t => t !== tag))
   }
 
-  const filtered = input
-    ? hashtags.filter(h => h.name.includes(input))
-    : hashtags
+  const filtered = useMemo(
+    () => input ? hashtags.filter(h => h.name.includes(input)) : hashtags,
+    [hashtags, input]
+  )
 
   const pendingInput = input.trim()
   const canApply = selected.size > 0 || newTags.length > 0 || !!pendingInput

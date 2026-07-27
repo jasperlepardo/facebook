@@ -5,7 +5,6 @@ import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import { HashtagGroups } from './collections/HashtagGroups'
 import { Hashtags } from './collections/Hashtags'
-import { Notes } from './collections/Notes'
 import { Users } from './collections/Users'
 
 const filename = fileURLToPath(import.meta.url)
@@ -15,7 +14,7 @@ export default buildConfig({
   admin: {
     user: 'users',
   },
-  collections: [Users, Notes, Hashtags, HashtagGroups],
+  collections: [Users, Hashtags, HashtagGroups],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || 'ciara-notes-secret-key',
   typescript: {

@@ -14,7 +14,9 @@ export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProp
   const [items, setItems]     = useState<GalleryItem[]>([])
   const itemsRef    = useRef<GalleryItem[]>([])
   const [hasMore, setHasMore] = useState(true)
+  const hasMoreRef  = useRef(true)
   const [loading, setLoading] = useState(false)
+  const loadingRef  = useRef(false)
   const offset      = useRef(0)
   const galleryRef  = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -22,13 +24,16 @@ export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProp
   const deviceId    = useRef('')
 
   async function load() {
-    if (!hasMore || loading) return
+    if (!hasMoreRef.current || loadingRef.current) return
+    loadingRef.current = true
     setLoading(true)
     const res = await fetch(`/api/attachments?type=${type}&offset=${offset.current}&limit=${GALLERY_LIMIT}`)
     const data = await res.json()
     setItems(prev => { const next = [...prev, ...data.items]; itemsRef.current = next; return next })
+    hasMoreRef.current = data.has_more
     setHasMore(data.has_more)
     offset.current += GALLERY_LIMIT
+    loadingRef.current = false
     setLoading(false)
   }
 
@@ -51,7 +56,7 @@ export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProp
     deviceId.current = id
 
     async function init() {
-      setItems([]); setHasMore(true); offset.current = 0
+      setItems([]); setHasMore(true); hasMoreRef.current = true; offset.current = 0; loadingRef.current = false
       let startOffset = 0, scrollTop = 0
       try {
         const bk = await fetch(`/api/bookmark?deviceId=${id}&ns=gallery-${type}`).then(r => r.json())
@@ -89,7 +94,7 @@ export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProp
     const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) load() }, { root: galleryRef.current, rootMargin: '300px' })
     io.observe(sentinelRef.current)
     return () => io.disconnect()
-  }, [hasMore, loading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div ref={galleryRef} className="flex-1 overflow-y-auto p-3" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>

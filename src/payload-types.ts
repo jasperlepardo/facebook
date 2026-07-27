@@ -67,7 +67,6 @@ export interface Config {
   blocks: {};
   collections: {
     users: User;
-    notes: Note;
     hashtags: Hashtag;
     'hashtag-groups': HashtagGroup;
     'payload-locked-documents': PayloadLockedDocument;
@@ -77,7 +76,6 @@ export interface Config {
   collectionsJoins: {};
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
-    notes: NotesSelect<false> | NotesSelect<true>;
     hashtags: HashtagsSelect<false> | HashtagsSelect<true>;
     'hashtag-groups': HashtagGroupsSelect<false> | HashtagGroupsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -136,50 +134,6 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "notes".
- */
-export interface Note {
-  id: string;
-  /**
-   * ISO date or datetime: 2016-07-14 or 2016-07-14T13:06
-   */
-  start: string;
-  /**
-   * ISO date or datetime: 2016-07-31 or 2016-07-31T23:59
-   */
-  end?: string | null;
-  tags?:
-    | (
-        | 'milestone'
-        | 'religion'
-        | 'jealousy'
-        | 'conflict'
-        | 'pattern'
-        | 'foreshadowing'
-        | 'travel'
-        | 'money'
-        | 'friendship'
-        | 'social'
-        | 'work'
-        | 'wedding-planning'
-        | 'first-contact'
-        | 'first-date'
-        | 'getting-to-know'
-      )[]
-    | null;
-  title: string;
-  body?: string | null;
-  /**
-   * Comma-separated linked message IDs
-   */
-  msgIds?: string | null;
-  createdBy?: (string | null) | User;
-  updatedBy?: (string | null) | User;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "hashtags".
  */
 export interface Hashtag {
@@ -222,10 +176,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: string | User;
-      } | null)
-    | ({
-        relationTo: 'notes';
-        value: string | Note;
       } | null)
     | ({
         relationTo: 'hashtags';
@@ -292,22 +242,6 @@ export interface UsersSelect<T extends boolean = true> {
   hash?: T;
   loginAttempts?: T;
   lockUntil?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "notes_select".
- */
-export interface NotesSelect<T extends boolean = true> {
-  start?: T;
-  end?: T;
-  tags?: T;
-  title?: T;
-  body?: T;
-  msgIds?: T;
-  createdBy?: T;
-  updatedBy?: T;
-  updatedAt?: T;
-  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

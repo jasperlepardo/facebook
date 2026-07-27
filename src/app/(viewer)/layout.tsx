@@ -9,7 +9,7 @@ export const metadata = { title: 'Jasper & Ciara' }
 export default function ViewerLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className} suppressHydrationWarning>{children}</body>
     </html>
   )
 }

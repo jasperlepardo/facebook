@@ -1,12 +1,12 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import { Hashtag, LightboxState, Message, MessageBlock } from '@/types'
 import { ME } from '@/lib/constants'
 import { apiFetch, toSlug } from '@/lib/utils'
 import { fmtDate } from '@/lib/format'
-import MessageGroup from './MessageGroup'
+import MessageList from './MessageList'
 import Lightbox from './Lightbox'
 
 const CHUNK = 60
@@ -51,7 +51,6 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   const [newName, setNewName] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [editingContext, setEditingContext] = useState(false)
-  const [stickyDate, setStickyDate] = useState('')
   const ctxRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const nameRef = useRef<HTMLInputElement>(null)
@@ -62,18 +61,24 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   const allMsgsRef = useRef<Message[]>([])
   allMsgsRef.current = allMsgs
   winRef.current = { start: winStart, end: winEnd }
+  const restoredFromUrl = useRef(false)
 
-  function handleMsgsScroll() {
-    const el = msgsScrollRef.current
-    if (!el) return
-    const top = el.getBoundingClientRect().top
-    let sticky = ''
-    for (const sep of el.querySelectorAll<HTMLElement>('.dsep')) {
-      if (sep.getBoundingClientRect().top <= top + 2) sticky = sep.textContent?.trim() ?? ''
-      else break
-    }
-    setStickyDate(sticky)
+  function setHashtagParam(id: string | null) {
+    const params = new URLSearchParams(window.location.search)
+    if (id) params.set('h', id); else params.delete('h')
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
   }
+
+  // Restore selected hashtag from URL once hashtags have loaded
+  useEffect(() => {
+    if (restoredFromUrl.current || !hashtags.length) return
+    restoredFromUrl.current = true
+    const id = new URLSearchParams(window.location.search).get('h')
+    if (!id) return
+    const h = hashtags.find(h => h.id === id)
+    if (h) openDetail(h)
+  }, [hashtags]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bottom sentinel: append downward, cull from top
   useEffect(() => {
@@ -121,13 +126,31 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
     return () => io.disconnect()
   }, [activeTab, winStart, winEnd])
 
+  function handleScrollToDay(target: string) {
+    const container = msgsScrollRef.current
+    if (!container) return
+    let el: Element | null = null
+    if (target === 'beginning') {
+      el = container.querySelector('[data-day-iso]')
+    } else if (target === 'recent') {
+      const all = container.querySelectorAll('[data-day-iso]')
+      el = all[all.length - 1] ?? null
+    } else if (target.startsWith('ts:')) {
+      const iso = new Date(parseInt(target.slice(3))).toISOString().split('T')[0]
+      el = container.querySelector(`[data-day-iso="${iso}"]`)
+    } else {
+      el = container.querySelector(`[data-day-iso="${target}"]`)
+    }
+    el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }
+
   async function openDetail(h: Hashtag) {
+    setHashtagParam(h.id)
     setSelected(h)
     setContext(h.context ?? '')
     setActiveTab('context')
     setEditingName(false)
     setEditingContext(false)
-    setStickyDate('')
     await loadMessages(h)
   }
 
@@ -190,6 +213,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   async function deleteHashtag() {
     if (!selected || !confirm(`Delete #${selected.name}?`)) return
     await fetch(`/api/hashtags/${selected.id}`, { method: 'DELETE' })
+    setHashtagParam(null)
     setSelected(null)
     onReload()
   }
@@ -197,9 +221,10 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
   const filtered = filter ? hashtags.filter(h => h.name.includes(filter.toLowerCase())) : hashtags
 
   // ─── Detail view ───────────────────────────────────────────────────────────
+  const visibleMsgs = allMsgs.slice(winStart, winEnd)
+  const blocks = useMemo(() => buildBlocks(visibleMsgs), [winStart, winEnd, allMsgs]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (selected) {
-    const visibleMsgs = allMsgs.slice(winStart, winEnd)
-    const blocks = buildBlocks(visibleMsgs)
     const hasMore   = winEnd < allMsgs.length
     const hasBefore = winStart > 0
 
@@ -208,7 +233,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
       <div className="flex flex-col h-full min-h-0 bg-white">
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-200 flex-shrink-0">
-          <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-700 text-lg leading-none px-1">←</button>
+          <button onClick={() => { setHashtagParam(null); setSelected(null) }} className="text-gray-400 hover:text-gray-700 text-lg leading-none px-1">←</button>
           {editingName ? (
             <input
               ref={nameRef}
@@ -286,38 +311,30 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage }: Ha
           {/* Messages tab */}
           {activeTab === 'messages' && (
             <div className="absolute inset-0 flex flex-col">
-              {stickyDate && (
-                <div className="absolute top-2 left-0 right-0 flex justify-center z-10 pointer-events-none">
-                  <span className="bg-white/90 border border-gray-200 rounded-full px-3 py-0.5 text-xs text-[#616061] font-semibold shadow-sm">{stickyDate}</span>
-                </div>
-              )}
-            <div ref={msgsScrollRef} onScroll={handleMsgsScroll} className="flex-1 overflow-y-auto">
-              {allMsgs.length === 0 && (
-                <p className="text-xs text-gray-400 text-center py-8">No messages tagged yet.</p>
-              )}
-              {hasBefore && <div ref={topSentinelRef} className="h-8" />}
-              {blocks.map((block, i) => (
-                <div key={block.msgs[0].blockId ?? i} className="relative group/block">
-                  <MessageGroup
-                    block={block}
-                    isSelected={false}
-                    onToggle={() => {}}
-                    onLightbox={setLightbox}
-                  />
-                  <div className="absolute top-2 right-2 opacity-0 group-hover/block:opacity-100 transition-opacity flex gap-1 z-10">
-                    <button
-                      onClick={() => onJumpToMessage(block.msgs[0].timestamp_ms, block.msgs[0]._id)}
-                      className="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-blue-600 shadow-sm hover:bg-blue-50"
-                    >→ Jump</button>
-                    <button
-                      onClick={() => removeGroup(block.msgs[0].blockId!)}
-                      className="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-red-500 shadow-sm hover:bg-red-50"
-                    >× Remove</button>
-                  </div>
-                </div>
-              ))}
-              {hasMore && <div ref={botSentinelRef} className="h-8" />}
-            </div>
+              <div ref={msgsScrollRef} className="flex-1 overflow-y-auto">
+                {allMsgs.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-8">No messages tagged yet.</p>
+                )}
+                {hasBefore && <div ref={topSentinelRef} className="h-8" />}
+                <MessageList
+                  blocks={blocks}
+                  onLightbox={setLightbox}
+                  onJumpTo={handleScrollToDay}
+                  renderBlockActions={block => (
+                    <>
+                      <button
+                        onClick={() => onJumpToMessage(block.msgs[0].timestamp_ms, block.msgs[0]._id)}
+                        className="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-blue-600 shadow-sm hover:bg-blue-50"
+                      >→ Jump</button>
+                      <button
+                        onClick={() => removeGroup(block.msgs[0].blockId!)}
+                        className="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-red-500 shadow-sm hover:bg-red-50"
+                      >× Remove</button>
+                    </>
+                  )}
+                />
+                {hasMore && <div ref={botSentinelRef} className="h-8" />}
+              </div>
             </div>
           )}
 

@@ -1,22 +1,19 @@
 'use client'
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { flushSync } from 'react-dom'
-import { Message, Note, Tab, LightboxState, ContextMenuState, GalleryItem, Hashtag, DateIndex } from '@/types'
+import { Message, Section, MediaTab, LightboxState, ContextMenuState, GalleryItem, Hashtag, DateIndex } from '@/types'
 import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
 import { apiFetch } from '@/lib/utils'
 import { r2 } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
-import MessageGroup, { DateMenu } from './MessageGroup'
+import MessageList from './MessageList'
 import HashtagsPane from './HashtagsPane'
 import HashtagPicker from './HashtagPicker'
-import NoteModal from './NoteModal'
 import Gallery from './Gallery'
 import FilesView from './FilesView'
 import Lightbox from './Lightbox'
 import ContextMenu from './ContextMenu'
 
-// Given a set of selected messages and the full visible message list,
-// return the anchor ID (first _id) of each groupMessages block that contains a selected message.
 function toBlockIds(selected: Message[], allMsgs: Message[]): string[] {
   const blocks = groupMessages(allMsgs)
   const selectedIds = new Set(selected.map(m => m._id))
@@ -28,6 +25,35 @@ function toBlockIds(selected: Message[], allMsgs: Message[]): string[] {
     }
   }
   return [...blockIds]
+}
+
+function ChatIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+  )
+}
+
+function MediaIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+      <circle cx="8.5" cy="8.5" r="1.5"/>
+      <polyline points="21 15 16 10 5 21"/>
+    </svg>
+  )
+}
+
+function HashtagIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="9" x2="20" y2="9"/>
+      <line x1="4" y1="15" x2="20" y2="15"/>
+      <line x1="10" y1="3" x2="8" y2="21"/>
+      <line x1="16" y1="3" x2="14" y2="21"/>
+    </svg>
+  )
 }
 
 export default function ViewerApp() {
@@ -46,14 +72,15 @@ export default function ViewerApp() {
   // Media counts
   const [mediaCounts, setMediaCounts] = useState<{ photos: number; videos: number; files: number }>({ photos: 0, videos: 0, files: 0 })
 
-  // UI
-  const [currentTab, setCurrentTab]   = useState<Tab>('chat')
+  // Navigation — default to 'chat' for SSR, then correct from URL after hydration
+  const [section, setSection]     = useState<Section>('chat')
+  const [mediaTab, setMediaTab]   = useState<MediaTab>('photos')
   const [searchInput, setSearchInput] = useState('')
   const searchRef   = useRef('')
   const [chatVisible, setChatVisible] = useState(false)
   const [currentUser, setCurrentUser] = useState('')
 
-  // Date index (loaded once on mount for DateMenu navigation)
+  // Date index
   const [dateIndex, setDateIndex] = useState<DateIndex | null>(null)
 
   // Hashtags
@@ -70,9 +97,6 @@ export default function ViewerApp() {
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [ctxMenu, setCtxMenu]   = useState<ContextMenuState | null>(null)
 
-  // Notes pane width (resizable)
-  const [notesWidth, setNotesWidth] = useState('50%')
-
   // Refs
   const chatRef       = useRef<HTMLDivElement>(null)
   const deviceId      = useRef('')
@@ -82,6 +106,7 @@ export default function ViewerApp() {
   const pendingScrollBottom = useRef(false)
   const pendingLightboxScroll = useRef<string | null>(null)
   const queuedLoad    = useRef<'older' | 'newer' | null>(null)
+
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   const applyMessages = (msgs: Message[]) => {
@@ -119,7 +144,6 @@ export default function ViewerApp() {
   // ─── Scroll to pending jump target after messages render ────────────────────
 
   useEffect(() => {
-    // After a fresh date-jump, override any scroll-anchor adjustment the browser made
     if (pendingScrollReset.current) {
       pendingScrollReset.current = false
       if (chatRef.current) chatRef.current.scrollTop = 0
@@ -130,7 +154,6 @@ export default function ViewerApp() {
       if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
       return
     }
-    // Pending jump (chat navigation)
     const jumpId = pendingJump.current
     if (jumpId) {
       const anchor = document.getElementById('msg-' + jumpId)?.closest<HTMLElement>('.msg-group')
@@ -142,7 +165,6 @@ export default function ViewerApp() {
         setTimeout(() => { anchor.style.transition = '' }, 1800)
       }
     }
-    // Pending lightbox background scroll
     const scrollId = pendingLightboxScroll.current
     if (scrollId) {
       const anchor = document.getElementById('msg-' + scrollId)?.closest<HTMLElement>('.msg-group')
@@ -152,6 +174,27 @@ export default function ViewerApp() {
       }
     }
   }, [messages])
+
+  // ─── Sync section + mediaTab to/from URL ────────────────────────────────────
+
+  const mountedRef = useRef(false)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (!mountedRef.current) {
+      // First run after hydration: read URL → state
+      mountedRef.current = true
+      const s = params.get('s')
+      const t = params.get('t')
+      if (s === 'media' || s === 'hashtags') setSection(s)
+      if (t === 'videos' || t === 'files') setMediaTab(t)
+      return
+    }
+    // Subsequent runs: state → URL
+    if (section === 'chat') { params.delete('s'); params.delete('t') }
+    else { params.set('s', section); params.delete('msg'); if (section === 'media') params.set('t', mediaTab); else params.delete('t') }
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+  }, [section, mediaTab])
 
   // ─── Load messages ───────────────────────────────────────────────────────────
 
@@ -175,16 +218,12 @@ export default function ViewerApp() {
       const prevTop = el?.scrollTop ?? 0
       const combined = [...data.messages, ...prev]
 
-      // Step 1: prepend only — formula correct for pure prepend
       flushSync(() => applyMessages(combined))
       if (el) {
         const newScrollTop = prevTop + el.scrollHeight - prevH
         el.scrollTop = newScrollTop
       }
 
-      // Step 2: cull bottom only if it won't clamp scrollTop.
-      // After cull: max scrollTop = (currentH - cullH) - clientH
-      // Clamps when currentScrollTop > maxAfterCull → skip cull to avoid triggering loadNewer.
       if (combined.length > MAX_DOM && el) {
         const excess = combined.length - MAX_DOM
         const currentH = el.scrollHeight
@@ -195,7 +234,6 @@ export default function ViewerApp() {
           upperOffset.current -= excess
           flushSync(() => applyMessages(combined.slice(0, MAX_DOM)))
         }
-        // else: skip cull — DOM temporarily > MAX_DOM; will cull on next prepend
       }
 
     } else if (mode === 'append') {
@@ -207,11 +245,8 @@ export default function ViewerApp() {
         const excess = deduped.length - MAX_DOM
         const culled = deduped.slice(-MAX_DOM)
 
-        // Step 1: append only — no scroll adjustment (new content appears below viewport)
         flushSync(() => applyMessages(deduped))
 
-        // Step 2: cull top only if user is safely above the culled region.
-        // Estimate culled height proportionally; if scrollTop < culledH, skip to avoid clamping.
         const el = chatRef.current
         const prevH2 = el?.scrollHeight ?? 0
         const prevTop2 = el?.scrollTop ?? 0
@@ -221,7 +256,6 @@ export default function ViewerApp() {
           flushSync(() => applyMessages(culled))
           if (el) el.scrollTop = prevTop2 + el.scrollHeight - prevH2
         }
-        // else: skip cull — DOM temporarily > MAX_DOM; will cull on next append
       } else {
         applyMessages(deduped)
       }
@@ -244,15 +278,22 @@ export default function ViewerApp() {
 
   // ─── Jump ────────────────────────────────────────────────────────────────────
 
+  function setMsgParam(msgId: string | null) {
+    const params = new URLSearchParams(window.location.search)
+    if (msgId) params.set('msg', msgId); else params.delete('msg')
+    const qs = params.toString()
+    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
+  }
+
   async function jumpToMessage(ts: number, msgId: string | null) {
-    setCurrentTab('chat')
+    setSection('chat')
     const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`
     const d = await apiFetch<{ index: number | null }>(url)
     if (d.index == null) return
     lowerOffset.current = Math.max(0, d.index - Math.floor(LIMIT / 2))
     upperOffset.current = lowerOffset.current
     searchRef.current = ''; setSearchInput('')
-    if (msgId) pendingJump.current = msgId
+    if (msgId) { pendingJump.current = msgId; setMsgParam(msgId) }
     await loadMessages('fresh')
   }
 
@@ -264,7 +305,6 @@ export default function ViewerApp() {
 
     const chatTop = el.getBoundingClientRect().top
 
-    // Bookmark
     const id = deviceId.current
     if (id && !searchRef.current) {
       const now = Date.now()
@@ -281,7 +321,6 @@ export default function ViewerApp() {
       }
     }
 
-    // Infinite scroll — queue next load if one is already in progress
     const nearTop    = el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0
     const nearBottom = el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current
 
@@ -296,7 +335,6 @@ export default function ViewerApp() {
       fn().finally(async () => {
         const queued = queuedLoad.current
         queuedLoad.current = null
-        // Re-check scroll position — the prepend may have moved us far from the edge
         const qel = chatRef.current
         const stillNearTop    = qel && qel.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0
         const stillNearBottom = qel && qel.scrollTop + qel.clientHeight > qel.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current
@@ -330,20 +368,30 @@ export default function ViewerApp() {
 
     async function init() {
       let startIdx = 0, anchorMsgId: string | null = null, anchorOffset = 0
-      try {
-        const bk = await apiFetch<{ msgId: string | null; offset: number }>('/api/bookmark?deviceId=' + id)
-        if (bk.msgId) {
-          anchorMsgId = bk.msgId; anchorOffset = bk.offset ?? 0
-          const jd = await apiFetch<{ index: number | null }>('/api/jump?msgId=' + bk.msgId)
+      const urlMsgId = new URLSearchParams(window.location.search).get('msg')
+      if (urlMsgId) {
+        anchorMsgId = urlMsgId
+        try {
+          const jd = await apiFetch<{ index: number | null }>('/api/jump?msgId=' + urlMsgId)
           if (jd.index != null) startIdx = jd.index
-        }
-      } catch {}
+        } catch {}
+      } else {
+        try {
+          const bk = await apiFetch<{ msgId: string | null; offset: number }>('/api/bookmark?deviceId=' + id)
+          if (bk.msgId) {
+            anchorMsgId = bk.msgId; anchorOffset = bk.offset ?? 0
+            const jd = await apiFetch<{ index: number | null }>('/api/jump?msgId=' + bk.msgId)
+            if (jd.index != null) startIdx = jd.index
+          }
+        } catch {}
+      }
 
       lowerOffset.current = Math.max(0, startIdx - Math.floor(LIMIT / 2))
       upperOffset.current = lowerOffset.current
+      if (urlMsgId) pendingJump.current = urlMsgId
       try { await loadMessages('fresh') } catch {}
 
-      loadingRef.current = true // block scroll handler during restoration
+      loadingRef.current = true
       if (anchorMsgId && chatRef.current) {
         const anchor = document.getElementById('msg-' + anchorMsgId)?.closest<HTMLElement>('.msg-group')
         if (anchor) {
@@ -354,8 +402,6 @@ export default function ViewerApp() {
       setChatVisible(true)
       loadingRef.current = false
 
-      // Preload in whichever direction the restored position is close to the edge.
-      // Keep loadingRef true throughout so the scroll handler doesn't double-fire.
       const el = chatRef.current
       if (el) {
         loadingRef.current = true
@@ -380,10 +426,8 @@ export default function ViewerApp() {
     searchTimer.current = setTimeout(async () => {
       const trimmed = v.trim()
 
-      // Block ID / message ID jump — 24-char hex ObjectId
       if (/^[0-9a-f]{24}$/i.test(trimmed)) {
         setSearching(true)
-        // Try as blockId first, fall back to _id
         const byBlock = await apiFetch<{ messages: Message[] }>(`/api/messages?groupIds=${trimmed}`)
         const msgs = byBlock.messages.length
           ? byBlock.messages
@@ -417,18 +461,15 @@ export default function ViewerApp() {
       let offset: number | null = null
 
       if (date.startsWith('ts:')) {
-        // Exact message timestamp from an adjacent rendered block — resolve without API call
         const ts = parseInt(date.slice(3))
         const msgIdx = messagesRef.current.findIndex(m => m.timestamp_ms === ts)
         if (msgIdx !== -1) {
           offset = lowerOffset.current + msgIdx
         } else {
-          // Message scrolled out of window — fall back to API with exact timestamp
           const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(ts).toISOString()}`)
           offset = d.index
         }
       } else {
-        // YYYY-MM-DD ISO: check pre-computed index (days, weeks, months)
         offset = dateIndex
           ? (dateIndex.days.find(d => d.iso === date) ?? dateIndex.weeks.find(w => w.iso === date) ?? dateIndex.months.find(m => m.iso === date))?.offset ?? null
           : null
@@ -458,7 +499,6 @@ export default function ViewerApp() {
       const anchorIdx = blocks.findIndex(b => b.msgs[0]._id === anchor.id)
       const clickedIdx = blocks.findIndex(b => b.msgs[0]._id === id)
       if (anchorIdx !== -1 && clickedIdx !== -1) {
-        // Both visible in DOM — fast path
         const [start, end] = anchorIdx < clickedIdx ? [anchorIdx, clickedIdx] : [clickedIdx, anchorIdx]
         setSelectedMsgs(prev => {
           const next = new Map(prev)
@@ -471,7 +511,6 @@ export default function ViewerApp() {
           return next
         })
       } else {
-        // One or both blocks scrolled out of DOM — fetch full range by timestamp
         const minTs = Math.min(anchor.ts, ts)
         const maxTs = Math.max(anchor.tsEnd, tsEnd)
         const data = await apiFetch<{ messages: Message[] }>(`/api/messages?tsFrom=${minTs}&tsTo=${maxTs}`)
@@ -502,7 +541,6 @@ export default function ViewerApp() {
     setPreloadedHashtagIds(null)
   }
 
-  // Preload hashtag membership whenever the selection settles
   useEffect(() => {
     clearTimeout(preloadTimer.current)
     if (selectedMsgs.size === 0) { setPreloadedHashtagIds(null); return }
@@ -537,7 +575,6 @@ export default function ViewerApp() {
         body: JSON.stringify({ hashtagId, blockIds }),
       })
 
-    // Create new hashtags first, then tag all blocks, then reload
     Promise.all(newNames.map(name => {
       const existing = snapHashtags.find(h => h.name === name)
       if (existing) return Promise.resolve(existing.id as string | undefined)
@@ -548,38 +585,11 @@ export default function ViewerApp() {
       .then(() => reloadHashtags())
   }
 
-  // ─── Resizer ─────────────────────────────────────────────────────────────────
-
-  const resizerData = useRef({ startX: 0, startW: 0, dragging: false })
-  function onResizerDown(e: React.MouseEvent) {
-    const pane = document.getElementById('notes-pane')!
-    resizerData.current = { startX: e.clientX, startW: pane.offsetWidth, dragging: true }
-    document.body.style.userSelect = 'none'
-    document.body.style.cursor = 'col-resize'
-  }
-  useEffect(() => {
-    const move = (e: MouseEvent) => {
-      if (!resizerData.current.dragging) return
-      const delta = resizerData.current.startX - e.clientX
-      const w = Math.max(220, Math.min(window.innerWidth * 0.6, resizerData.current.startW + delta))
-      setNotesWidth(w + 'px')
-    }
-    const up = () => { resizerData.current.dragging = false; document.body.style.userSelect = ''; document.body.style.cursor = '' }
-    document.addEventListener('mousemove', move)
-    document.addEventListener('mouseup', up)
-    return () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up) }
-  }, [])
-
   // ─── Message blocks (memoized) ───────────────────────────────────────────────
 
   const blocks = useMemo(() => groupMessages(messages), [messages])
 
   // ─── Context menu ────────────────────────────────────────────────────────────
-
-  function handleNoteContextMenu(e: React.MouseEvent, note: Note) {
-    e.preventDefault()
-    setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'note', note })
-  }
 
   function handleGalleryContextMenu(e: React.MouseEvent, item: GalleryItem) {
     e.preventDefault()
@@ -599,7 +609,6 @@ export default function ViewerApp() {
     if (!state.ts) { setLightbox(state); return }
 
     const mtype = state.mediaType ?? 'photos'
-    // Find document offset of this item in the full sorted media list
     const { offset: docOff } = await apiFetch<{ offset: number }>(
       `/api/attachments?type=${mtype}&offsetOf=${state.ts}`
     )
@@ -642,13 +651,29 @@ export default function ViewerApp() {
     setLightbox(mkState(baseOff + target, items[target]))
   }
 
-  // ─── Tabs ────────────────────────────────────────────────────────────────────
+  // ─── Chat date jump (for DateMenu inside MessageList) ────────────────────────
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'chat',   label: 'Chat' },
-    { key: 'photos', label: `Photos${mediaCounts.photos ? ` (${mediaCounts.photos.toLocaleString()})` : ''}` },
-    { key: 'videos', label: `Videos${mediaCounts.videos ? ` (${mediaCounts.videos.toLocaleString()})` : ''}` },
-    { key: 'files',  label: `Files & Audio${mediaCounts.files ? ` (${mediaCounts.files.toLocaleString()})` : ''}` },
+  async function handleChatJump(target: string) {
+    if (target === 'recent') {
+      const d = await apiFetch<{ total: number }>('/api/messages?offset=0&limit=1&asc=1')
+      lowerOffset.current = Math.max(0, d.total - LIMIT)
+      upperOffset.current = lowerOffset.current
+      pendingScrollBottom.current = true
+      loadMessages('fresh')
+    } else if (target === 'beginning') {
+      lowerOffset.current = 0; upperOffset.current = 0; loadMessages('fresh')
+    } else {
+      handleDateJump(target)
+    }
+  }
+
+  // ─── Nav items ───────────────────────────────────────────────────────────────
+
+  const mediaTotal = mediaCounts.photos + mediaCounts.videos + mediaCounts.files
+  const navItems: { key: Section; label: string; icon: React.ReactNode; badge?: string }[] = [
+    { key: 'chat',     label: 'Chat',   icon: <ChatIcon />,    badge: total > 0 ? total.toLocaleString() : undefined },
+    { key: 'media',    label: 'Media',  icon: <MediaIcon />,   badge: mediaTotal > 0 ? mediaTotal.toLocaleString() : undefined },
+    { key: 'hashtags', label: 'Tags',   icon: <HashtagIcon />, badge: hashtags.length > 0 ? String(hashtags.length) : undefined },
   ]
 
   // ─── Render ──────────────────────────────────────────────────────────────────
@@ -658,127 +683,124 @@ export default function ViewerApp() {
 
       {/* Header */}
       <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center gap-2.5 shadow-md z-10 flex-shrink-0">
-        <input type="date" id="date-jump" min="2016-07-14" max="2024-05-09" title="Jump to date"
-          onChange={e => handleDateJump(e.target.value)}
-          className="px-2.5 py-1.5 rounded bg-white/20 text-white text-xs border-none outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:invert" />
-        <input type="search" value={searchInput} onChange={e => handleSearchChange(e.target.value)}
-          placeholder="Search messages…"
-          className="px-3.5 py-1.5 rounded-full bg-white/20 text-white w-[200px] text-[13px] outline-none placeholder:text-white/65 focus:bg-white/30" />
-        <span className="text-xs text-white/75 whitespace-nowrap">{total > 0 ? `${total.toLocaleString()} messages` : ''}</span>
+        {section === 'chat' ? (
+          <>
+            <input type="date" id="date-jump" min="2016-07-14" max="2024-05-09" title="Jump to date"
+              onChange={e => handleDateJump(e.target.value)}
+              className="px-2.5 py-1.5 rounded bg-white/20 text-white text-xs border-none outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:invert" />
+            <input type="search" value={searchInput} onChange={e => handleSearchChange(e.target.value)}
+              placeholder="Search messages…"
+              className="px-3.5 py-1.5 rounded-full bg-white/20 text-white w-[200px] text-[13px] outline-none placeholder:text-white/65 focus:bg-white/30" />
+            <span className="text-xs text-white/75 whitespace-nowrap">{total > 0 ? `${total.toLocaleString()} messages` : ''}</span>
+          </>
+        ) : (
+          <span className="text-sm font-semibold capitalize">{section === 'hashtags' ? 'Tags' : 'Media'}</span>
+        )}
         <span className="flex-1" />
         {currentUser && <span className="text-xs text-white/75">{currentUser}</span>}
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white flex border-b-2 border-gray-200 flex-shrink-0">
-        {tabs.map(t => (
-          <div key={t.key} onClick={() => setCurrentTab(t.key)}
-            className={`px-5 py-2.5 cursor-pointer text-[13px] font-semibold border-b-[3px] -mb-px select-none transition-colors hover:bg-gray-100 ${currentTab === t.key ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent'}`}>
-            {t.label}
-          </div>
-        ))}
-      </div>
+      {/* Body */}
+      <div className="flex-1 overflow-hidden flex min-h-0">
 
-      {/* Main */}
-      <div className="flex-1 overflow-hidden flex flex-row min-h-0">
+        {/* Left nav */}
+        <nav className="w-16 bg-gray-50 border-r border-gray-200 flex flex-col items-center pt-3 gap-1 flex-shrink-0">
+          {navItems.map(({ key, label, icon, badge }) => (
+            <button
+              key={key}
+              onClick={() => setSection(key)}
+              title={label}
+              className={`w-12 rounded-xl flex flex-col items-center justify-center gap-0.5 py-2.5 px-1 transition-colors ${
+                section === key
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+              }`}
+            >
+              {icon}
+              <span className="text-[10px] font-semibold leading-none">{label}</span>
+              {badge && (
+                <span className={`text-[9px] leading-none mt-0.5 ${section === key ? 'text-blue-500' : 'text-gray-400'}`}>
+                  {badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
 
-        {/* Chat pane */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
+        {/* Main content */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
 
-          {/* Sticky date */}
+          {/* Chat section — always mounted, hidden when not active */}
+          <div className={`flex-1 flex flex-col min-h-0 relative${section !== 'chat' ? ' hidden' : ''}`}>
 
-          {/* Selection bar */}
-          {selectedMsgs.size > 0 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-4 py-2 flex items-center gap-3 text-[13px] whitespace-nowrap shadow-xl z-20">
-              <span>{selectedMsgs.size} message{selectedMsgs.size > 1 ? 's' : ''} selected</span>
-              <button onClick={openNoteFromSelection} className="bg-blue-600 px-3.5 py-1 rounded-full text-[13px] font-semibold"># Tag</button>
-              <button onClick={clearSelection} className="opacity-80 hover:opacity-100">✕</button>
-            </div>
-          )}
-
-          {/* Date-jump loading overlay */}
-          {jumping && (
-            <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 backdrop-blur-[2px] pointer-events-none">
-              <div className="flex items-center gap-2 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 text-[13px] text-gray-600">
-                <svg className="animate-spin w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                </svg>
-                Loading…
+            {/* Selection bar */}
+            {selectedMsgs.size > 0 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-4 py-2 flex items-center gap-3 text-[13px] whitespace-nowrap shadow-xl z-20">
+                <span>{selectedMsgs.size} message{selectedMsgs.size > 1 ? 's' : ''} selected</span>
+                <button onClick={openNoteFromSelection} className="bg-blue-600 px-3.5 py-1 rounded-full text-[13px] font-semibold"># Tag</button>
+                <button onClick={clearSelection} className="opacity-80 hover:opacity-100">✕</button>
               </div>
+            )}
+
+            {/* Date-jump loading overlay */}
+            {jumping && (
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 backdrop-blur-[2px] pointer-events-none">
+                <div className="flex items-center gap-2 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 text-[13px] text-gray-600">
+                  <svg className="animate-spin w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                  </svg>
+                  Loading…
+                </div>
+              </div>
+            )}
+
+            {/* Chat scroll */}
+            <div
+              ref={chatRef}
+              onScroll={handleScroll}
+              className={`flex-1 overflow-y-auto flex flex-col min-h-0 [overflow-anchor:none]${selectedMsgs.size > 0 ? ' select-none' : ''}`}
+              style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
+            >
+              {searching && <div className="text-center py-2 text-[13px] text-gray-500">Searching…</div>}
+              <MessageList
+                blocks={blocks}
+                onLightbox={handleMsgLightbox}
+                isSelected={id => selectedMsgs.has(id)}
+                onToggle={handleToggle}
+                onContextMenu={handleMsgContextMenu}
+                dateIndex={dateIndex}
+                onJumpTo={handleChatJump}
+              />
+            </div>
+          </div>
+
+          {/* Media section */}
+          {section === 'media' && (
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex border-b border-gray-200 flex-shrink-0 bg-white">
+                {([
+                  { key: 'photos' as MediaTab, label: `Photos${mediaCounts.photos ? ` (${mediaCounts.photos.toLocaleString()})` : ''}` },
+                  { key: 'videos' as MediaTab, label: `Videos${mediaCounts.videos ? ` (${mediaCounts.videos.toLocaleString()})` : ''}` },
+                  { key: 'files'  as MediaTab, label: `Files & Audio${mediaCounts.files ? ` (${mediaCounts.files.toLocaleString()})` : ''}` },
+                ]).map(t => (
+                  <button key={t.key} onClick={() => setMediaTab(t.key)}
+                    className={`px-5 py-2.5 text-[13px] font-semibold border-b-[3px] -mb-px select-none transition-colors hover:bg-gray-100 ${mediaTab === t.key ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent'}`}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              {mediaTab === 'photos' && <Gallery type="photos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} />}
+              {mediaTab === 'videos' && <Gallery type="videos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} />}
+              {mediaTab === 'files'  && <FilesView />}
             </div>
           )}
 
-          {/* Chat scroll */}
-          <div
-            ref={chatRef}
-            onScroll={handleScroll}
-            className={`flex-1 overflow-y-auto flex flex-col min-h-0 [overflow-anchor:none]${selectedMsgs.size > 0 ? ' select-none' : ''}`}
-            style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
-          >
-            {searching && <div className="text-center py-2 text-[13px] text-gray-500">Searching…</div>}
-            {currentTab === 'chat' && (() => {
-              const jumpTo = async (target: string) => {
-                if (target === 'recent') {
-                  const d = await apiFetch<{ total: number }>('/api/messages?offset=0&limit=1&asc=1')
-                  lowerOffset.current = Math.max(0, d.total - LIMIT)
-                  upperOffset.current = lowerOffset.current
-                  pendingScrollBottom.current = true
-                  loadMessages('fresh')
-                }
-                else if (target === 'beginning')  { lowerOffset.current = 0; upperOffset.current = 0; loadMessages('fresh') }
-                else handleDateJump(target)
-              }
-              // Group blocks into day sections so sticky headers push each other
-              const days: { date: string; blocks: typeof blocks }[] = []
-              for (const b of blocks) {
-                if (b.newDate) days.push({ date: b.date, blocks: [] })
-                days[days.length - 1]?.blocks.push(b)
-              }
-              return days.map((day, dayIdx) => (
-                <div key={day.date + day.blocks[0].msgs[0]._id}
-                  id={`day-${new Date(Number(day.blocks[0].msgs[0].timestamp_ms)).toISOString().split('T')[0]}`}
-                  className="flex flex-col">
-                  <div className="dsep sticky top-0 z-10 flex items-center py-1.5 bg-white/90 backdrop-blur-sm text-xs text-[#616061]">
-                    <span className="flex-1 border-t border-gray-200" />
-                    <DateMenu
-                      date={day.date}
-                      ts={day.blocks[0].msgs[0].timestamp_ms}
-                      prevDayTs={dayIdx > 0 ? days[dayIdx - 1].blocks[0].msgs[0].timestamp_ms : undefined}
-                      nextDayTs={dayIdx < days.length - 1 ? days[dayIdx + 1].blocks[0].msgs[0].timestamp_ms : undefined}
-                      dateIndex={dateIndex}
-                      onJumpTo={jumpTo}
-                    />
-                    <span className="flex-1 border-t border-gray-200" />
-                  </div>
-                  {day.blocks.map((b, i) => (
-                    <MessageGroup
-                      key={b.msgs[0]._id ?? i}
-                      block={b}
-                      isSelected={selectedMsgs.has(b.msgs[0]._id)}
-                      onToggle={handleToggle}
-                      onLightbox={handleMsgLightbox}
-                      onContextMenu={handleMsgContextMenu}
-                    />
-                  ))}
-                </div>
-              ))
-            })()}
-            {currentTab === 'photos' && <Gallery type="photos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} />}
-            {currentTab === 'videos' && <Gallery type="videos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} />}
-            {currentTab === 'files'  && <FilesView />}
+          {/* Hashtags section — always mounted, hidden when not active */}
+          <div className={`flex-1 flex flex-col min-h-0${section !== 'hashtags' ? ' hidden' : ''}`}>
+            <HashtagsPane hashtags={hashtags} onReload={reloadHashtags} onJumpToMessage={jumpToMessage} />
           </div>
-        </div>
 
-        {/* Resize handle */}
-        <div
-          onMouseDown={onResizerDown}
-          className="w-[5px] bg-gray-200 cursor-col-resize flex-shrink-0 hover:bg-blue-600 transition-colors"
-        />
-
-        {/* Hashtags pane */}
-        <div id="notes-pane" className="flex flex-col min-h-0 flex-shrink-0 overflow-hidden" style={{ width: notesWidth }}>
-          <HashtagsPane hashtags={hashtags} onReload={reloadHashtags} onJumpToMessage={jumpToMessage} />
         </div>
       </div>
 
@@ -796,7 +818,7 @@ export default function ViewerApp() {
         onClose={() => {
           const { ts, msgId } = lightbox
           setLightbox(null)
-          if (currentTab === 'chat' && msgId && !document.getElementById('msg-' + msgId)) jumpToMessage(Number(ts), msgId)
+          if (section === 'chat' && msgId && !document.getElementById('msg-' + msgId)) jumpToMessage(Number(ts), msgId)
         }}
         onJumpToMessage={(ts, msgId) => { setLightbox(null); jumpToMessage(ts, msgId) }}
       />}
