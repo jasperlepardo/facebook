@@ -697,6 +697,9 @@ export default function ViewerApp() {
   return (
     <div className="font-sans bg-white dark:bg-gray-900 h-dvh flex flex-col overflow-hidden">
 
+      {/* Blue status-bar fill — covers the top safe area on iOS */}
+      <div className="flex-shrink-0 bg-blue-600" style={{ height: 'env(safe-area-inset-top)' }} />
+
       {/* Body */}
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
 
@@ -743,8 +746,8 @@ export default function ViewerApp() {
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden dark:bg-gray-900">
 
-          {/* Header — scoped to content column; pt-safe extends blue into status bar */}
-          <div className="bg-blue-600 text-white px-4 pt-[calc(0.625rem+env(safe-area-inset-top))] pb-2.5 flex items-center gap-2.5 flex-shrink-0">
+          {/* Header — scoped to content column */}
+          <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center gap-2.5 flex-shrink-0">
             {section === 'hashtags' && activeHashtagName && (
               <button
                 onClick={() => hashtagActionsRef.current?.back()}
