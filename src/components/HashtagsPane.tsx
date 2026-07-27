@@ -246,12 +246,12 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
 
     return (
       <>
-      <div className="flex flex-col h-full min-h-0 bg-white">
+      <div className="flex flex-col h-full min-h-0 bg-white dark:bg-gray-900">
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 flex-shrink-0">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           {(['context', 'messages'] as const).map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2 text-xs font-semibold capitalize transition-colors ${activeTab === tab ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
+              className={`flex-1 py-2 text-xs font-semibold capitalize transition-colors ${activeTab === tab ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
               {tab === 'messages' ? `Messages (${allMsgs.length} msgs · ${selected.groupCount ?? 0} blocks)` : 'Context'}
             </button>
           ))}
@@ -271,7 +271,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
                   onBlur={() => setEditingContext(false)}
                   onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') setEditingContext(false) }}
                   placeholder={`Notes and context for #${selected.name}…\n\nSupports **markdown**`}
-                  className="w-full h-full p-3 text-sm text-gray-700 leading-relaxed resize-none outline-none font-mono"
+                  className="w-full h-full p-3 text-sm text-gray-700 dark:text-gray-200 leading-relaxed resize-none outline-none font-mono bg-white dark:bg-gray-900"
                   autoFocus
                 />
               ) : (
@@ -281,21 +281,21 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
                 >
                   {context ? (
                     <ReactMarkdown components={{
-                      p:          ({children}) => <p className="text-sm text-gray-700 leading-relaxed mb-3">{children}</p>,
-                      h1:         ({children}) => <h1 className="text-base font-bold text-gray-900 mb-2 mt-4">{children}</h1>,
-                      h2:         ({children}) => <h2 className="text-sm font-bold text-gray-800 mb-2 mt-3">{children}</h2>,
-                      h3:         ({children}) => <h3 className="text-sm font-semibold text-gray-800 mb-1 mt-3">{children}</h3>,
-                      ul:         ({children}) => <ul className="list-disc pl-4 mb-3 space-y-1 text-sm text-gray-700">{children}</ul>,
-                      ol:         ({children}) => <ol className="list-decimal pl-4 mb-3 space-y-1 text-sm text-gray-700">{children}</ol>,
+                      p:          ({children}) => <p className="text-sm text-gray-700 dark:text-gray-200 leading-relaxed mb-3">{children}</p>,
+                      h1:         ({children}) => <h1 className="text-base font-bold text-gray-900 dark:text-white mb-2 mt-4">{children}</h1>,
+                      h2:         ({children}) => <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-2 mt-3">{children}</h2>,
+                      h3:         ({children}) => <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1 mt-3">{children}</h3>,
+                      ul:         ({children}) => <ul className="list-disc pl-4 mb-3 space-y-1 text-sm text-gray-700 dark:text-gray-200">{children}</ul>,
+                      ol:         ({children}) => <ol className="list-decimal pl-4 mb-3 space-y-1 text-sm text-gray-700 dark:text-gray-200">{children}</ol>,
                       li:         ({children}) => <li className="leading-relaxed">{children}</li>,
-                      strong:     ({children}) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                      strong:     ({children}) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
                       em:         ({children}) => <em className="italic">{children}</em>,
-                      a:          ({href, children}) => <a href={href} target="_blank" rel="noopener" className="text-blue-600 underline">{children}</a>,
-                      code:       ({children}) => <code className="bg-gray-100 text-xs px-1 py-0.5 rounded font-mono">{children}</code>,
-                      blockquote: ({children}) => <blockquote className="border-l-2 border-gray-300 pl-3 text-gray-500 italic my-2">{children}</blockquote>,
+                      a:          ({href, children}) => <a href={href} target="_blank" rel="noopener" className="text-blue-600 dark:text-blue-400 underline">{children}</a>,
+                      code:       ({children}) => <code className="bg-gray-100 dark:bg-gray-800 text-xs px-1 py-0.5 rounded font-mono">{children}</code>,
+                      blockquote: ({children}) => <blockquote className="border-l-2 border-gray-300 dark:border-gray-600 pl-3 text-gray-500 dark:text-gray-400 italic my-2">{children}</blockquote>,
                     }}>{context}</ReactMarkdown>
                   ) : (
-                    <p className="text-sm text-gray-300 italic">Click to add context… supports **markdown**</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-600 italic">Click to add context… supports **markdown**</p>
                   )}
                 </div>
               )}
@@ -307,7 +307,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
             <div className="absolute inset-0 flex flex-col">
               <div ref={msgsScrollRef} className="flex-1 overflow-y-auto">
                 {allMsgs.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center py-8">No messages tagged yet.</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-8">No messages tagged yet.</p>
                 )}
                 {hasBefore && <div ref={topSentinelRef} className="h-8" />}
                 <MessageList
@@ -318,11 +318,11 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
                     <>
                       <button
                         onClick={() => onJumpToMessage(block.msgs[0].timestamp_ms, block.msgs[0]._id)}
-                        className="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-blue-600 shadow-sm hover:bg-blue-50"
+                        className="text-[11px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 text-blue-600 dark:text-blue-400 shadow-sm hover:bg-blue-50 dark:hover:bg-blue-900/30"
                       >→ Jump</button>
                       <button
                         onClick={() => removeGroup(block.msgs[0].blockId!)}
-                        className="text-[11px] bg-white border border-gray-200 rounded px-1.5 py-0.5 text-red-500 shadow-sm hover:bg-red-50"
+                        className="text-[11px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded px-1.5 py-0.5 text-red-500 shadow-sm hover:bg-red-50 dark:hover:bg-red-900/30"
                       >× Remove</button>
                     </>
                   )}
@@ -341,40 +341,40 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
 
   // ─── List view ─────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white">
+    <div className="flex flex-col h-full min-h-0 bg-white dark:bg-gray-900">
       {creating && (
-        <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2 flex-shrink-0">
-          <span className="text-sm text-gray-400">#</span>
+        <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2 flex-shrink-0">
+          <span className="text-sm text-gray-400 dark:text-gray-500">#</span>
           <input
             ref={newRef}
             value={newName}
             onChange={e => setNewName(toSlug(e.target.value))}
             onKeyDown={e => { if (e.key === 'Enter') createHashtag(); if (e.key === 'Escape') { onCreatingChange(false); setNewName('') } }}
             placeholder="hashtag-name"
-            className="flex-1 text-sm outline-none"
+            className="flex-1 text-sm outline-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-600"
             autoFocus
           />
-          <button onClick={createHashtag} className="text-xs text-blue-600 font-semibold">Add</button>
-          <button onClick={() => { onCreatingChange(false); setNewName('') }} className="text-xs text-gray-400">✕</button>
+          <button onClick={createHashtag} className="text-xs text-blue-600 dark:text-blue-400 font-semibold">Add</button>
+          <button onClick={() => { onCreatingChange(false); setNewName('') }} className="text-xs text-gray-400 dark:text-gray-500">✕</button>
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 && (
-          <p className="text-xs text-gray-400 text-center py-8">{filter ? 'No matches.' : 'No hashtags yet. Create one above.'}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-8">{filter ? 'No matches.' : 'No hashtags yet. Create one above.'}</p>
         )}
         {filtered.map(h => {
           const count = h.groupCount ?? 0
           return (
             <button key={h.id} onClick={() => openDetail(h)}
-              className="w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors group">
+              className="w-full text-left px-4 py-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-semibold text-blue-600">#{h.name}</span>
-                {count > 0 && <span className="text-[11px] text-gray-400">{count} block{count !== 1 ? 's' : ''}</span>}
+                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">#{h.name}</span>
+                {count > 0 && <span className="text-[11px] text-gray-400 dark:text-gray-500">{count} block{count !== 1 ? 's' : ''}</span>}
               </div>
               {h.context
-                ? <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{h.context}</p>
-                : <p className="text-xs text-gray-300 italic">No context yet</p>
+                ? <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{h.context}</p>
+                : <p className="text-xs text-gray-400 dark:text-gray-600 italic">No context yet</p>
               }
             </button>
           )

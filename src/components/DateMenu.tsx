@@ -106,40 +106,40 @@ export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, on
   return (
     <div className="relative">
       <button ref={btnRef} onClick={openMenu}
-        className="flex items-center gap-1 px-4 py-0.5 rounded-full font-semibold bg-white/93 border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors whitespace-nowrap"
+        className="flex items-center gap-1 px-4 py-0.5 rounded-full font-semibold bg-white/93 dark:bg-gray-800/95 border border-gray-200 dark:border-gray-600 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap dark:text-gray-200"
       >
         {date} <span className="text-[10px] opacity-60">▾</span>
       </button>
 
       {open && (
         <div ref={dropRef}
-          className={`absolute left-1/2 -translate-x-1/2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 w-64 py-2 text-left text-[13px] ${above ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
-          <button onClick={() => select('beginning')} className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
+          className={`absolute left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl dark:shadow-gray-900 z-50 w-64 py-2 text-left text-[13px] text-gray-900 dark:text-gray-100 ${above ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
+          <button onClick={() => select('beginning')} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
             Start from the beginning
           </button>
 
           {dynamicOptions.length > 0 && (
             <>
-              <div className="border-t border-gray-100 my-1" />
+              <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
               {dynamicOptions.map(o => (
                 <button key={o.val} onClick={() => select(o.val)}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                   {o.label}
                 </button>
               ))}
             </>
           )}
 
-          <div className="border-t border-gray-100 mt-1 pt-1">
-            <button onClick={() => select('recent')} className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
+          <div className="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
+            <button onClick={() => select('recent')} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
               Most recent
             </button>
             {showDateInput
-              ? <input type="date" autoFocus className="mx-4 my-1 text-[13px] border border-gray-300 rounded px-2 py-1 outline-none"
+              ? <input type="date" autoFocus className="mx-4 my-1 text-[13px] border border-gray-300 dark:border-gray-600 rounded px-2 py-1 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   onKeyDown={e => { if (e.key === 'Enter' && e.currentTarget.value) select(e.currentTarget.value) }}
                   onChange={e => { if (e.target.value) select(e.target.value) }} />
               : <button onClick={() => setShowDateInput(true)}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors">
+                  className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                   Jump to a specific date
                 </button>
             }

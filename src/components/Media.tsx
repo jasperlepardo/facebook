@@ -74,11 +74,11 @@ export default function Media({ m, onLightbox }: { m: Message; onLightbox: (s: L
         )
       })}
       {m.share?.link && (
-        <div className="mt-1 border-l-2 border-gray-200 pl-2">
+        <div className="mt-1 border-l-2 border-gray-200 dark:border-gray-600 pl-2">
           {m.share.share_text && (
-            <div className="text-[12px] text-gray-700 font-medium mb-0.5 line-clamp-2">{m.share.share_text}</div>
+            <div className="text-[12px] text-gray-700 dark:text-gray-200 font-medium mb-0.5 line-clamp-2">{m.share.share_text}</div>
           )}
-          <a href={m.share.link} target="_blank" rel="noopener" className="text-[12px] text-blue-500 break-all hover:underline">
+          <a href={m.share.link} target="_blank" rel="noopener" className="text-[12px] text-blue-500 dark:text-blue-400 break-all hover:underline">
             {m.share.link.slice(0, 80)}{m.share.link.length > 80 ? '…' : ''}
           </a>
         </div>
@@ -88,7 +88,7 @@ export default function Media({ m, onLightbox }: { m: Message; onLightbox: (s: L
         const icon     = isVideo ? '📹' : '📞'
         const callType = isVideo ? 'Video call' : 'Call'
         if (m.missed) return (
-          <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-red-400">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-red-400 dark:text-red-400">
             {icon} Missed {callType.toLowerCase()}
           </div>
         )
@@ -96,7 +96,7 @@ export default function Media({ m, onLightbox }: { m: Message; onLightbox: (s: L
         const secs = m.call_duration % 60
         const dur  = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
         return (
-          <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-gray-500">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">
             {icon} {callType} · {dur}
           </div>
         )
@@ -106,7 +106,7 @@ export default function Media({ m, onLightbox }: { m: Message; onLightbox: (s: L
           {Object.entries(
             m.reactions.reduce((c, r) => ({ ...c, [r.reaction]: (c[r.reaction] ?? 0) + 1 }), {} as Record<string, number>)
           ).map(([r, n]) => (
-            <span key={r} className="bg-gray-100 border border-gray-200 rounded-full px-1.5 py-0.5 text-xs">{r}{n > 1 ? ` ${n}` : ''}</span>
+            <span key={r} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full px-1.5 py-0.5 text-xs">{r}{n > 1 ? ` ${n}` : ''}</span>
           ))}
         </div>
       )}

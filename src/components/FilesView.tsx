@@ -27,20 +27,20 @@ export default function FilesView() {
     return '📎'
   }
 
-  if (!items.length) return <div className="p-5 text-gray-500 text-sm">No files found.</div>
+  if (!items.length) return <div className="p-5 text-gray-500 dark:text-gray-400 text-sm">No files found.</div>
 
   return (
-    <div className="flex-1 overflow-y-auto p-3">
+    <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900">
       {items.map((item, i) => {
         const name = item.uri.split('/').pop() ?? ''
         return (
-          <div key={i} className="bg-white rounded-lg px-3.5 py-3 mb-2 flex items-center gap-3 shadow-sm">
+          <div key={i} className="bg-white dark:bg-gray-800 rounded-lg px-3.5 py-3 mb-2 flex items-center gap-3 shadow-sm dark:shadow-gray-900 border border-transparent dark:border-gray-700">
             <div className="text-[22px]">{icon(item)}</div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">
-                <a href={r2(item.uri)} target="_blank" rel="noopener" className="text-blue-600 no-underline hover:underline">{name}</a>
+                <a href={r2(item.uri)} target="_blank" rel="noopener" className="text-blue-600 dark:text-blue-400 no-underline hover:underline">{name}</a>
               </div>
-              <div className="text-xs text-gray-500 mt-0.5">{new Date(item.ts).toLocaleDateString()} · {item.sender}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{new Date(item.ts).toLocaleDateString()} · {item.sender}</div>
             </div>
           </div>
         )

@@ -56,6 +56,26 @@ function HashtagIcon() {
   )
 }
 
+function MoonIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  )
+}
+
+function SunIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </svg>
+  )
+}
+
 export default function ViewerApp() {
   // Messages
   const [messages, setMessages]   = useState<Message[]>([])
@@ -100,6 +120,16 @@ export default function ViewerApp() {
   const lastSelectedAnchor = useRef<{ id: string; ts: number; tsEnd: number } | null>(null)
   const [preloadedHashtagIds, setPreloadedHashtagIds] = useState<Set<string> | null>(null)
   const preloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // Theme
+  const [isDark, setIsDark] = useState(false)
+  useEffect(() => { setIsDark(document.documentElement.classList.contains('dark')) }, [])
+  function toggleTheme() {
+    const next = !isDark
+    setIsDark(next)
+    document.documentElement.classList.toggle('dark', next)
+    localStorage.setItem('theme', next ? 'dark' : 'light')
+  }
 
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -168,7 +198,8 @@ export default function ViewerApp() {
       if (anchor) {
         pendingJump.current = null
         anchor.scrollIntoView({ block: 'center' })
-        anchor.style.background = '#fff3cd'
+        const isDarkMode = document.documentElement.classList.contains('dark')
+        anchor.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
         setTimeout(() => { anchor.style.transition = 'background 1s'; anchor.style.background = '' }, 800)
         setTimeout(() => { anchor.style.transition = '' }, 1800)
       }
@@ -692,13 +723,13 @@ export default function ViewerApp() {
   const sectionTitle = section === 'chat' ? 'Chat' : section === 'media' ? 'Media' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
 
   return (
-    <div className="font-sans bg-white h-dvh flex flex-col overflow-hidden">
+    <div className="font-sans bg-white dark:bg-gray-900 h-dvh flex flex-col overflow-hidden">
 
       {/* Body */}
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
 
         {/* Nav — left on desktop, bottom on mobile */}
-        <nav className="flex-shrink-0 flex flex-row md:flex-col items-stretch bg-gray-50 border-t border-gray-200 md:border-t-0 md:border-r md:w-16 md:pt-3 h-14 md:h-auto gap-0.5 md:gap-1 order-last md:order-first px-1 md:px-0 md:items-center pb-[env(safe-area-inset-bottom)] md:pb-0">
+        <nav className="flex-shrink-0 flex flex-row md:flex-col items-stretch bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 md:border-t-0 md:border-r md:w-16 md:pt-3 h-14 md:h-auto gap-0.5 md:gap-1 order-last md:order-first px-1 md:px-0 md:items-center pb-[env(safe-area-inset-bottom)] md:pb-0">
           {navItems.map(({ key, label, icon }) => (
             <button
               key={key}
@@ -706,22 +737,31 @@ export default function ViewerApp() {
               title={label}
               className={`flex-1 md:flex-none md:w-12 rounded-xl flex flex-col items-center justify-center gap-0.5 py-2 md:py-2.5 px-1 transition-colors ${
                 section === key
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                  ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                  : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
               {icon}
               <span className="text-[10px] font-semibold leading-none">{label}</span>
             </button>
           ))}
-          {/* Spacer pushes avatar to bottom on desktop */}
+          {/* Spacer pushes controls to bottom on desktop */}
           <div className="hidden md:flex flex-1" />
+          {/* Theme toggle */}
+          <button
+            onClick={toggleTheme}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="flex-1 md:flex-none md:w-12 rounded-xl flex flex-col items-center justify-center gap-0.5 py-2 md:py-2.5 px-1 transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200"
+          >
+            {isDark ? <SunIcon /> : <MoonIcon />}
+            <span className="text-[10px] font-semibold leading-none">Theme</span>
+          </button>
           {/* Avatar nav item — matches other nav items, future settings entry point */}
           <button
             title="Settings"
-            className="flex-1 md:flex-none md:w-12 rounded-xl flex flex-col items-center justify-center gap-0.5 py-2 md:py-2.5 px-1 transition-colors text-gray-500 hover:bg-gray-200 hover:text-gray-700 md:mb-1"
+            className="flex-1 md:flex-none md:w-12 rounded-xl flex flex-col items-center justify-center gap-0.5 py-2 md:py-2.5 px-1 transition-colors text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200 md:mb-1"
           >
-            <div className="w-5 h-5 rounded-full bg-blue-200 flex items-center justify-center text-blue-700 text-[10px] font-bold select-none">
+            <div className="w-5 h-5 rounded-full bg-blue-200 dark:bg-blue-800 flex items-center justify-center text-blue-700 dark:text-blue-300 text-[10px] font-bold select-none">
               {initials || '?'}
             </div>
             <span className="text-[10px] font-semibold leading-none">You</span>
@@ -729,7 +769,7 @@ export default function ViewerApp() {
         </nav>
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden dark:bg-gray-900">
 
           {/* Header — scoped to content column, not full width */}
           <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center gap-2.5 flex-shrink-0">
@@ -815,10 +855,10 @@ export default function ViewerApp() {
                 {showHashtagMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowHashtagMenu(false)} />
-                    <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg py-1 z-50 min-w-[120px]">
+                    <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 rounded-lg shadow-lg dark:shadow-gray-900 py-1 z-50 min-w-[120px] border border-gray-100 dark:border-gray-700">
                       <button
                         onClick={() => { hashtagActionsRef.current?.delete(); setShowHashtagMenu(false) }}
-                        className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50"
+                        className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
                       >Delete</button>
                     </div>
                   </>
@@ -841,8 +881,8 @@ export default function ViewerApp() {
 
             {/* Date-jump loading overlay */}
             {jumping && (
-              <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 backdrop-blur-[2px] pointer-events-none">
-                <div className="flex items-center gap-2 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 text-[13px] text-gray-600">
+              <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-[2px] pointer-events-none">
+                <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md rounded-full px-4 py-2 text-[13px] text-gray-600 dark:text-gray-300">
                   <svg className="animate-spin w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
@@ -859,7 +899,7 @@ export default function ViewerApp() {
               className={`flex-1 overflow-y-auto flex flex-col min-h-0 [overflow-anchor:none]${selectedMsgs.size > 0 ? ' select-none' : ''}`}
               style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
             >
-              {searching && <div className="text-center py-2 text-[13px] text-gray-500">Searching…</div>}
+              {searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}
               <MessageList
                 blocks={blocks}
                 onLightbox={handleMsgLightbox}
@@ -875,14 +915,14 @@ export default function ViewerApp() {
           {/* Media section */}
           {section === 'media' && (
             <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex border-b border-gray-200 flex-shrink-0 bg-white">
+              <div className="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
                 {([
                   { key: 'photos' as MediaTab, label: `Photos${mediaCounts.photos ? ` (${mediaCounts.photos.toLocaleString()})` : ''}` },
                   { key: 'videos' as MediaTab, label: `Videos${mediaCounts.videos ? ` (${mediaCounts.videos.toLocaleString()})` : ''}` },
                   { key: 'files'  as MediaTab, label: `Files & Audio${mediaCounts.files ? ` (${mediaCounts.files.toLocaleString()})` : ''}` },
                 ]).map(t => (
                   <button key={t.key} onClick={() => setMediaTab(t.key)}
-                    className={`px-5 py-2.5 text-[13px] font-semibold border-b-[3px] -mb-px select-none transition-colors hover:bg-gray-100 ${mediaTab === t.key ? 'text-blue-600 border-blue-600' : 'text-gray-500 border-transparent'}`}>
+                    className={`px-5 py-2.5 text-[13px] font-semibold border-b-[3px] -mb-px select-none transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${mediaTab === t.key ? 'text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400 border-transparent'}`}>
                     {t.label}
                   </button>
                 ))}

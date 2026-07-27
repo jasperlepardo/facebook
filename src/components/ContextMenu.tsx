@@ -22,13 +22,13 @@ export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessag
   const top  = Math.min(state.y, window.innerHeight - 80)
 
   return (
-    <div ref={ref} style={{ left, top }} className="fixed bg-white border border-black/15 rounded-md shadow-lg py-1 min-w-[130px] z-[300] text-[13px]">
+    <div ref={ref} style={{ left, top }} className="fixed bg-white dark:bg-gray-800 border border-black/10 dark:border-gray-700 rounded-md shadow-lg dark:shadow-gray-900 py-1 min-w-[130px] z-[300] text-[13px]">
       {state.kind === 'note' && state.note && (
-        <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 hover:bg-gray-100 select-none"
+        <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"
           onClick={() => { onEditNote(state.note!); onClose() }}>Edit Note</div>
       )}
       {state.kind === 'gallery' && (
-        <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 hover:bg-gray-100 select-none"
+        <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"
           onClick={() => { onJumpToMessage(state.galTs!, state.galMsgId ?? null); onClose() }}>Go to message</div>
       )}
     </div>

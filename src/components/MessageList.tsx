@@ -43,8 +43,8 @@ export default function MessageList({
           data-day-iso={iso}
           className="flex flex-col"
         >
-          <div className="dsep sticky top-0 z-10 flex items-center py-1.5 bg-white/90 backdrop-blur-sm text-xs text-[#616061]">
-            <span className="flex-1 border-t border-gray-200" />
+          <div className="dsep sticky top-0 z-10 flex items-center py-1.5 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm text-xs text-[#616061] dark:text-gray-400">
+            <span className="flex-1 border-t border-gray-200 dark:border-gray-700" />
             {onJumpTo ? (
               <DateMenu
                 date={day.date}
@@ -55,9 +55,9 @@ export default function MessageList({
                 onJumpTo={onJumpTo}
               />
             ) : (
-              <span className="px-3 font-semibold">{day.date}</span>
+              <span className="px-3 font-semibold dark:text-gray-300">{day.date}</span>
             )}
-            <span className="flex-1 border-t border-gray-200" />
+            <span className="flex-1 border-t border-gray-200 dark:border-gray-700" />
           </div>
           {day.blocks.map((block, i) => (
             <div

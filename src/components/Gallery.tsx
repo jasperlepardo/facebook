@@ -97,11 +97,11 @@ export default function Gallery({ type, onLightbox, onContextMenu }: GalleryProp
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div ref={galleryRef} className="flex-1 overflow-y-auto p-3" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
+    <div ref={galleryRef} className="flex-1 overflow-y-auto p-3 bg-white dark:bg-gray-900" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
       <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
         {items.map((item, i) => (
           <div key={i}
-            className="aspect-square overflow-hidden cursor-pointer rounded-sm bg-gray-200 relative hover:opacity-85"
+            className="aspect-square overflow-hidden cursor-pointer rounded-sm bg-gray-200 dark:bg-gray-700 relative hover:opacity-85"
             onClick={() => {
               const mkState = (idx: number): LightboxState => ({
                 src: r2(itemsRef.current[idx].uri),

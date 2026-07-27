@@ -14,13 +14,15 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  // Blue for the status bar / top chrome; bottom bar picks up the gray nav background via frosted glass
   themeColor: '#2563eb',
 }
 
 export default function ViewerLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning style={{ background: '#f9fafb' }}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){var s=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(s==='dark'||(s!=='light'&&d))document.documentElement.classList.add('dark')})()` }} />
+      </head>
       <body className={inter.className} suppressHydrationWarning>{children}</body>
     </html>
   )
