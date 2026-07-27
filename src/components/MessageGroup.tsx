@@ -81,7 +81,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
               }
               <Media m={m} onLightbox={onLightbox} />
             </div>
-            <span className="text-[11px] text-gray-400 dark:text-gray-500 whitespace-nowrap opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity flex-shrink-0">
+            <span className="msg-timestamp text-[11px] text-gray-400 dark:text-gray-500 whitespace-nowrap opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity flex-shrink-0">
               {fmtTime(m.timestamp_ms)}
             </span>
           </div>
