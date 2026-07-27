@@ -879,6 +879,13 @@ export default function ViewerApp() {
               onActiveHashtagChange={setActiveHashtagName}
               onActionsChange={a => { hashtagActionsRef.current = a }}
               isSuperAdmin={isSuperAdmin}
+              hideImages={hideImages}
+              hiddenUris={allHiddenUris}
+              hiddenMsgIds={dbHiddenMsgIds}
+              onHideMessage={handleHideMessage}
+              onUnhideMessage={handleUnhideMessage}
+              onHideUri={handleHideDbUri}
+              onUnhideUri={handleUnhideDbUri}
             />
           </div>
 

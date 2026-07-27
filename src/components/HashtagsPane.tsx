@@ -41,9 +41,16 @@ interface HashtagsPaneProps {
   onActiveHashtagChange: (name: string | null) => void
   onActionsChange: (actions: { back: () => void; delete: () => void; rename: (name: string) => Promise<void> } | null) => void
   isSuperAdmin?: boolean
+  hideImages?: boolean
+  hiddenUris?: Set<string>
+  hiddenMsgIds?: Set<string>
+  onHideMessage?: (msgId: string) => void
+  onUnhideMessage?: (msgId: string) => void
+  onHideUri?: (uri: string) => void
+  onUnhideUri?: (uri: string) => void
 }
 
-export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filter, onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, isSuperAdmin }: HashtagsPaneProps) {
+export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filter, onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri }: HashtagsPaneProps) {
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [activeTab, setActiveTab] = useState<'context' | 'messages'>('context')
   const [context, setContext] = useState('')
@@ -335,6 +342,14 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
                   blocks={blocks}
                   onLightbox={setLightbox}
                   onJumpTo={handleScrollToDay}
+                  isSuperAdmin={isSuperAdmin}
+                  hideImages={hideImages}
+                  hiddenUris={hiddenUris}
+                  hiddenMsgIds={hiddenMsgIds}
+                  onHideMessage={onHideMessage}
+                  onUnhideMessage={onUnhideMessage}
+                  onHideUri={onHideUri}
+                  onUnhideUri={onUnhideUri}
                   renderBlockActions={block => (
                     <>
                       <button
