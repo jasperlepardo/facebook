@@ -10,9 +10,12 @@ interface GalleryProps {
   onContextMenu: (e: React.MouseEvent, item: GalleryItem) => void
   hideImages?: boolean
   hiddenUris?: Set<string>
+  isSuperAdmin?: boolean
+  onHideUri?: (uri: string) => void
+  onUnhideUri?: (uri: string) => void
 }
 
-export default function Gallery({ type, onLightbox, onContextMenu, hideImages, hiddenUris }: GalleryProps) {
+export default function Gallery({ type, onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri }: GalleryProps) {
   const [items, setItems]     = useState<GalleryItem[]>([])
   const itemsRef    = useRef<GalleryItem[]>([])
   const [hasMore, setHasMore] = useState(true)
@@ -107,31 +110,55 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
   return (
     <div ref={galleryRef} className="flex-1 overflow-y-auto p-3 bg-white dark:bg-gray-900" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
       <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
-        {items.filter(item => !hiddenUris?.has(item.uri)).map((item, i) => (
-          <div key={i}
-            className="aspect-square overflow-hidden cursor-pointer rounded-sm bg-gray-200 dark:bg-gray-700 relative hover:opacity-85"
-            onClick={() => {
-              const mkState = (idx: number): LightboxState => ({
-                src: r2(itemsRef.current[idx].uri),
-                type: type === 'photos' ? 'photo' : 'video',
-                caption: `${new Date(itemsRef.current[idx].ts).toLocaleDateString()} · ${itemsRef.current[idx].sender}`,
-                msgId: itemsRef.current[idx].msgId,
-                ts: itemsRef.current[idx].ts,
-                onPrev: idx > 0                          ? () => onLightbox(mkState(idx - 1)) : undefined,
-                onNext: idx < itemsRef.current.length - 1 ? () => onLightbox(mkState(idx + 1)) : undefined,
-              })
-              onLightbox(mkState(i))
-            }}
-            onContextMenu={e => { e.preventDefault(); onContextMenu(e, item) }}
-            data-ts={item.ts}
-            data-msg-id={item.msgId}
-          >
-            {type === 'photos'
-              ? <img src={r2(item.uri)} loading="lazy" className="w-full h-full object-cover block" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-              : <video src={r2(item.uri)} preload="none" className="w-full h-full object-cover block" />
-            }
-          </div>
-        ))}
+        {items.map((item, i) => {
+          const isHidden = hiddenUris?.has(item.uri)
+
+          if (isHidden && !isSuperAdmin) return null
+
+          if (isHidden && isSuperAdmin) return (
+            <div key={i} className="aspect-square rounded-sm bg-gray-200 dark:bg-gray-700 relative flex flex-col items-center justify-center gap-1 group/cell">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hidden</span>
+              <button
+                onClick={() => onUnhideUri?.(item.uri)}
+                className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/cell:opacity-100 transition-opacity text-[11px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded-full"
+              >Unhide</button>
+            </div>
+          )
+
+          return (
+            <div key={i}
+              className="aspect-square overflow-hidden cursor-pointer rounded-sm bg-gray-200 dark:bg-gray-700 relative hover:opacity-85 group/cell"
+              onClick={() => {
+                const mkState = (idx: number): LightboxState => ({
+                  src: r2(itemsRef.current[idx].uri),
+                  uri: itemsRef.current[idx].uri,
+                  type: type === 'photos' ? 'photo' : 'video',
+                  caption: `${new Date(itemsRef.current[idx].ts).toLocaleDateString()} · ${itemsRef.current[idx].sender}`,
+                  msgId: itemsRef.current[idx].msgId,
+                  ts: itemsRef.current[idx].ts,
+                  onPrev: idx > 0                           ? () => onLightbox(mkState(idx - 1)) : undefined,
+                  onNext: idx < itemsRef.current.length - 1 ? () => onLightbox(mkState(idx + 1)) : undefined,
+                })
+                onLightbox(mkState(i))
+              }}
+              onContextMenu={e => { e.preventDefault(); onContextMenu(e, item) }}
+              data-ts={item.ts}
+              data-msg-id={item.msgId}
+            >
+              {type === 'photos'
+                ? <img src={r2(item.uri)} loading="lazy" className="w-full h-full object-cover block" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                : <video src={r2(item.uri)} preload="none" className="w-full h-full object-cover block" />
+              }
+              {isSuperAdmin && onHideUri && (
+                <button
+                  onClick={e => { e.stopPropagation(); onHideUri(item.uri) }}
+                  className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/cell:opacity-100 transition-opacity text-[11px] bg-black/60 hover:bg-black/80 text-white px-2 py-0.5 rounded-full"
+                >Hide</button>
+              )}
+            </div>
+          )
+        })}
       </div>
       <div ref={sentinelRef} />
     </div>

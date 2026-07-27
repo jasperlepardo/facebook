@@ -63,30 +63,28 @@ interface DateMenuProps {
   nextDayTs?: number
   dateIndex?: DateIndex | null
   onJumpTo: (target: string) => void
+  onOpenDatePicker?: () => void
 }
 
-export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, onJumpTo }: DateMenuProps) {
-  const [open, setOpen]               = useState(false)
-  const [above, setAbove]             = useState(false)
-  const [showDateInput, setShowDateInput] = useState(false)
+export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, onJumpTo, onOpenDatePicker }: DateMenuProps) {
+  const [open, setOpen]   = useState(false)
+  const [above, setAbove] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
-    const close = () => { setSticky(''); setOpen(false); setShowDateInput(false) }
+    const close = () => { setSticky(''); setOpen(false) }
     const clickHandler = (e: MouseEvent) => {
       if (!btnRef.current?.contains(e.target as Node) && !dropRef.current?.contains(e.target as Node)) close()
     }
     document.addEventListener('mousedown', clickHandler)
-    // Don't close on scroll while the date picker is open — the native calendar
-    // popup triggers scroll events that would dismiss the input before the user picks.
-    if (!showDateInput) document.addEventListener('scroll', close, true)
+    document.addEventListener('scroll', close, true)
     return () => {
       document.removeEventListener('mousedown', clickHandler)
       document.removeEventListener('scroll', close, true)
     }
-  }, [open, showDateInput])
+  }, [open])
 
   const setSticky = (z: string) => {
     const el = btnRef.current?.closest<HTMLElement>('.dsep')
@@ -96,10 +94,9 @@ export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, on
   const openMenu = () => {
     if (btnRef.current) setAbove(btnRef.current.getBoundingClientRect().bottom > window.innerHeight * 0.6)
     setOpen(o => { if (!o) setSticky('50'); return !o })
-    setShowDateInput(false)
   }
 
-  const select = (target: string) => { setSticky(''); setOpen(false); setShowDateInput(false); onJumpTo(target) }
+  const select = (target: string) => { setSticky(''); setOpen(false); onJumpTo(target) }
 
   const dynamicOptions = ts ? computeDynamicOptions(ts, dateIndex, prevDayTs, nextDayTs) : []
 
@@ -134,15 +131,12 @@ export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, on
             <button onClick={() => select('recent')} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
               Most recent
             </button>
-            {showDateInput
-              ? <input type="date" autoFocus className="mx-4 my-1 text-[13px] border border-gray-300 dark:border-gray-600 rounded px-2 py-1 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  onKeyDown={e => { if (e.key === 'Enter' && e.currentTarget.value) select(e.currentTarget.value) }}
-                  onChange={e => { if (e.target.value) select(e.target.value) }} />
-              : <button onClick={() => setShowDateInput(true)}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                  Jump to a specific date
-                </button>
-            }
+            {onOpenDatePicker && (
+              <button onClick={() => { setSticky(''); setOpen(false); onOpenDatePicker() }}
+                className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                Jump to a specific date
+              </button>
+            )}
           </div>
         </div>
       )}
