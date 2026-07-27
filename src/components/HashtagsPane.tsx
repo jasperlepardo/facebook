@@ -166,7 +166,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
       const data = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blockIds }),
+        body: JSON.stringify({ blockIds, showHidden: !!isSuperAdmin }),
       }).then(r => r.json())
       const sorted = (data.messages ?? []).sort((a: Message, b: Message) => a.timestamp_ms - b.timestamp_ms)
       const end = Math.min(CHUNK, sorted.length)

@@ -43,12 +43,12 @@ export async function OPTIONS() {
 // POST { blockIds: string[] } — fetch all messages for a set of blocks (no URL length limit)
 export async function POST(req: NextRequest) {
   try {
-    const { blockIds: rawIds } = await req.json()
+    const { blockIds: rawIds, showHidden } = await req.json()
     if (!Array.isArray(rawIds) || !rawIds.length) return NextResponse.json({ messages: [] }, { headers: CORS })
     const msgs = await getMessages()
     // blockId in MongoDB is stored as ObjectId (same type as _id)
     const blockIds = rawIds.map(id => { try { return new ObjectId(id) } catch { return id as unknown as ObjectId } })
-    const filter = await buildFilter(false)
+    const filter = await buildFilter(!!showHidden)
     const docs = await msgs.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
     return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
   } catch (e: unknown) {
