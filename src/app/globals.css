@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Safe-area background: matches nav color so the home-indicator gap looks right */
+html {
+  background: #f9fafb; /* gray-50 — light nav color */
+}
+html.dark {
+  background: #111827; /* gray-900 — dark nav color */
+}

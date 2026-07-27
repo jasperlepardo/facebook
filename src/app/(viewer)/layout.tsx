@@ -19,7 +19,7 @@ export const viewport: Viewport = {
 
 export default function ViewerLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning style={{ background: '#f9fafb' }}>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `(function(){var s=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(s==='dark'||(s!=='light'&&d))document.documentElement.classList.add('dark')})()` }} />
       </head>

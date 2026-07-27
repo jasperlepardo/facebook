@@ -701,7 +701,7 @@ export default function ViewerApp() {
       <div className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
 
         {/* Nav — left on desktop, bottom on mobile */}
-        <nav className="flex-shrink-0 flex flex-row md:flex-col items-stretch bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 md:border-t-0 md:border-r md:w-16 md:pt-3 h-14 md:h-auto gap-0.5 md:gap-1 order-last md:order-first px-1 md:px-0 md:items-center pb-[env(safe-area-inset-bottom)] md:pb-0">
+        <nav className="flex-shrink-0 flex flex-row md:flex-col items-stretch bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 md:border-t-0 md:border-r md:w-16 md:pt-3 h-[calc(3.5rem+env(safe-area-inset-bottom))] md:h-auto gap-0.5 md:gap-1 order-last md:order-first px-1 md:px-0 md:items-center md:pb-0">
           {navItems.map(({ key, label, icon }) => (
             <button
               key={key}
@@ -743,8 +743,8 @@ export default function ViewerApp() {
         {/* Main content */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden dark:bg-gray-900">
 
-          {/* Header — scoped to content column, not full width */}
-          <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center gap-2.5 flex-shrink-0">
+          {/* Header — scoped to content column; pt-safe extends blue into status bar */}
+          <div className="bg-blue-600 text-white px-4 pt-[calc(0.625rem+env(safe-area-inset-top))] pb-2.5 flex items-center gap-2.5 flex-shrink-0">
             {section === 'hashtags' && activeHashtagName && (
               <button
                 onClick={() => hashtagActionsRef.current?.back()}
