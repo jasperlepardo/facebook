@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { startRegistration } from '@simplewebauthn/browser'
 import { DateIndex } from '@/types'
 
 type Theme = 'light' | 'dark' | 'system'
@@ -77,6 +78,43 @@ export default function SettingsPane({ total, dateIndex, currentUser }: Settings
   const [profileSave, setProfileSave] = useState<SaveState>('idle')
   const [profileError, setProfileError] = useState('')
 
+  // Passkeys
+  const [passkeys, setPasskeys] = useState<{ credentialID: string; deviceType: string; backedUp: boolean }[]>([])
+  const [passkeyStatus, setPasskeyStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [passkeyError, setPasskeyError] = useState('')
+
+  async function addPasskey() {
+    if (!userId) return
+    setPasskeyStatus('loading')
+    setPasskeyError('')
+    try {
+      const optRes = await fetch(`/api/auth/passkey/register-options?userId=${userId}`)
+      if (!optRes.ok) throw new Error('Failed to get options')
+      const options = await optRes.json()
+      const credential = await startRegistration({ optionsJSON: options })
+      const verRes = await fetch('/api/auth/passkey/register-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, credential }),
+      })
+      const data = await verRes.json()
+      if (!verRes.ok) throw new Error(data.error)
+      setPasskeyStatus('success')
+      // Refresh list
+      const me = await fetch('/api/auth/me').then(r => r.json())
+      setPasskeys(me.passkeys ?? [])
+      setTimeout(() => setPasskeyStatus('idle'), 2000)
+    } catch (e: any) {
+      if (e.name === 'NotAllowedError') {
+        setPasskeyError('Cancelled.')
+      } else {
+        setPasskeyError(e.message || 'Failed to add passkey')
+      }
+      setPasskeyStatus('error')
+      setTimeout(() => setPasskeyStatus('idle'), 3000)
+    }
+  }
+
   // Password
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
@@ -85,13 +123,14 @@ export default function SettingsPane({ total, dateIndex, currentUser }: Settings
   const [pwError, setPwError] = useState('')
 
   useEffect(() => {
-    fetch('/api/users/me')
+    fetch('/api/auth/me')
       .then(r => r.json())
       .then(d => {
-        if (!d?.user) return
-        setUserId(d.user.id ?? '')
-        setNameInput(d.user.name ?? '')
-        setEmailInput(d.user.email ?? '')
+        if (!d?.id) return
+        setUserId(d.id ?? '')
+        setNameInput(d.name ?? '')
+        setEmailInput(d.email ?? '')
+        setPasskeys(d.passkeys ?? [])
       })
       .catch(() => {})
   }, [])
@@ -195,6 +234,34 @@ export default function SettingsPane({ total, dateIndex, currentUser }: Settings
               className={`${btnCls} ${pwSave === 'saved' ? 'bg-green-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'} disabled:opacity-60`}
             >
               {pwSave === 'saving' ? 'Updating…' : pwSave === 'saved' ? 'Updated!' : 'Change password'}
+            </button>
+          </div>
+        </section>
+
+        {/* Passkeys */}
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">Passkeys</h2>
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 space-y-3">
+            {passkeys.length > 0 && (
+              <ul className="space-y-2 mb-1">
+                {passkeys.map((pk) => (
+                  <li key={pk.credentialID} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-green-500">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    <span className="capitalize">{pk.deviceType === 'multiDevice' ? 'Synced passkey' : 'Single-device passkey'}</span>
+                    {pk.backedUp && <span className="text-xs text-gray-400">(backed up)</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {passkeyError && <p className="text-xs text-red-500">{passkeyError}</p>}
+            <button
+              onClick={addPasskey}
+              disabled={passkeyStatus === 'loading' || !userId}
+              className={`${btnCls} ${passkeyStatus === 'success' ? 'bg-green-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'} disabled:opacity-60`}
+            >
+              {passkeyStatus === 'loading' ? 'Waiting for passkey…' : passkeyStatus === 'success' ? 'Passkey added!' : 'Add passkey'}
             </button>
           </div>
         </section>

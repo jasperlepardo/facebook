@@ -5,16 +5,40 @@ import { useRouter } from 'next/navigation'
 import { startAuthentication } from '@simplewebauthn/browser'
 import Link from 'next/link'
 
+const inputCls = 'w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+
 export default function SigninPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [pwLoading, setPwLoading] = useState(false)
+  const [pkLoading, setPkLoading] = useState(false)
 
-  async function handleSignin(e: React.FormEvent) {
+  async function handlePasswordSignin(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    setLoading(true)
+    setPwLoading(true)
+    try {
+      const res = await fetch('/api/auth/password-signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      router.push('/')
+    } catch (e: any) {
+      setError(e.message || 'Something went wrong')
+    } finally {
+      setPwLoading(false)
+    }
+  }
+
+  async function handlePasskeySignin() {
+    if (!email) { setError('Enter your email first'); return }
+    setError('')
+    setPkLoading(true)
     try {
       const optRes = await fetch(`/api/auth/passkey/auth-options?email=${encodeURIComponent(email)}`)
       if (!optRes.ok) {
@@ -22,9 +46,7 @@ export default function SigninPage() {
         throw new Error(d.error)
       }
       const { userId, ...options } = await optRes.json()
-
       const credential = await startAuthentication({ optionsJSON: options })
-
       const verRes = await fetch('/api/auth/passkey/auth-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -32,18 +54,19 @@ export default function SigninPage() {
       })
       const data = await verRes.json()
       if (!verRes.ok) throw new Error(data.error)
-
       router.push('/')
     } catch (e: any) {
       if (e.name === 'NotAllowedError') {
-        setError('Passkey was cancelled. Try again.')
+        setError('Passkey was cancelled.')
       } else {
         setError(e.message || 'Something went wrong')
       }
     } finally {
-      setLoading(false)
+      setPkLoading(false)
     }
   }
+
+  const loading = pwLoading || pkLoading
 
   return (
     <div className="w-full max-w-sm">
@@ -55,7 +78,7 @@ export default function SigninPage() {
         <p className="text-sm text-gray-500 mt-1">Jasper & Ciara</p>
       </div>
 
-      <form onSubmit={handleSignin} className="space-y-4">
+      <form onSubmit={handlePasswordSignin} className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
           <input
@@ -64,7 +87,18 @@ export default function SigninPage() {
             onChange={e => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            className={inputCls}
           />
         </div>
 
@@ -75,9 +109,31 @@ export default function SigninPage() {
           disabled={loading}
           className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
         >
-          {loading ? 'Waiting for passkey…' : 'Sign in with passkey'}
+          {pwLoading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+
+      <div className="flex items-center gap-3 my-4">
+        <div className="flex-1 h-px bg-gray-200" />
+        <span className="text-xs text-gray-400">or</span>
+        <div className="flex-1 h-px bg-gray-200" />
+      </div>
+
+      <button
+        type="button"
+        onClick={handlePasskeySignin}
+        disabled={loading}
+        className="w-full py-2.5 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4"/>
+          <path d="M16 14h1a2 2 0 0 1 2 2v1"/>
+          <path d="M8 14H7a2 2 0 0 0-2 2v4h6v-3"/>
+          <circle cx="18" cy="20" r="2"/>
+          <path d="m22 22-1.5-1.5"/>
+        </svg>
+        {pkLoading ? 'Waiting for passkey…' : 'Sign in with passkey'}
+      </button>
 
       <p className="text-center text-sm text-gray-500 mt-6">
         No account?{' '}
