@@ -1,19 +1,26 @@
 import { MongoClient } from 'mongodb'
 
-let client: MongoClient | null = null
+const OPTIONS = { maxPoolSize: 1, serverSelectionTimeoutMS: 10000 }
 
-async function getClient() {
-  if (!client) {
-    client = new MongoClient(process.env.MONGODB_URI!, { serverSelectionTimeoutMS: 10000 })
-    await client.connect()
-  }
-  return client
+declare global {
+  // eslint-disable-next-line no-var
+  var _mongoClientPromise: Promise<MongoClient> | undefined
 }
+
+function makeClientPromise() {
+  return new MongoClient(process.env.MONGODB_URI!, OPTIONS).connect()
+}
+
+// In dev, attach to global so module hot-reloads don't open extra connections.
+const clientPromise: Promise<MongoClient> =
+  process.env.NODE_ENV === 'development'
+    ? (global._mongoClientPromise ??= makeClientPromise())
+    : makeClientPromise()
 
 let messagesIndexed = false
 
 export async function getMessages() {
-  const col = (await getClient()).db('ciara-notes').collection('messages')
+  const col = (await clientPromise).db('ciara-notes').collection('messages')
   if (!messagesIndexed) {
     messagesIndexed = true
     col.createIndex({ timestamp_ms: 1 }, { background: true }).catch(() => {})
@@ -22,6 +29,5 @@ export async function getMessages() {
 }
 
 export async function getSettings() {
-  return (await getClient()).db('ciara-notes').collection('settings')
+  return (await clientPromise).db('ciara-notes').collection('settings')
 }
-
