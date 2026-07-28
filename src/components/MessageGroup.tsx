@@ -62,7 +62,8 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
   return (
     <div
       data-id={first._id}
-      className={`msg-group flex py-2 px-5 gap-3 items-start relative cursor-pointer group transition-colors ${isSelected ? '!bg-blue-50 dark:!bg-blue-900/20' : '[@media(hover:hover)]:hover:bg-gray-50 dark:[@media(hover:hover)]:hover:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-800/60'}`}
+      className={`msg-group flex py-2 px-5 gap-3 items-start relative cursor-pointer group transition-colors select-none ${isSelected ? '!bg-blue-50 dark:!bg-blue-900/20' : '[@media(hover:hover)]:hover:bg-gray-50 dark:[@media(hover:hover)]:hover:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-800/60'}`}
+      style={{ WebkitTouchCallout: 'none' }}
       onClick={handleClick}
       onContextMenu={e => { e.preventDefault(); onContextMenu?.(e, allIds) }}
       onTouchStart={handleTouchStart}
