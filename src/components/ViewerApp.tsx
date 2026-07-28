@@ -151,14 +151,16 @@ export default function ViewerApp() {
   function scrollToMsg(msgId: string): boolean {
     const msgLine = document.querySelector<HTMLElement>(`[data-msg-id="${msgId}"]`)
     if (!msgLine) return false
-    msgLine.scrollIntoView({ block: 'start' })
     const group = msgLine.closest<HTMLElement>('.msg-group')
-    if (group) {
-      const isDarkMode = document.documentElement.classList.contains('dark')
-      group.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
-      setTimeout(() => { group.style.transition = 'background 1s'; group.style.background = '' }, 800)
-      setTimeout(() => { group.style.transition = '' }, 1800)
-    }
+    if (!group) return false
+    // Scroll to the .msg-group so the avatar + sender header are visible at the
+    // top. The yellow highlight marks the exact block when a group spans multiple
+    // hashtag blocks.
+    group.scrollIntoView({ block: 'start' })
+    const isDarkMode = document.documentElement.classList.contains('dark')
+    group.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
+    setTimeout(() => { group.style.transition = 'background 1s'; group.style.background = '' }, 800)
+    setTimeout(() => { group.style.transition = '' }, 1800)
     return true
   }
 
