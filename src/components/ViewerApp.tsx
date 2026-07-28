@@ -97,6 +97,7 @@ export default function ViewerApp() {
   // Refs
   const chatRef       = useRef<HTMLDivElement>(null)
   const deviceId      = useRef('')
+  const currentUserRef = useRef('')
   const lastBookmarkTime = useRef(0)
   const pendingJump         = useRef<string | null>(null)
   const pendingScrollReset  = useRef(false)
@@ -324,7 +325,7 @@ export default function ViewerApp() {
           const rect = g.getBoundingClientRect()
           if (rect.bottom > chatTop) {
             fetch('/api/bookmark', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ msgId: g.dataset.id, offset: Math.max(0, rect.top - chatTop), deviceId: id }) }).catch(() => {})
+              body: JSON.stringify({ msgId: g.dataset.id, offset: Math.max(0, rect.top - chatTop), deviceId: id, ns: currentUserRef.current || undefined }) }).catch(() => {})
             break
           }
         }
@@ -365,14 +366,6 @@ export default function ViewerApp() {
     if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id) }
     deviceId.current = id
 
-    fetch('/api/auth/me').then(r => r.json()).then(d => {
-      if (d?.name) setCurrentUser(d.name)
-      if (d?.superAdmin) {
-        setIsSuperAdmin(true)
-        setShowHidden(true)
-      }
-    }).catch(() => {})
-
     fetch('/api/hidden-items').then(r => r.ok ? r.json() : null).then(d => {
       if (!d?.items) return
       setDbHiddenItems(d.items.map((i: any) => ({ _id: i._id, type: i.type, value: i.value })))
@@ -388,6 +381,13 @@ export default function ViewerApp() {
     })
 
     async function init() {
+      let userName = ''
+      try {
+        const d = await fetch('/api/auth/me').then(r => r.json())
+        if (d?.name) { userName = d.name; currentUserRef.current = d.name; setCurrentUser(d.name) }
+        if (d?.superAdmin) { setIsSuperAdmin(true); setShowHidden(true) }
+      } catch {}
+
       let startIdx = 0, anchorMsgId: string | null = null, anchorOffset = 0
       const urlMsgId = new URLSearchParams(window.location.search).get('msg')
       if (urlMsgId) {
@@ -398,7 +398,8 @@ export default function ViewerApp() {
         } catch {}
       } else {
         try {
-          const bk = await apiFetch<{ msgId: string | null; offset: number }>('/api/bookmark?deviceId=' + id)
+          const nsParam = userName ? `&ns=${encodeURIComponent(userName)}` : ''
+          const bk = await apiFetch<{ msgId: string | null; offset: number }>(`/api/bookmark?deviceId=${id}${nsParam}`)
           if (bk.msgId) {
             anchorMsgId = bk.msgId; anchorOffset = bk.offset ?? 0
             const jd = await apiFetch<{ index: number | null }>('/api/jump?msgId=' + bk.msgId)
