@@ -35,12 +35,19 @@ interface MessageGroupProps {
   onUnhideUri?: (uri: string) => void
 }
 
+function isBlankMsg(m: Message): boolean {
+  if (m.media_failed || m.content_unavailable || m.is_unsent || m.is_unsent_image_by_messenger_kid_parent) return false
+  const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
+  return !hasMedia && (m.ip || m.call_duration != null || !m.content)
+}
+
 const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri }: MessageGroupProps) {
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const touchPos = useRef({ x: 0, y: 0 })
+  if (block.msgs.every(isBlankMsg)) return null
   const first = block.msgs[0]
   const last  = block.msgs[block.msgs.length - 1]
   const allIds = block.msgs.map(m => m._id)
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const touchPos = useRef({ x: 0, y: 0 })
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('a,button,audio,video,img')) return
@@ -81,7 +88,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
         {block.msgs.map((m, i) => {
           const isHidden = isSuperAdmin && !!m._id && !!hiddenMsgIds?.has(m._id)
           const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
-          if ((m.ip || m.call_duration != null) && !hasMedia) return null
+          if (isBlankMsg(m)) return null
           return (
           <div key={m._id ?? i} data-msg-id={m._id} className="group/line [@media(hover:hover)]:flex [@media(hover:hover)]:items-end [@media(hover:hover)]:gap-3">
             <div className={`min-w-0 flex-1${isHidden ? ' opacity-40' : ''}`}>
