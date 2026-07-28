@@ -1,14 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { startAuthentication } from '@simplewebauthn/browser'
 import Link from 'next/link'
 
 const inputCls = 'w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500'
 
 export default function SigninPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -27,7 +25,7 @@ export default function SigninPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      router.push('/')
+      window.location.href = '/'
     } catch (e: any) {
       setError(e.message || 'Something went wrong')
     } finally {
@@ -56,7 +54,7 @@ export default function SigninPage() {
       })
       const data = await verRes.json()
       if (!verRes.ok) throw new Error(data.error)
-      router.push('/')
+      window.location.href = '/'
     } catch (e: any) {
       if (e.name === 'NotAllowedError') {
         setError('Passkey was cancelled.')

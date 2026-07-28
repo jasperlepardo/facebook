@@ -192,9 +192,11 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
     setTheme(t)
     if (t === 'system') {
       localStorage.removeItem('theme')
+      document.cookie = 'theme=; path=/; max-age=0; samesite=lax'
       document.documentElement.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches)
     } else {
       localStorage.setItem('theme', t)
+      document.cookie = `theme=${t}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
       document.documentElement.classList.toggle('dark', t === 'dark')
     }
   }

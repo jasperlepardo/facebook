@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { Inter } from 'next/font/google'
+import { cookies } from 'next/headers'
 import ServiceWorker from '@/components/ServiceWorker'
 import '../globals.css'
 
@@ -26,11 +27,16 @@ export const viewport: Viewport = {
   themeColor: '#2563eb',
 }
 
-export default function ViewerLayout({ children }: { children: ReactNode }) {
+export default async function ViewerLayout({ children }: { children: ReactNode }) {
+  const jar = await cookies()
+  const themeCookie = jar.get('theme')?.value
+  const darkClass = themeCookie === 'dark' ? 'dark' : undefined
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={darkClass} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `(function(){var s=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(s==='dark'||(s!=='light'&&d))document.documentElement.classList.add('dark')})()` }} />
+        {/* Fallback for system theme with OS dark preference — runs before first paint */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){var s=document.cookie.match(/(?:^|; )theme=([^;]*)/);var t=s?decodeURIComponent(s[1]):null;if(t)return;var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark')})()` }} />
       </head>
       <body className={inter.className} suppressHydrationWarning>
         {children}
