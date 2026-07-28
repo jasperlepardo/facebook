@@ -31,7 +31,7 @@ export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessag
       )}
       {state.kind === 'gallery' && (
         <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"
-          onClick={() => { onJumpToMessage(state.galTs!, state.galMsgId ?? null); onClose() }}>Go to message</div>
+          onClick={() => { if (state.galTs != null) { onJumpToMessage(state.galTs, state.galMsgId ?? null); onClose() } }}>Go to message</div>
       )}
       {(state.kind === 'gallery' || state.kind === 'media') && state.mediaUri && onHideUri && (
         <div className="px-3.5 py-1.5 cursor-pointer text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 select-none"
@@ -41,7 +41,7 @@ export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessag
         <>
           {state.msgTs && (
             <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"
-              onClick={() => { onJumpToMessage(String(state.msgTs), state.msgIds![0]); onClose() }}>Go to message</div>
+              onClick={() => { onJumpToMessage(String(state.msgTs!), state.msgIds![0]); onClose() }}>Go to message</div>
           )}
           {onTagMessages && (
             <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"

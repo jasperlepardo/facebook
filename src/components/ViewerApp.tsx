@@ -131,7 +131,7 @@ export default function ViewerApp() {
   useEffect(() => {
     const msgId = lightbox?.msgId
     if (!msgId || !chatRef.current) return
-    const anchor = document.getElementById('msg-' + msgId)?.closest<HTMLElement>('.msg-group')
+    const anchor = document.querySelector<HTMLElement>(`[data-msg-id="${msgId}"]`)?.closest<HTMLElement>('.msg-group')
     if (anchor) {
       anchor.scrollIntoView({ block: 'center', behavior: 'smooth' })
     } else {
@@ -148,6 +148,20 @@ export default function ViewerApp() {
 
   // ─── Scroll to pending jump target after messages render ────────────────────
 
+  function scrollToMsg(msgId: string): boolean {
+    const msgLine = document.querySelector<HTMLElement>(`[data-msg-id="${msgId}"]`)
+    if (!msgLine) return false
+    msgLine.scrollIntoView({ block: 'start' })
+    const group = msgLine.closest<HTMLElement>('.msg-group')
+    if (group) {
+      const isDarkMode = document.documentElement.classList.contains('dark')
+      group.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
+      setTimeout(() => { group.style.transition = 'background 1s'; group.style.background = '' }, 800)
+      setTimeout(() => { group.style.transition = '' }, 1800)
+    }
+    return true
+  }
+
   useEffect(() => {
     if (pendingScrollReset.current) {
       pendingScrollReset.current = false
@@ -160,20 +174,7 @@ export default function ViewerApp() {
       return
     }
     const jumpId = pendingJump.current
-    if (jumpId) {
-      const msgLine = document.querySelector<HTMLElement>(`[data-msg-id="${jumpId}"]`)
-      if (msgLine) {
-        pendingJump.current = null
-        msgLine.scrollIntoView({ block: 'start' })
-        const group = msgLine.closest<HTMLElement>('.msg-group')
-        if (group) {
-          const isDarkMode = document.documentElement.classList.contains('dark')
-          group.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
-          setTimeout(() => { group.style.transition = 'background 1s'; group.style.background = '' }, 800)
-          setTimeout(() => { group.style.transition = '' }, 1800)
-        }
-      }
-    }
+    if (jumpId && scrollToMsg(jumpId)) pendingJump.current = null
     const scrollId = pendingLightboxScroll.current
     if (scrollId) {
       const anchor = document.getElementById('msg-' + scrollId)?.closest<HTMLElement>('.msg-group')
@@ -308,11 +309,15 @@ export default function ViewerApp() {
       const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`
       const d = await apiFetch<{ index: number | null }>(url)
       if (d.index == null) return
-      lowerOffset.current = Math.max(0, d.index)
+      lowerOffset.current = Math.max(0, d.index - (msgId ? Math.floor(LIMIT / 2) : 0))
       upperOffset.current = lowerOffset.current
       searchRef.current = ''; setSearchInput('')
-      if (msgId) { pendingJump.current = msgId; setMsgParam(msgId) }
+      if (msgId) setMsgParam(msgId)
+      else pendingScrollReset.current = true
       await loadMessages('fresh')
+      // Scroll to the exact message synchronously (before paint) so there is no
+      // visible flash of the context buffer that was loaded above the target.
+      if (msgId && !scrollToMsg(msgId)) pendingJump.current = msgId
     } finally {
       setJumping(false)
     }
@@ -425,7 +430,7 @@ export default function ViewerApp() {
 
       loadingRef.current = true
       if (anchorMsgId && chatRef.current) {
-        const anchor = document.getElementById('msg-' + anchorMsgId)?.closest<HTMLElement>('.msg-group')
+        const anchor = document.querySelector<HTMLElement>(`[data-msg-id="${anchorMsgId}"]`)?.closest<HTMLElement>('.msg-group')
         if (anchor) {
           chatRef.current.scrollTop = 0
           chatRef.current.scrollTop = anchor.getBoundingClientRect().top - chatRef.current.getBoundingClientRect().top - anchorOffset
@@ -755,10 +760,14 @@ export default function ViewerApp() {
       const d = await apiFetch<{ total: number }>('/api/messages?offset=0&limit=1&asc=1')
       lowerOffset.current = Math.max(0, d.total - LIMIT)
       upperOffset.current = lowerOffset.current
+      pendingJump.current = null
       pendingScrollBottom.current = true
-      loadMessages('fresh')
+      await loadMessages('fresh')
     } else if (target === 'beginning') {
-      lowerOffset.current = 0; upperOffset.current = 0; loadMessages('fresh')
+      lowerOffset.current = 0; upperOffset.current = 0
+      pendingJump.current = null
+      pendingScrollReset.current = true
+      await loadMessages('fresh')
     } else {
       handleDateJump(target)
     }
