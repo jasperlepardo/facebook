@@ -517,13 +517,10 @@ export default function ViewerApp() {
 
       if (date.startsWith('ts:')) {
         const ts = parseInt(date.slice(3))
-        const msgIdx = messagesRef.current.findIndex(m => m.timestamp_ms === ts)
-        if (msgIdx !== -1) {
-          offset = lowerOffset.current + msgIdx
-        } else {
-          const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(ts).toISOString()}`)
-          offset = d.index
-        }
+        const t = new Date(ts)
+        const midnight = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime()
+        const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(midnight).toISOString()}`)
+        offset = d.index
       } else {
         offset = dateIndex
           ? (dateIndex.days.find(d => d.iso === date) ?? dateIndex.weeks.find(w => w.iso === date) ?? dateIndex.months.find(m => m.iso === date))?.offset ?? null
