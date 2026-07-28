@@ -691,14 +691,8 @@ export default function ViewerApp() {
 
   function handleMsgContextMenu(e: React.MouseEvent, msgIds: string[]) {
     e.preventDefault()
-    if (isSuperAdmin) {
-      const firstMsg = messagesRef.current.find(m => msgIds.includes(m._id))
-      setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'message', msgIds, msgTs: firstMsg?.timestamp_ms })
-      return
-    }
-    const selectedMsgsData = messagesRef.current.filter(m => msgIds.includes(m._id))
-    const blockIds = toBlockIds(selectedMsgsData, messagesRef.current)
-    setHashtagPicker({ msgIds, blockIds })
+    const firstMsg = messagesRef.current.find(m => msgIds.includes(m._id))
+    setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'message', msgIds, msgTs: firstMsg?.timestamp_ms })
   }
 
   // ─── Lightbox with chat navigation ──────────────────────────────────────────
