@@ -149,13 +149,12 @@ export default function ViewerApp() {
   // ─── Scroll to pending jump target after messages render ────────────────────
 
   function scrollToMsg(msgId: string): boolean {
-    const msgLine = document.querySelector<HTMLElement>(`[data-msg-id="${msgId}"]`)
-    if (!msgLine) return false
-    const group = msgLine.closest<HTMLElement>('.msg-group')
+    // Try [data-id] first — direct group match when msgId is the group's first
+    // message. Fall back to [data-msg-id] → closest for mid-group messages.
+    const group =
+      document.querySelector<HTMLElement>(`[data-id="${msgId}"]`) ??
+      document.querySelector<HTMLElement>(`[data-msg-id="${msgId}"]`)?.closest<HTMLElement>('.msg-group')
     if (!group) return false
-    // Scroll to the .msg-group so the avatar + sender header are visible at the
-    // top. The yellow highlight marks the exact block when a group spans multiple
-    // hashtag blocks.
     group.scrollIntoView({ block: 'start' })
     const isDarkMode = document.documentElement.classList.contains('dark')
     group.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
