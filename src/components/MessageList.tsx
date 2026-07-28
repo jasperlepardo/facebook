@@ -99,7 +99,7 @@ export default function MessageList({
                 onUnhideUri={onUnhideUri}
               />
               {renderBlockActions && (
-                <div className="absolute top-2 right-2 opacity-0 group-hover/block:opacity-100 transition-opacity flex gap-1 z-10">
+                <div className="absolute top-2 right-2 opacity-0 group-hover/block:opacity-100 transition-opacity flex gap-1 z-10 [@media(hover:none)]:hidden">
                   {renderBlockActions(block)}
                 </div>
               )}
