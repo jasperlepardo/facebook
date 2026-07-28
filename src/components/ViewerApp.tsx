@@ -302,14 +302,19 @@ export default function ViewerApp() {
 
   async function jumpToMessage(ts: number, msgId: string | null) {
     setSection('chat')
-    const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`
-    const d = await apiFetch<{ index: number | null }>(url)
-    if (d.index == null) return
-    lowerOffset.current = Math.max(0, d.index - (msgId ? 0 : Math.floor(LIMIT / 2)))
-    upperOffset.current = lowerOffset.current
-    searchRef.current = ''; setSearchInput('')
-    if (msgId) { pendingJump.current = msgId; setMsgParam(msgId) }
-    await loadMessages('fresh')
+    setJumping(true)
+    try {
+      const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`
+      const d = await apiFetch<{ index: number | null }>(url)
+      if (d.index == null) return
+      lowerOffset.current = Math.max(0, d.index - (msgId ? 0 : Math.floor(LIMIT / 2)))
+      upperOffset.current = lowerOffset.current
+      searchRef.current = ''; setSearchInput('')
+      if (msgId) { pendingJump.current = msgId; setMsgParam(msgId) }
+      await loadMessages('fresh')
+    } finally {
+      setJumping(false)
+    }
   }
 
   // ─── Scroll handler ──────────────────────────────────────────────────────────
