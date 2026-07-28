@@ -7,6 +7,7 @@ import { apiFetch, toSlug } from '@/lib/utils'
 import { buildHashtagBlocks } from '@/lib/buildHashtagBlocks'
 import MessageList from './MessageList'
 import Lightbox from './Lightbox'
+import ActionSheet from './ActionSheet'
 
 const CHUNK = 60
 const MAX_VISIBLE = CHUNK * 2  // max message blocks kept in DOM at once
@@ -42,6 +43,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
   const [newName, setNewName] = useState('')
   const [msgFilter, setMsgFilter] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
+  const [ctxMsgIds, setCtxMsgIds] = useState<string[] | null>(null)
   const [editingContext, setEditingContext] = useState(false)
   const ctxRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -354,6 +356,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
                   blocks={blocks}
                   onLightbox={setLightbox}
                   onJumpTo={handleScrollToDay}
+                  onContextMenu={(e, msgIds) => { if ((e as any)._fromTouch) setCtxMsgIds(msgIds) }}
                   isSuperAdmin={isSuperAdmin}
                   hideImages={hideImages}
                   hiddenUris={hiddenUris}
@@ -383,6 +386,19 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
         </div>
       </div>
       {lightbox && <Lightbox state={lightbox} onClose={() => setLightbox(null)} />}
+      {ctxMsgIds && (() => {
+        const msg = allMsgsRef.current.find(m => ctxMsgIds.includes(m._id))
+        if (!msg) return null
+        return (
+          <ActionSheet
+            onClose={() => setCtxMsgIds(null)}
+            actions={[
+              { label: 'Go to message', onPress: () => { onJumpToMessage(msg.timestamp_ms, msg._id); setCtxMsgIds(null) } },
+              { label: 'Remove block', destructive: true, onPress: () => { removeGroup(msg.blockId!); setCtxMsgIds(null) } },
+            ]}
+          />
+        )
+      })()}
       </>
     )
   }
