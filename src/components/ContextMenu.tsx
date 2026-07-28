@@ -9,9 +9,11 @@ interface ContextMenuProps {
   onJumpToMessage: (ts: string, msgId: string | null) => void
   onHideUri?: (uri: string) => void
   onTagMessages?: (msgIds: string[]) => void
+  onCopyLink?: (msgIds: string[]) => void
+  onCopyText?: (msgIds: string[]) => void
 }
 
-export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessage, onHideUri, onTagMessages }: ContextMenuProps) {
+export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessage, onHideUri, onTagMessages, onCopyLink, onCopyText }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessag
   }, [onClose])
 
   const left = Math.min(state.x, window.innerWidth - 145)
-  const top  = Math.min(state.y, window.innerHeight - 80)
+  const top  = Math.min(state.y, window.innerHeight - 120)
 
   return (
     <div ref={ref} style={{ left, top }} className="fixed bg-white dark:bg-gray-800 border border-black/10 dark:border-gray-700 rounded-md shadow-lg dark:shadow-gray-900 py-1 min-w-[130px] z-[300] text-[13px]">
@@ -42,6 +44,14 @@ export default function ContextMenu({ state, onClose, onEditNote, onJumpToMessag
           {state.msgTs && (
             <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"
               onClick={() => { onJumpToMessage(String(state.msgTs!), state.msgIds![0]); onClose() }}>Go to message</div>
+          )}
+          {onCopyLink && (
+            <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"
+              onClick={() => { onCopyLink(state.msgIds!); onClose() }}>Copy link</div>
+          )}
+          {onCopyText && (
+            <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"
+              onClick={() => { onCopyText(state.msgIds!); onClose() }}>Copy text</div>
           )}
           {onTagMessages && (
             <div className="px-3.5 py-1.5 cursor-pointer text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 select-none"

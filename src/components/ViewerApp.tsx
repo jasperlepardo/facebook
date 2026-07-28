@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom'
 import { Message, Section, MediaTab, LightboxState, ContextMenuState, GalleryItem, Hashtag, DateIndex } from '@/types'
 import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
 import { apiFetch } from '@/lib/utils'
-import { r2 } from '@/lib/format'
+import { r2, fmtDate, fmtTime } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
 import MessageList from './MessageList'
 import HashtagsPane from './HashtagsPane'
@@ -92,6 +92,8 @@ export default function ViewerApp() {
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [ctxMenu, setCtxMenu]   = useState<ContextMenuState | null>(null)
+  const [toast, setToast]       = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [datePickerDefault, setDatePickerDefault] = useState('')
 
@@ -670,6 +672,39 @@ export default function ViewerApp() {
     })
   }
 
+  function showToast(msg: string) {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast(msg)
+    toastTimer.current = setTimeout(() => setToast(null), 2000)
+  }
+
+  function copyLink(msgIds: string[]) {
+    const url = `${window.location.origin}${window.location.pathname}?msg=${msgIds[0]}`
+    navigator.clipboard.writeText(url).then(() => showToast('Link copied'))
+  }
+
+  function copyText(msgIds: string[]) {
+    const ids = new Set(msgIds)
+    const msgs = messagesRef.current.filter(m => ids.has(m._id))
+    if (!msgs.length) return
+    const first = msgs[0]
+    const header = `${first.sender_name} · ${fmtDate(first.timestamp_ms)} at ${fmtTime(first.timestamp_ms)}`
+    const lines = msgs.flatMap(m => {
+      const parts: string[] = []
+      if (m.content) parts.push(m.content)
+      if (m.photos?.length) parts.push('[photo]')
+      if (m.videos?.length) parts.push('[video]')
+      if (m.audio_files?.length) parts.push('[audio]')
+      if (m.gifs?.length) parts.push('[GIF]')
+      if (m.sticker) parts.push('[sticker]')
+      if (m.files?.length) parts.push('[file]')
+      if (m.share?.link) parts.push(m.share.share_text ? `${m.share.share_text} ${m.share.link}` : m.share.link)
+      if (m.call_duration != null) parts.push(m.missed ? 'Missed call' : `Call (${m.call_duration}s)`)
+      return parts
+    })
+    navigator.clipboard.writeText([header, ...lines].join('\n')).then(() => showToast('Text copied'))
+  }
+
   async function handleHideMessage(msgId: string) {
     const res = await fetch('/api/hidden-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'message', value: msgId }) })
     const { item } = await res.json()
@@ -992,6 +1027,12 @@ export default function ViewerApp() {
               onPress: () => { jumpToMessage(ctxMenu.msgTs!, ctxMenu.msgIds?.[0] ?? null); setCtxMenu(null) },
             }] : []),
             ...(ctxMenu.kind === 'message' && ctxMenu.msgIds ? [{
+              label: 'Copy link',
+              onPress: () => { copyLink(ctxMenu.msgIds!); setCtxMenu(null) },
+            }, {
+              label: 'Copy text',
+              onPress: () => { copyText(ctxMenu.msgIds!); setCtxMenu(null) },
+            }, {
               label: '# Tag',
               onPress: () => {
                 const data = messagesRef.current.filter(m => ctxMenu.msgIds!.includes(m._id))
@@ -1021,8 +1062,15 @@ export default function ViewerApp() {
             const blockIds = toBlockIds(selectedMsgsData, messagesRef.current)
             setHashtagPicker({ msgIds, blockIds })
           }}
+          onCopyLink={msgIds => copyLink(msgIds)}
+          onCopyText={msgIds => copyText(msgIds)}
         />
       ) : null}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none z-[400]">
+          {toast}
+        </div>
+      )}
     </div>
   )
 }
