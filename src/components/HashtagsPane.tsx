@@ -2,33 +2,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
-import { Hashtag, LightboxState, Message, MessageBlock } from '@/types'
-import { ME } from '@/lib/constants'
+import { Hashtag, LightboxState, Message } from '@/types'
 import { apiFetch, toSlug } from '@/lib/utils'
-import { fmtDate } from '@/lib/format'
+import { buildHashtagBlocks } from '@/lib/buildHashtagBlocks'
 import MessageList from './MessageList'
 import Lightbox from './Lightbox'
 
 const CHUNK = 60
 const MAX_VISIBLE = CHUNK * 2  // max message blocks kept in DOM at once
-
-function buildBlocks(messages: Message[]): MessageBlock[] {
-  const groupMap = new Map<string, Message[]>()
-  for (const m of messages) {
-    const key = m.blockId!
-    if (!groupMap.has(key)) groupMap.set(key, [])
-    groupMap.get(key)!.push(m)
-  }
-  const groups = [...groupMap.values()]
-    .sort((a, b) => a[0].timestamp_ms - b[0].timestamp_ms)
-  return groups.map((msgs, i) => ({
-    date: fmtDate(msgs[0].timestamp_ms),
-    newDate: i === 0 || fmtDate(msgs[0].timestamp_ms) !== fmtDate(groups[i - 1][0].timestamp_ms),
-    sender: msgs[0].sender_name,
-    mine: msgs[0].sender_name === ME,
-    msgs,
-  }))
-}
 
 interface HashtagsPaneProps {
   hashtags: Hashtag[]
@@ -59,6 +40,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
   const [winEnd, setWinEnd]   = useState(CHUNK)
   const winRef = useRef({ start: 0, end: CHUNK })
   const [newName, setNewName] = useState('')
+  const [msgFilter, setMsgFilter] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [editingContext, setEditingContext] = useState(false)
   const ctxRef = useRef<HTMLTextAreaElement>(null)
@@ -72,7 +54,15 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
   const allMsgsRef = useRef<Message[]>([])
   allMsgsRef.current = allMsgs
   winRef.current = { start: winStart, end: winEnd }
+  const filteredMsgsRef = useRef<Message[]>([])
   const restoredFromUrl = useRef(false)
+
+  const filteredMsgs = useMemo(() => {
+    const q = msgFilter.trim().toLowerCase()
+    if (!q) return allMsgs
+    return allMsgs.filter(m => m.content?.toLowerCase().includes(q))
+  }, [allMsgs, msgFilter])
+  filteredMsgsRef.current = filteredMsgs
 
   function setHashtagParam(id: string | null) {
     const params = new URLSearchParams(window.location.search)
@@ -96,7 +86,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
     if (activeTab !== 'messages' || !botSentinelRef.current || !msgsScrollRef.current) return
     const io = new IntersectionObserver(([e]) => {
       if (!e.isIntersecting) return
-      const all = allMsgsRef.current
+      const all = filteredMsgsRef.current
       const { start, end } = winRef.current
       const newEnd = Math.min(end + CHUNK, all.length)
       if (newEnd === end) return
@@ -115,7 +105,7 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
     }, { root: msgsScrollRef.current, rootMargin: '300px' })
     io.observe(botSentinelRef.current)
     return () => io.disconnect()
-  }, [activeTab, winStart, winEnd, allMsgs.length])
+  }, [activeTab, winStart, winEnd, filteredMsgs.length])
 
   // Top sentinel: append upward, cull from bottom
   useEffect(() => {
@@ -136,6 +126,14 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
     io.observe(topSentinelRef.current)
     return () => io.disconnect()
   }, [activeTab, winStart, winEnd])
+
+  // Reset window when filter changes
+  useEffect(() => {
+    const end = Math.min(CHUNK, filteredMsgsRef.current.length)
+    winRef.current = { start: 0, end }
+    setWinStart(0)
+    setWinEnd(end)
+  }, [msgFilter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleScrollToDay(target: string) {
     const container = msgsScrollRef.current
@@ -245,11 +243,11 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
   const filtered = filter ? hashtags.filter(h => h.name.includes(filter.toLowerCase())) : hashtags
 
   // ─── Detail view ───────────────────────────────────────────────────────────
-  const visibleMsgs = allMsgs.slice(winStart, winEnd)
-  const blocks = useMemo(() => buildBlocks(visibleMsgs), [winStart, winEnd, allMsgs]) // eslint-disable-line react-hooks/exhaustive-deps
+  const visibleMsgs = filteredMsgs.slice(winStart, winEnd)
+  const blocks = useMemo(() => buildHashtagBlocks(visibleMsgs), [winStart, winEnd, filteredMsgs]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (selected) {
-    const hasMore   = winEnd < allMsgs.length
+    const hasMore   = winEnd < filteredMsgs.length
     const hasBefore = winStart > 0
 
     return (
@@ -333,9 +331,23 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
           {/* Messages tab */}
           {activeTab === 'messages' && (
             <div className="absolute inset-0 flex flex-col">
+              {allMsgs.length > 0 && (
+                <div className="px-3 py-1.5 border-b border-gray-100 dark:border-gray-700 flex-shrink-0">
+                  <input
+                    type="text"
+                    value={msgFilter}
+                    onChange={e => setMsgFilter(e.target.value)}
+                    placeholder="Filter messages…"
+                    className="w-full text-xs outline-none bg-gray-50 dark:bg-gray-800 rounded px-2 py-1 text-gray-700 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-600"
+                  />
+                </div>
+              )}
               <div ref={msgsScrollRef} className="flex-1 overflow-y-auto">
                 {allMsgs.length === 0 && (
                   <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-8">No messages tagged yet.</p>
+                )}
+                {allMsgs.length > 0 && filteredMsgs.length === 0 && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500 text-center py-8">No messages match.</p>
                 )}
                 {hasBefore && <div ref={topSentinelRef} className="h-8" />}
                 <MessageList
