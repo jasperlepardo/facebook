@@ -92,6 +92,7 @@ export default function ViewerApp() {
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [ctxMenu, setCtxMenu]   = useState<ContextMenuState | null>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
+  const [datePickerDefault, setDatePickerDefault] = useState('')
 
 
   // Refs
@@ -159,14 +160,17 @@ export default function ViewerApp() {
     }
     const jumpId = pendingJump.current
     if (jumpId) {
-      const anchor = document.getElementById('msg-' + jumpId)?.closest<HTMLElement>('.msg-group')
-      if (anchor) {
+      const msgLine = document.querySelector<HTMLElement>(`[data-msg-id="${jumpId}"]`)
+      if (msgLine) {
         pendingJump.current = null
-        anchor.scrollIntoView({ block: 'center' })
-        const isDarkMode = document.documentElement.classList.contains('dark')
-        anchor.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
-        setTimeout(() => { anchor.style.transition = 'background 1s'; anchor.style.background = '' }, 800)
-        setTimeout(() => { anchor.style.transition = '' }, 1800)
+        msgLine.scrollIntoView({ block: 'start' })
+        const group = msgLine.closest<HTMLElement>('.msg-group')
+        if (group) {
+          const isDarkMode = document.documentElement.classList.contains('dark')
+          group.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
+          setTimeout(() => { group.style.transition = 'background 1s'; group.style.background = '' }, 800)
+          setTimeout(() => { group.style.transition = '' }, 1800)
+        }
       }
     }
     const scrollId = pendingLightboxScroll.current
@@ -301,7 +305,7 @@ export default function ViewerApp() {
     const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`
     const d = await apiFetch<{ index: number | null }>(url)
     if (d.index == null) return
-    lowerOffset.current = Math.max(0, d.index - Math.floor(LIMIT / 2))
+    lowerOffset.current = Math.max(0, d.index - (msgId ? 0 : Math.floor(LIMIT / 2)))
     upperOffset.current = lowerOffset.current
     searchRef.current = ''; setSearchInput('')
     if (msgId) { pendingJump.current = msgId; setMsgParam(msgId) }
@@ -475,6 +479,24 @@ export default function ViewerApp() {
   }
 
   // ─── Date jump ───────────────────────────────────────────────────────────────
+
+  function openDatePicker() {
+    const el = chatRef.current
+    if (el) {
+      const containerTop = el.getBoundingClientRect().top
+      const dayEls = el.querySelectorAll<HTMLElement>('[data-day-iso]')
+      let current = ''
+      for (const dayEl of dayEls) {
+        if (dayEl.getBoundingClientRect().top <= containerTop + 1) {
+          current = dayEl.dataset.dayIso ?? ''
+        } else {
+          break
+        }
+      }
+      setDatePickerDefault(current)
+    }
+    setShowDatePicker(true)
+  }
 
   async function handleDateJump(date: string) {
     if (!date) return
@@ -839,7 +861,7 @@ export default function ViewerApp() {
                 onContextMenu={handleMsgContextMenu}
                 dateIndex={dateIndex}
                 onJumpTo={handleChatJump}
-                onOpenDatePicker={() => setShowDatePicker(true)}
+                onOpenDatePicker={openDatePicker}
                 hideImages={hideImages}
                 hiddenUris={allHiddenUris}
                 isSuperAdmin={isSuperAdmin}
@@ -923,6 +945,7 @@ export default function ViewerApp() {
       {/* Overlays */}
       {showDatePicker && (
         <DatePickerModal
+          defaultDate={datePickerDefault}
           onClose={() => setShowDatePicker(false)}
           onJump={handleChatJump}
         />

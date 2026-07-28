@@ -4,10 +4,11 @@ import { useRef, useState } from 'react'
 interface DatePickerModalProps {
   onClose: () => void
   onJump: (date: string) => void
+  defaultDate?: string
 }
 
-export default function DatePickerModal({ onClose, onJump }: DatePickerModalProps) {
-  const [value, setValue] = useState('')
+export default function DatePickerModal({ onClose, onJump, defaultDate = '' }: DatePickerModalProps) {
+  const [value, setValue] = useState(defaultDate)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const submit = () => {

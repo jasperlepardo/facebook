@@ -64,7 +64,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
         {block.msgs.map((m, i) => {
           const isHidden = isSuperAdmin && !!m._id && !!hiddenMsgIds?.has(m._id)
           return (
-          <div key={m._id ?? i} className="group/line [@media(hover:hover)]:flex [@media(hover:hover)]:items-end [@media(hover:hover)]:gap-3">
+          <div key={m._id ?? i} data-msg-id={m._id} className="group/line [@media(hover:hover)]:flex [@media(hover:hover)]:items-end [@media(hover:hover)]:gap-3">
             <div className={`min-w-0 flex-1${isHidden ? ' opacity-40' : ''}`}>
               <span id={`msg-${m._id}`} className="hidden" />
               {m.media_failed
