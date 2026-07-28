@@ -222,6 +222,7 @@ export default function ViewerApp() {
       const prevTop = el?.scrollTop ?? 0
       const combined = [...data.messages, ...prev]
 
+      el?.style.setProperty('overflow-anchor', 'none')
       flushSync(() => applyMessages(combined))
       if (el) {
         const newScrollTop = prevTop + el.scrollHeight - prevH
@@ -239,6 +240,7 @@ export default function ViewerApp() {
           flushSync(() => applyMessages(combined.slice(0, MAX_DOM)))
         }
       }
+      el?.style.removeProperty('overflow-anchor')
 
     } else if (mode === 'append') {
       upperOffset.current += count
@@ -257,15 +259,19 @@ export default function ViewerApp() {
         const estCullH = Math.round(prevH2 * excess / deduped.length)
         if (prevTop2 > estCullH) {
           lowerOffset.current += excess
+          el?.style.setProperty('overflow-anchor', 'none')
           flushSync(() => applyMessages(culled))
-          if (el) el.scrollTop = prevTop2 + el.scrollHeight - prevH2
+          if (el) {
+            el.scrollTop = prevTop2 + el.scrollHeight - prevH2
+            el.style.removeProperty('overflow-anchor')
+          }
         }
       } else {
         applyMessages(deduped)
       }
     } else {
       upperOffset.current = lowerOffset.current + count
-      applyMessages(data.messages)
+      flushSync(() => applyMessages(data.messages))
       if (chatRef.current) chatRef.current.scrollTop = 0
     }
   }
@@ -820,7 +826,7 @@ export default function ViewerApp() {
             <div
               ref={chatRef}
               onScroll={handleScroll}
-              className={`flex-1 overflow-y-auto flex flex-col min-h-0 [overflow-anchor:none]${selectedMsgs.size > 0 ? ' select-none' : ''}`}
+              className={`flex-1 overflow-y-auto flex flex-col min-h-0${selectedMsgs.size > 0 ? ' select-none' : ''}`}
               style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
             >
               {searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}
