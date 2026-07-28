@@ -1,5 +1,5 @@
 'use client'
-import { memo } from 'react'
+import { memo, useRef } from 'react'
 import { Message, MessageBlock, LightboxState } from '@/types'
 import { fmtTime } from '@/lib/format'
 import { mapFbEmoji } from '@/lib/fbEmoji'
@@ -39,6 +39,8 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
   const first = block.msgs[0]
   const last  = block.msgs[block.msgs.length - 1]
   const allIds = block.msgs.map(m => m._id)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const touchPos = useRef({ x: 0, y: 0 })
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('a,button,audio,video,img')) return
@@ -46,12 +48,26 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
     onToggle(first._id, first.timestamp_ms, last.timestamp_ms, allIds, first.blockId ?? first._id, e.shiftKey)
   }
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!onContextMenu || e.touches.length !== 1) return
+    const t = e.touches[0]
+    touchPos.current = { x: t.clientX, y: t.clientY }
+    longPressTimer.current = setTimeout(() => {
+      onContextMenu({ clientX: touchPos.current.x, clientY: touchPos.current.y, preventDefault: () => {} } as unknown as React.MouseEvent, allIds)
+    }, 500)
+  }
+
+  const cancelLongPress = () => clearTimeout(longPressTimer.current)
+
   return (
     <div
       data-id={first._id}
       className={`msg-group flex py-2 px-5 gap-3 items-start relative cursor-pointer group transition-colors ${isSelected ? '!bg-blue-50 dark:!bg-blue-900/20' : '[@media(hover:hover)]:hover:bg-gray-50 dark:[@media(hover:hover)]:hover:bg-gray-800 active:bg-gray-100 dark:active:bg-gray-800/60'}`}
       onClick={handleClick}
-      onContextMenu={e => onContextMenu?.(e, block.msgs.map(m => m._id))}
+      onContextMenu={e => { e.preventDefault(); onContextMenu?.(e, allIds) }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={cancelLongPress}
+      onTouchMove={cancelLongPress}
     >
       <div className={`w-9 h-9 rounded flex-shrink-0 flex items-center justify-center font-black text-[15px] text-white mt-px ${block.mine ? 'bg-blue-600' : 'bg-purple-600'}`}>
         {(block.sender || '?')[0].toUpperCase()}
