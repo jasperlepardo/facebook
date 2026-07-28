@@ -524,11 +524,18 @@ export default function ViewerApp() {
         const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(midnight).toISOString()}`)
         offset = d.index
       } else {
+        // Week/month entries from DateMenu use precomputed index offsets.
+        // dateIndex.days is UTC-based so skip it — day and specific-date jumps
+        // both go through the API with a local midnight timestamp instead.
         offset = dateIndex
-          ? (dateIndex.days.find(d => d.iso === date) ?? dateIndex.weeks.find(w => w.iso === date) ?? dateIndex.months.find(m => m.iso === date))?.offset ?? null
+          ? (dateIndex.weeks.find(w => w.iso === date) ?? dateIndex.months.find(m => m.iso === date))?.offset ?? null
           : null
         if (offset == null) {
-          const d = await apiFetch<{ index: number | null }>('/api/jump?date=' + date)
+          const parts = date.split('-').map(Number)
+          const localTs = parts.length === 3 && parts[0] && parts[1] && parts[2]
+            ? new Date(parts[0], parts[1] - 1, parts[2]).getTime()
+            : new Date(date).getTime()
+          const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(localTs).toISOString()}`)
           offset = d.index
         }
       }
