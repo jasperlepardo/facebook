@@ -68,24 +68,23 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
         if (bk.msgId) { startOffset = parseInt(bk.msgId) || 0; scrollTop = bk.offset ?? 0 }
       } catch {}
 
-      // Load pages up to the saved offset in chunks, then restore scroll
+      // Load pages up to the saved offset in parallel chunks, then restore scroll
       if (startOffset > 0) {
         const CHUNK = 200
-        let loaded: GalleryItem[] = []
-        let currentOff = 0
-        let more = true
-        while (currentOff < startOffset && more) {
-          const batchLimit = Math.min(CHUNK, startOffset - currentOff)
-          const res = await fetch(`/api/attachments?type=${type}&offset=${currentOff}&limit=${batchLimit}`)
-          const data = await res.json()
-          loaded = [...loaded, ...data.items]
-          more = data.has_more
-          currentOff += batchLimit
+        const chunks: { offset: number; limit: number }[] = []
+        for (let o = 0; o < startOffset; o += CHUNK) {
+          chunks.push({ offset: o, limit: Math.min(CHUNK, startOffset - o) })
         }
+        const results = await Promise.all(
+          chunks.map(c => fetch(`/api/attachments?type=${type}&offset=${c.offset}&limit=${c.limit}`).then(r => r.json()))
+        )
+        const loaded: GalleryItem[] = results.flatMap((r: any) => r.items as GalleryItem[])
+        const lastMore: boolean = results[results.length - 1]?.has_more ?? false
         itemsRef.current = loaded
         setItems(loaded)
-        setHasMore(more)
-        offset.current = currentOff
+        hasMoreRef.current = lastMore
+        setHasMore(lastMore)
+        offset.current = startOffset
         requestAnimationFrame(() => { if (galleryRef.current) galleryRef.current.scrollTop = scrollTop })
       } else {
         load()

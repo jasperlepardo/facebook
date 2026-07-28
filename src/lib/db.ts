@@ -1,6 +1,6 @@
 import { MongoClient } from 'mongodb'
 
-const OPTIONS = { maxPoolSize: 1, serverSelectionTimeoutMS: 10000 }
+const OPTIONS = { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 }
 
 declare global {
   // eslint-disable-next-line no-var
@@ -23,7 +23,12 @@ export async function getMessages() {
   const col = (await clientPromise).db('ciara-notes').collection('messages')
   if (!messagesIndexed) {
     messagesIndexed = true
-    col.createIndex({ timestamp_ms: 1 }, { background: true }).catch(() => {})
+    Promise.all([
+      col.createIndex({ timestamp_ms: 1 }, { background: true }),
+      col.createIndex({ blockId: 1 }, { background: true }),
+      col.createIndex({ blockId: 1, timestamp_ms: 1 }, { background: true }),
+      col.createIndex({ body: 'text', sender_name: 'text' }, { background: true }),
+    ]).catch(() => {})
   }
   return col
 }

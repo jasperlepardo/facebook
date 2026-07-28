@@ -14,13 +14,22 @@ async function isSuperAdmin(): Promise<boolean> {
   } catch { return false }
 }
 
+let hiddenFilterCache: Record<string, unknown> | null = null
+let hiddenFilterCacheAt = 0
+const HIDDEN_CACHE_TTL = 60_000
+
 async function buildFilter(showHidden: boolean): Promise<Record<string, unknown>> {
   if (showHidden && await isSuperAdmin()) return {}
+  const now = Date.now()
+  if (hiddenFilterCache !== null && now - hiddenFilterCacheAt < HIDDEN_CACHE_TTL) {
+    return hiddenFilterCache
+  }
   const col = await getHiddenItems()
   const hidden = await col.find({ type: 'message' }).project({ value: 1 }).toArray()
-  if (!hidden.length) return {}
   const ids = hidden.map(h => { try { return new ObjectId(h.value) } catch { return null } }).filter(Boolean)
-  return ids.length ? { _id: { $nin: ids } } : {}
+  hiddenFilterCache = ids.length ? { _id: { $nin: ids } } : {}
+  hiddenFilterCacheAt = now
+  return hiddenFilterCache
 }
 
 const CORS = {
