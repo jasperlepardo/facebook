@@ -38,7 +38,8 @@ interface MessageGroupProps {
 function isBlankMsg(m: Message): boolean {
   if (m.media_failed || m.content_unavailable || m.is_unsent || m.is_unsent_image_by_messenger_kid_parent) return false
   const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
-  return !hasMedia && (!!m.ip || m.call_duration != null || !m.content)
+  if (hasMedia || m.reactions?.length) return false
+  return !!m.ip || m.call_duration != null || !m.content
 }
 
 const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri }: MessageGroupProps) {
