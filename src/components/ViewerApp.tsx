@@ -13,6 +13,7 @@ import Gallery from './Gallery'
 import FilesView from './FilesView'
 import Lightbox from './Lightbox'
 import ContextMenu from './ContextMenu'
+import ActionSheet from './ActionSheet'
 import SettingsPane from './SettingsPane'
 import AppHeader from './AppHeader'
 import AppNav from './AppNav'
@@ -691,8 +692,9 @@ export default function ViewerApp() {
 
   function handleMsgContextMenu(e: React.MouseEvent, msgIds: string[]) {
     e.preventDefault()
+    const fromTouch = !!(e as any)._fromTouch
     const firstMsg = messagesRef.current.find(m => msgIds.includes(m._id))
-    setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'message', msgIds, msgTs: firstMsg?.timestamp_ms })
+    setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'message', msgIds, msgTs: firstMsg?.timestamp_ms, fromTouch })
   }
 
   // ─── Lightbox with chat navigation ──────────────────────────────────────────
@@ -966,7 +968,33 @@ export default function ViewerApp() {
         }}
         onJumpToMessage={(ts, msgId) => { setLightbox(null); jumpToMessage(ts, msgId) }}
       />}
-      {ctxMenu  && (
+      {ctxMenu && ctxMenu.fromTouch ? (
+        <ActionSheet
+          onClose={() => setCtxMenu(null)}
+          actions={[
+            ...(ctxMenu.kind === 'message' && ctxMenu.msgTs != null ? [{
+              label: 'Go to message',
+              onPress: () => { jumpToMessage(ctxMenu.msgTs!, ctxMenu.msgIds?.[0] ?? null); setCtxMenu(null) },
+            }] : []),
+            ...(ctxMenu.kind === 'message' && ctxMenu.msgIds ? [{
+              label: '# Tag',
+              onPress: () => {
+                const data = messagesRef.current.filter(m => ctxMenu.msgIds!.includes(m._id))
+                setHashtagPicker({ msgIds: ctxMenu.msgIds!, blockIds: toBlockIds(data, messagesRef.current) })
+                setCtxMenu(null)
+              },
+            }] : []),
+            ...(ctxMenu.kind === 'message' && isSuperAdmin && ctxMenu.msgIds?.length ? [dbHiddenMsgIds.has(ctxMenu.msgIds[0]) ? {
+              label: 'Unhide message',
+              onPress: () => { handleUnhideMessage(ctxMenu.msgIds![0]); setCtxMenu(null) },
+            } : {
+              label: 'Hide message',
+              destructive: true,
+              onPress: () => { handleHideMessage(ctxMenu.msgIds![0]); setCtxMenu(null) },
+            }] : []),
+          ]}
+        />
+      ) : ctxMenu ? (
         <ContextMenu
           state={ctxMenu}
           onClose={() => setCtxMenu(null)}
@@ -979,7 +1007,7 @@ export default function ViewerApp() {
             setHashtagPicker({ msgIds, blockIds })
           }}
         />
-      )}
+      ) : null}
     </div>
   )
 }

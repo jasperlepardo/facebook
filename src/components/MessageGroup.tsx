@@ -53,7 +53,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
     const t = e.touches[0]
     touchPos.current = { x: t.clientX, y: t.clientY }
     longPressTimer.current = setTimeout(() => {
-      onContextMenu({ clientX: touchPos.current.x, clientY: touchPos.current.y, preventDefault: () => {} } as unknown as React.MouseEvent, allIds)
+      onContextMenu({ clientX: touchPos.current.x, clientY: touchPos.current.y, preventDefault: () => {}, _fromTouch: true } as unknown as React.MouseEvent, allIds)
     }, 500)
   }
 

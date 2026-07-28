@@ -72,6 +72,7 @@ export interface ContextMenuState {
   mediaUri?: string
   msgIds?: string[]
   msgTs?: number
+  fromTouch?: boolean
 }
 
 export type Tab = 'chat' | 'photos' | 'videos' | 'files'
