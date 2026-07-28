@@ -12,7 +12,7 @@ function HideBtn({ isHidden, msgId, onHide, onUnhide, show, inline }: {
   return (
     <button
       onClick={e => { e.stopPropagation(); isHidden ? onUnhide?.(msgId) : onHide?.(msgId) }}
-      className={`opacity-0 group-hover/line:opacity-100 transition-opacity text-[11px] font-medium ${inline ? 'ml-1.5' : ''} ${isHidden ? 'text-blue-400 hover:text-blue-600' : 'text-red-400 hover:text-red-600'}`}
+      className={`opacity-0 [@media(hover:hover)]:group-hover/line:opacity-100 transition-opacity text-[11px] font-medium ${inline ? 'ml-1.5' : ''} ${isHidden ? 'text-blue-400 hover:text-blue-600' : 'text-red-400 hover:text-red-600'}`}
     >
       {isHidden ? 'Unhide' : 'Hide'}
     </button>
