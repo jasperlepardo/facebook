@@ -80,6 +80,8 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
         </div>
         {block.msgs.map((m, i) => {
           const isHidden = isSuperAdmin && !!m._id && !!hiddenMsgIds?.has(m._id)
+          const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
+          if ((m.ip || m.call_duration != null) && !hasMedia) return null
           return (
           <div key={m._id ?? i} data-msg-id={m._id} className="group/line [@media(hover:hover)]:flex [@media(hover:hover)]:items-end [@media(hover:hover)]:gap-3">
             <div className={`min-w-0 flex-1${isHidden ? ' opacity-40' : ''}`}>
@@ -130,7 +132,6 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
                           </div>
                         )
                       }
-                      const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
                       return hasMedia ? null : <div className="text-[12px] text-gray-400 dark:text-gray-600 italic inline-flex items-center gap-1.5">
                         <span>Attachment unavailable</span>
                         <HideBtn isHidden={isHidden} msgId={m._id} onHide={onHideMessage} onUnhide={onUnhideMessage} show={isSuperAdmin} />
@@ -139,7 +140,7 @@ const MessageGroup = memo(function MessageGroup({ block, isSelected, onToggle, o
               }
               <Media m={m} onLightbox={onLightbox} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} />
             </div>
-            <span className="text-[11px] text-gray-400 dark:text-gray-500 flex-shrink-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:pb-0.5">
+            <span className="hidden sm:inline text-[11px] text-gray-400 dark:text-gray-500 flex-shrink-0 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:transition-opacity [@media(hover:hover)]:pb-0.5">
               {fmtTime(m.timestamp_ms)}
             </span>
           </div>
