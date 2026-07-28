@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getHiddenItems } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { getPayloadClient } from '@/lib/payload-access'
+import { invalidateHiddenFilterCache } from '@/lib/hidden-filter-cache'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
     { upsert: true }
   )
   const item = await col.findOne({ type, value })
+  if (type === 'message') invalidateHiddenFilterCache()
   return NextResponse.json({ item: { ...item, _id: String(item!._id) } }, { headers: CORS })
 }
 
@@ -64,5 +66,6 @@ export async function DELETE(req: NextRequest) {
 
   const col = await getHiddenItems()
   await col.deleteOne({ _id: new ObjectId(id) })
+  invalidateHiddenFilterCache()
   return NextResponse.json({ ok: true }, { headers: CORS })
 }
