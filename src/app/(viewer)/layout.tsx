@@ -8,12 +8,12 @@ import '../globals.css'
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'Jasper & Ciara',
+  title: 'Resibo',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Jasper & Ciara',
+    title: 'Resibo',
   },
   icons: {
     apple: '/icons/icon-192x192.png',

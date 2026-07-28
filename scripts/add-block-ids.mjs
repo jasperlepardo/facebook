@@ -15,7 +15,7 @@ if (!match) { console.error('MONGODB_URI not found in .env.local'); process.exit
 
 const client = new MongoClient(match[1])
 await client.connect()
-const col = client.db('ciara-notes').collection('messages')
+const col = client.db().collection('messages')
 
 console.log('Fetching messages…')
 const all = await col

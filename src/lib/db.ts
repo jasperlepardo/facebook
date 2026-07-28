@@ -20,25 +20,24 @@ const clientPromise: Promise<MongoClient> =
 let messagesIndexed = false
 
 export async function getMessages() {
-  const col = (await clientPromise).db('ciara-notes').collection('messages')
+  const col = (await clientPromise).db().collection('messages')
   if (!messagesIndexed) {
     messagesIndexed = true
     Promise.all([
-      col.createIndex({ timestamp_ms: 1 }, { background: true }),
-      col.createIndex({ blockId: 1 }, { background: true }),
-      col.createIndex({ blockId: 1, timestamp_ms: 1 }, { background: true }),
-      col.createIndex({ body: 'text', sender_name: 'text' }, { background: true }),
+      col.createIndex({ timestamp_ms: 1 }),
+      col.createIndex({ blockId: 1, timestamp_ms: 1 }),
+      col.createIndex({ content: 'text', sender_name: 'text' }),
     ]).catch(() => {})
   }
   return col
 }
 
 export async function getSettings() {
-  return (await clientPromise).db('ciara-notes').collection('settings')
+  return (await clientPromise).db().collection('settings')
 }
 
 export async function getHiddenItems() {
-  return (await clientPromise).db('ciara-notes').collection<HiddenItem>('hidden_items')
+  return (await clientPromise).db().collection<HiddenItem>('hidden_items')
 }
 
 export interface HiddenItem {

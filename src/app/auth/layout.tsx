@@ -7,7 +7,7 @@ import '../globals.css'
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'Jasper & Ciara',
+  title: 'Resibo',
 }
 
 export const viewport: Viewport = {

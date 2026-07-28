@@ -72,10 +72,10 @@ export default function SigninPage() {
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
         <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <span className="text-white text-2xl font-bold">J</span>
+          <span className="text-white text-2xl font-bold">R</span>
         </div>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Sign in</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Jasper & Ciara</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Resibo</p>
       </div>
 
       <form onSubmit={handlePasswordSignin} className="space-y-4">

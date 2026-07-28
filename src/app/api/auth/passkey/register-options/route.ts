@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { generateRegistrationOptions } from '@simplewebauthn/server'
 import { getPayloadClient } from '@/lib/payload-access'
 
-const RP_NAME = 'Jasper & Ciara'
+const RP_NAME = 'Resibo'
 const RP_ID = process.env.WEBAUTHN_RP_ID || 'localhost'
 
 export async function GET(req: NextRequest) {

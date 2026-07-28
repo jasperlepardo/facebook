@@ -16,7 +16,7 @@ export default buildConfig({
   },
   collections: [Users, Hashtags, HashtagGroups],
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET || 'ciara-notes-secret-key',
+  secret: process.env.PAYLOAD_SECRET || 'resibo-secret-key',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
