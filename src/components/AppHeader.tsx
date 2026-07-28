@@ -5,6 +5,8 @@ import { Section } from '@/types'
 interface AppHeaderProps {
   section: Section
   sectionTitle: string
+  onBack?: () => void
+  thread?: { name: string; initials: string; color: string }
   activeHashtagName: string | null
   editingHashtagTitle: boolean
   setEditingHashtagTitle: (v: boolean) => void
@@ -27,7 +29,9 @@ interface AppHeaderProps {
 
 export default function AppHeader({
   section,
+  thread,
   sectionTitle,
+  onBack,
   activeHashtagName,
   editingHashtagTitle,
   setEditingHashtagTitle,
@@ -105,6 +109,17 @@ export default function AppHeader({
 
         {/* Left: back button + title */}
         <div className="flex items-center gap-1.5 min-w-0">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="text-white/80 hover:text-white -ml-1.5 p-1 flex items-center flex-shrink-0 md:hidden"
+              title="Back to chats"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 5l-7 7 7 7"/>
+              </svg>
+            </button>
+          )}
           {section === 'hashtags' && activeHashtagName && (
             <button
               onClick={() => hashtagActionsRef.current?.back()}
@@ -151,6 +166,13 @@ export default function AppHeader({
                 </svg>
               </button>
             )
+          ) : section === 'chat' && thread ? (
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold select-none ${thread.color}`}>
+                {thread.initials}
+              </div>
+              <span className="text-sm font-bold truncate">{thread.name}</span>
+            </div>
           ) : (
             <span className="text-sm font-bold">{sectionTitle}</span>
           )}
@@ -162,7 +184,25 @@ export default function AppHeader({
         </div>
 
         {/* Right: action area — ml-auto pushes to right on mobile (center col is hidden); md:ml-0 lets grid handle it */}
-        <div className="flex items-center gap-2 ml-auto md:ml-0 justify-end">
+        <div className="flex items-center gap-1 ml-auto md:ml-0 justify-end">
+          {/* Thread action icons — chat section only */}
+          {section === 'chat' && thread && (<>
+            <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 text-white" title="Call">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 5.49 5.49l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </button>
+            <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 text-white" title="Video call">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+            </button>
+            <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 text-white" title="Info">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+              </svg>
+            </button>
+          </>)}
           {/* Hide images toggle */}
           {section === 'chat' && onToggleHideImages && (
             <button

@@ -44,7 +44,7 @@ export default function AppNav({ section, initials, onSectionChange }: AppNavPro
   ]
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-20 flex-shrink-0 flex flex-col md:static md:flex-col bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 md:border-t-0 md:border-r md:w-16 pb-[env(safe-area-inset-bottom)] md:pb-0">
+    <nav className="fixed bottom-0 inset-x-0 z-20 flex-shrink-0 flex flex-col md:static md:flex-col md:w-16 pb-[env(safe-area-inset-bottom)] md:pb-0">
       {/* Button row — fixed h-14 on mobile, fills height on desktop */}
       <div className="flex flex-row md:flex-col h-14 md:h-auto md:flex-1 md:pt-3 items-stretch md:items-center gap-0.5 md:gap-1 px-1 md:px-0">
         {navItems.map(({ key, label, icon }) => (

@@ -18,6 +18,11 @@ import SettingsPane from './SettingsPane'
 import AppHeader from './AppHeader'
 import AppNav from './AppNav'
 import DatePickerModal from './DatePickerModal'
+import ThreadListPane, { Thread } from './ThreadListPane'
+
+const THREADS: Thread[] = [
+  { id: 'messages', name: 'Ciara', initials: 'C', color: 'bg-rose-400', collection: 'messages' },
+]
 
 function toBlockIds(selected: Message[], allMsgs: Message[]): string[] {
   const blocks = groupMessages(allMsgs)
@@ -67,6 +72,10 @@ export default function ViewerApp() {
   const [currentUser, setCurrentUser] = useState('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [showHidden, setShowHidden] = useState(false)
+
+  // Thread selection
+  const [activeThread, setActiveThread] = useState<string>('messages')
+  const [mobileShowThreads, setMobileShowThreads] = useState(true)
 
   // Date index
   const [dateIndex, setDateIndex] = useState<DateIndex | null>(null)
@@ -822,21 +831,32 @@ export default function ViewerApp() {
   const sectionTitle = section === 'chat' ? 'Chat' : section === 'media' ? 'Media' : section === 'settings' ? 'Settings' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
 
   return (
-    <div className="font-sans bg-white dark:bg-gray-900 h-dvh flex flex-col overflow-hidden">
+    <div className="p-3 font-sans bg-white dark:bg-mauve-950 h-dvh flex flex-col overflow-hidden">
 
       {/* Body */}
-      <div className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0 pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] md:pb-0">
+      <div className="gap-3 flex-1 overflow-hidden flex flex-col md:flex-row min-h-0 pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] md:pb-0">
 
         {/* Nav — left on desktop, bottom on mobile */}
-        <AppNav section={section} initials={initials} onSectionChange={setSection} />
+        <AppNav section={section} initials={initials} onSectionChange={s => { setSection(s); setMobileShowThreads(false) }} />
+
+        {/* Thread list — full screen on mobile when mobileShowThreads, fixed pane on desktop */}
+        <div className={`flex-col flex-shrink-0 md:w-[280px] md:flex ${mobileShowThreads ? 'flex absolute inset-0 z-10 pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] md:pb-0 md:static md:z-auto' : 'hidden md:flex'}`}>
+          <ThreadListPane
+            threads={THREADS}
+            activeThreadId={activeThread}
+            onSelect={id => { setActiveThread(id); setMobileShowThreads(false) }}
+          />
+        </div>
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden dark:bg-gray-900">
+        <div className={`flex-1 flex-col min-w-0 min-h-0 overflow-hidden dark:bg-gray-900 ${mobileShowThreads ? 'hidden md:flex' : 'flex'}`}>
 
           {/* Header */}
           <AppHeader
             section={section}
             sectionTitle={sectionTitle}
+            onBack={() => setMobileShowThreads(true)}
+            thread={THREADS.find(t => t.id === activeThread)}
             activeHashtagName={activeHashtagName}
             editingHashtagTitle={editingHashtagTitle}
             setEditingHashtagTitle={setEditingHashtagTitle}
