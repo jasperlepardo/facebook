@@ -308,7 +308,7 @@ export default function ViewerApp() {
       const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`
       const d = await apiFetch<{ index: number | null }>(url)
       if (d.index == null) return
-      lowerOffset.current = Math.max(0, d.index - (msgId ? 0 : Math.floor(LIMIT / 2)))
+      lowerOffset.current = Math.max(0, d.index)
       upperOffset.current = lowerOffset.current
       searchRef.current = ''; setSearchInput('')
       if (msgId) { pendingJump.current = msgId; setMsgParam(msgId) }
@@ -533,6 +533,7 @@ export default function ViewerApp() {
       lowerOffset.current = offset
       upperOffset.current = offset
       searchRef.current = ''; setSearchInput('')
+      pendingJump.current = null
       pendingScrollReset.current = true
       await loadMessages('fresh')
 
