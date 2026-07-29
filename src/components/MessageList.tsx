@@ -1,13 +1,14 @@
 'use client'
-import { useId } from 'react'
+import { memo, useId } from 'react'
 import { MessageBlock, LightboxState, DateIndex } from '@/types'
+import { ContentTypeKey } from '@/lib/contentTypes'
 import MessageGroup from './MessageGroup'
 import DateMenu from './DateMenu'
 
 interface MessageListProps {
   blocks: MessageBlock[]
   onLightbox: (s: LightboxState) => void
-  isSelected?: (firstMsgId: string) => boolean
+  selectedMsgIds?: ReadonlyMap<string, unknown>
   onToggle?: (id: string, ts: number, tsEnd: number, allIds: string[], blockId: string, shiftKey?: boolean) => void
   onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
   dateIndex?: DateIndex | null
@@ -22,12 +23,13 @@ interface MessageListProps {
   onUnhideMessage?: (msgId: string) => void
   onHideUri?: (uri: string) => void
   onUnhideUri?: (uri: string) => void
+  enabledTypes?: Set<ContentTypeKey>
 }
 
-export default function MessageList({
+const MessageList = memo(function MessageList({
   blocks,
   onLightbox,
-  isSelected,
+  selectedMsgIds,
   onToggle,
   onContextMenu,
   dateIndex,
@@ -42,6 +44,7 @@ export default function MessageList({
   onUnhideMessage,
   onHideUri,
   onUnhideUri,
+  enabledTypes,
 }: MessageListProps) {
   const uid = useId()
   const days: { date: string; blocks: MessageBlock[] }[] = []
@@ -61,22 +64,26 @@ export default function MessageList({
           data-day-iso={iso}
           className="flex flex-col"
         >
-          <div className="dsep sticky top-0 z-10 flex items-center py-1.5 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm text-xs text-[#616061] dark:text-gray-400">
-            <span className="flex-1 border-t border-gray-200 dark:border-gray-700" />
-            {onJumpTo ? (
-              <DateMenu
-                date={day.date}
-                ts={day.blocks[0].msgs[0].timestamp_ms}
-                prevDayTs={dayIdx > 0 ? days[dayIdx - 1].blocks[0].msgs[0].timestamp_ms : undefined}
-                nextDayTs={dayIdx < days.length - 1 ? days[dayIdx + 1].blocks[0].msgs[0].timestamp_ms : undefined}
-                dateIndex={dateIndex}
-                onJumpTo={onJumpTo}
-                onOpenDatePicker={onOpenDatePicker}
-              />
-            ) : (
-              <span className="px-3 font-semibold dark:text-gray-300">{day.date}</span>
-            )}
-            <span className="flex-1 border-t border-gray-200 dark:border-gray-700" />
+          <div className="dsep sticky top-0 z-10 flex items-center justify-center py-3 px-4 bg-white/90 dark:bg-mist-900/90 backdrop-blur-sm">
+            <span className="flex-1 border-t border-mist-200 dark:border-mist-700/60" />
+            <span className="mx-3 flex-shrink-0">
+              {onJumpTo ? (
+                <DateMenu
+                  date={day.date}
+                  ts={day.blocks[0].msgs[0].timestamp_ms}
+                  prevDayTs={dayIdx > 0 ? days[dayIdx - 1].blocks[0].msgs[0].timestamp_ms : undefined}
+                  nextDayTs={dayIdx < days.length - 1 ? days[dayIdx + 1].blocks[0].msgs[0].timestamp_ms : undefined}
+                  dateIndex={dateIndex}
+                  onJumpTo={onJumpTo}
+                  onOpenDatePicker={onOpenDatePicker}
+                />
+              ) : (
+                <span className="text-[11px] font-semibold text-mist-500 dark:text-mist-400 bg-mist-50 dark:bg-mist-900 px-3 py-1 rounded-full">
+                  {day.date}
+                </span>
+              )}
+            </span>
+            <span className="flex-1 border-t border-mist-200 dark:border-mist-700/60" />
           </div>
           {day.blocks.map((block, i) => (
             <div
@@ -85,7 +92,7 @@ export default function MessageList({
             >
               <MessageGroup
                 block={block}
-                isSelected={isSelected?.(block.msgs[0]._id) ?? false}
+                isSelected={selectedMsgIds?.has(block.msgs[0]._id) ?? false}
                 onToggle={onToggle ?? (() => {})}
                 onLightbox={onLightbox}
                 onContextMenu={onContextMenu}
@@ -97,6 +104,7 @@ export default function MessageList({
                 onUnhideMessage={onUnhideMessage}
                 onHideUri={onHideUri}
                 onUnhideUri={onUnhideUri}
+                enabledTypes={enabledTypes}
               />
               {renderBlockActions && (
                 <div className="absolute top-2 right-2 opacity-0 group-hover/block:opacity-100 transition-opacity flex gap-1 z-10 [@media(hover:none)]:hidden">
@@ -110,4 +118,6 @@ export default function MessageList({
       })}
     </>
   )
-}
+})
+
+export default MessageList

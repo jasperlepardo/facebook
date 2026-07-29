@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (idsParam) {
-      const ids = idsParam.split(',').filter(Boolean).map(id => { try { return new ObjectId(id) } catch { return null } }).filter(Boolean)
+      const ids = idsParam.split(',').filter(Boolean).map(id => { try { return new ObjectId(id) } catch { return null } }).filter((id): id is ObjectId => id !== null)
       const docs = await msgs.find({ ...filter, _id: { $in: ids } }).sort({ timestamp_ms: 1 }).toArray()
       return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
     }

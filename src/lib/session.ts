@@ -1,9 +1,10 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
-const SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || 'jc-session-secret-change-in-production'
-)
+if (!process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is not set')
+}
+const SECRET = new TextEncoder().encode(process.env.SESSION_SECRET)
 const COOKIE = 'jc-session'
 const EXPIRES = 60 * 60 * 24 * 30 // 30 days
 

@@ -3,7 +3,7 @@ import { getHiddenItems } from './db'
 
 let cache: Record<string, unknown> | null = null
 let cacheAt = 0
-const TTL = 60_000
+const TTL = 300_000
 
 export function invalidateHiddenFilterCache() {
   cache = null

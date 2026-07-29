@@ -1,11 +1,12 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import { GalleryItem, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
 import { GALLERY_LIMIT } from '@/lib/constants'
 
 interface GalleryProps {
-  type: 'photos' | 'videos'
+  type: 'photos' | 'videos' | 'gifs' | 'stickers'
   onLightbox: (s: LightboxState) => void
   onContextMenu: (e: React.MouseEvent, item: GalleryItem) => void
   hideImages?: boolean
@@ -101,13 +102,19 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (hideImages) return (
-    <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
-      <p className="text-sm text-gray-400 dark:text-gray-500">Images are hidden</p>
+    <div className="flex-1 flex items-center justify-center bg-white dark:bg-mist-900">
+      <p className="text-sm text-gray-400 dark:text-mist-500">Images are hidden</p>
+    </div>
+  )
+
+  if (!loading && !hasMore && items.length === 0) return (
+    <div className="flex-1 flex items-center justify-center bg-white dark:bg-mist-900">
+      <p className="text-sm text-gray-400 dark:text-mist-500">Nothing here yet.</p>
     </div>
   )
 
   return (
-    <div ref={galleryRef} className="flex-1 overflow-y-auto p-3 bg-white dark:bg-gray-900" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
+    <div ref={galleryRef} className="flex-1 overflow-y-auto p-3 bg-white dark:bg-mist-900" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
       <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
         {items.map((item, i) => {
           const isHidden = hiddenUris?.has(item.uri)
@@ -115,24 +122,24 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
           if (isHidden && !isSuperAdmin) return null
 
           if (isHidden && isSuperAdmin) return (
-            <div key={i} className="aspect-square rounded-sm bg-gray-200 dark:bg-gray-700 relative flex flex-col items-center justify-center gap-1 group/cell">
+            <div key={i} className="aspect-square rounded-xs bg-gray-200 dark:bg-mist-700 relative flex flex-col items-center justify-center gap-1 group/cell">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hidden</span>
               <button
                 onClick={() => onUnhideUri?.(item.uri)}
-                className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/cell:opacity-100 transition-opacity text-[11px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded-full"
+                className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/cell:opacity-100 transition-opacity text-[11px] bg-mist-600 hover:bg-mist-700 text-white px-2 py-0.5 rounded-full"
               >Unhide</button>
             </div>
           )
 
           return (
             <div key={i}
-              className="aspect-square overflow-hidden cursor-pointer rounded-sm bg-gray-200 dark:bg-gray-700 relative hover:opacity-85 group/cell"
+              className="aspect-square overflow-hidden cursor-pointer rounded-xs bg-gray-200 dark:bg-mist-700 relative hover:opacity-85 group/cell"
               onClick={() => {
                 const mkState = (idx: number): LightboxState => ({
                   src: r2(itemsRef.current[idx].uri),
                   uri: itemsRef.current[idx].uri,
-                  type: type === 'photos' ? 'photo' : 'video',
+                  type: type === 'videos' ? 'video' : type === 'gifs' ? 'gif' : 'photo',
                   caption: `${new Date(itemsRef.current[idx].ts).toLocaleDateString()} · ${itemsRef.current[idx].sender}`,
                   msgId: itemsRef.current[idx].msgId,
                   ts: itemsRef.current[idx].ts,
@@ -145,9 +152,11 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
               data-ts={item.ts}
               data-msg-id={item.msgId}
             >
-              {type === 'photos'
+              {type === 'videos'
+                ? <video src={r2(item.uri)} preload="none" className="w-full h-full object-cover block" />
+                : type === 'gifs'
                 ? <img src={r2(item.uri)} loading="lazy" className="w-full h-full object-cover block" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                : <video src={r2(item.uri)} preload="none" className="w-full h-full object-cover block" />
+                : <Image src={r2(item.uri)} alt="" fill sizes="(min-width: 1024px) 200px, (min-width: 640px) 160px, 50vw" className="object-cover" />
               }
               {isSuperAdmin && onHideUri && (
                 <button

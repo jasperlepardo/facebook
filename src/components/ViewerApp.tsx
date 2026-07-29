@@ -1,62 +1,40 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { flushSync } from 'react-dom'
-import { Message, Section, MediaTab, LightboxState, ContextMenuState, GalleryItem, Hashtag, DateIndex } from '@/types'
-import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
+import dynamic from 'next/dynamic'
+import { Section, LightboxState, ContextMenuState, GalleryItem, Hashtag, DateIndex } from '@/types'
 import { apiFetch } from '@/lib/utils'
-import { r2, fmtDate, fmtTime } from '@/lib/format'
-import { groupMessages } from '@/lib/groupMessages'
-import MessageList from './MessageList'
-import HashtagsPane from './HashtagsPane'
-import HashtagPicker from './HashtagPicker'
-import Gallery from './Gallery'
-import FilesView from './FilesView'
+import { relTime } from '@/lib/format'
+import { ContentTypeKey, ALL_CONTENT_TYPE_KEYS, DEFAULT_ENABLED } from '@/lib/contentTypes'
+import ChatViewSettingsModal from './ChatViewSettingsModal'
+import MediaPane from './MediaPane'
 import Lightbox from './Lightbox'
 import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
-import SettingsPane from './SettingsPane'
 import AppHeader from './AppHeader'
-import AppNav from './AppNav'
-import DatePickerModal from './DatePickerModal'
-import ThreadListPane, { Thread } from './ThreadListPane'
+import AppLayout, { AppLayoutControls } from './AppLayout'
+import ListPane, { ListPaneItem } from './ListPane'
+import HashtagsPane from './HashtagsPane'
+import ChatDetailPane, { JumpFn } from './ChatDetailPane'
 
-const THREADS: Thread[] = [
-  { id: 'messages', name: 'Ciara', initials: 'C', color: 'bg-rose-400', collection: 'messages' },
+const SettingsPane = dynamic(() => import('./SettingsPane'), { ssr: false })
+
+const THREADS = [
+  { id: 'messages', name: 'Ciara', initials: 'C', color: 'bg-rose-400' },
 ]
 
-function toBlockIds(selected: Message[], allMsgs: Message[]): string[] {
-  const blocks = groupMessages(allMsgs)
-  const selectedIds = new Set(selected.map(m => m._id))
-  const blockIds = new Set<string>()
-  for (const block of blocks) {
-    if (block.msgs.some(m => selectedIds.has(m._id))) {
-      const bid = block.msgs[0].blockId
-      if (bid) blockIds.add(bid)
-    }
-  }
-  return [...blockIds]
+const HASHTAG_COLORS = [
+  'bg-mist-500', 'bg-rose-400', 'bg-violet-400', 'bg-amber-400',
+  'bg-mist-400', 'bg-sky-400', 'bg-pink-400', 'bg-indigo-400',
+]
+function hashtagColor(name: string) {
+  let n = 0; for (const c of name) n = (n * 31 + c.charCodeAt(0)) & 0xff
+  return HASHTAG_COLORS[n % HASHTAG_COLORS.length]
 }
 
-
 export default function ViewerApp() {
-  // Messages
-  const [messages, setMessages]   = useState<Message[]>([])
-  const messagesRef               = useRef<Message[]>([])
-  const [total, setTotal]         = useState(0)
-  const [hasMore, setHasMore]     = useState(false)
-  const [searching, setSearching] = useState(false)
-  const [jumping,   setJumping]   = useState(false)
-  const lowerOffset = useRef(0)
-  const upperOffset = useRef(0)
-  const loadingRef  = useRef(false)
-  const hasMoreRef  = useRef(false)
-
-  // Media counts
-  const [mediaCounts, setMediaCounts] = useState<{ photos: number; videos: number; files: number }>({ photos: 0, videos: 0, files: 0 })
-
   // Navigation — default to 'chat' for SSR, then correct from URL after hydration
-  const [section, setSection]     = useState<Section>('chat')
-  const [mediaTab, setMediaTab]   = useState<MediaTab>('photos')
+  const [section, setSection]         = useState<Section>('chat')
+  const [prevSection, setPrevSection] = useState<'chat' | 'hashtags'>('chat')
   const [searchInput, setSearchInput] = useState('')
   const [hideImages, setHideImages] = useState(false)
   const [hiddenUris, setHiddenUris] = useState<Set<string>>(() => {
@@ -67,65 +45,61 @@ export default function ViewerApp() {
   const dbHiddenUris    = useMemo(() => new Set(dbHiddenItems.filter(i => i.type === 'uri').map(i => i.value)), [dbHiddenItems])
   const dbHiddenMsgIds  = useMemo(() => new Set(dbHiddenItems.filter(i => i.type === 'message').map(i => i.value)), [dbHiddenItems])
   const allHiddenUris   = useMemo(() => new Set([...dbHiddenUris, ...hiddenUris]), [dbHiddenUris, hiddenUris])
-  const searchRef   = useRef('')
-  const [chatVisible, setChatVisible] = useState(false)
   const [currentUser, setCurrentUser] = useState('')
   const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [showHidden, setShowHidden] = useState(false)
 
-  // Thread selection
-  const [activeThread, setActiveThread] = useState<string>('messages')
-  const [mobileShowThreads, setMobileShowThreads] = useState(true)
+  // Media pane visibility
+  const [showMediaPane, setShowMediaPane] = useState(false)
 
-  // Date index
-  const [dateIndex, setDateIndex] = useState<DateIndex | null>(null)
+  // Chat content type settings
+  const [enabledTypes, setEnabledTypes] = useState<Set<ContentTypeKey>>(DEFAULT_ENABLED)
+  const [showViewSettings, setShowViewSettings] = useState(false)
+
+  // Media counts
+  const [mediaCounts, setMediaCounts] = useState<Record<string, number>>({})
+
+  // Thread selection + list meta
+  const [activeThread, setActiveThread] = useState<string>('messages')
+  const [chatDetailOpen, setChatDetailOpen] = useState(false)
+  const [threadFilter, setThreadFilter] = useState('')
+  const [threadMeta, setThreadMeta] = useState<Record<string, { subtitle: string; badge: string }>>({})
 
   // Hashtags
   const [hashtags, setHashtags]         = useState<Hashtag[]>([])
-  const [hashtagPicker, setHashtagPicker] = useState<{ msgIds: string[]; blockIds: string[] } | null>(null)
   const [hashtagFilter, setHashtagFilter] = useState('')
   const [hashtagCreating, setHashtagCreating] = useState(false)
+  const [pendingHashtag, setPendingHashtag] = useState<Hashtag | null>(null)
   const [activeHashtagName, setActiveHashtagName] = useState<string | null>(null)
+  const [hashtagActiveTab, setHashtagActiveTab] = useState<'context' | 'messages'>('context')
+  const [hashtagMsgFilter, setHashtagMsgFilter] = useState('')
   const [showHashtagMenu, setShowHashtagMenu] = useState(false)
   const [editingHashtagTitle, setEditingHashtagTitle] = useState(false)
   const [hashtagTitleInput, setHashtagTitleInput] = useState('')
   const hashtagActionsRef = useRef<{ back: () => void; delete: () => void; rename: (name: string) => Promise<void> } | null>(null)
   const hashtagTitleInputRef = useRef<HTMLInputElement>(null)
 
-  // Selection
-  const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[]; blockId: string }>())
-  const lastSelectedAnchor = useRef<{ id: string; ts: number; tsEnd: number } | null>(null)
-  const [preloadedHashtagIds, setPreloadedHashtagIds] = useState<Set<string> | null>(null)
-  const preloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Chat stats (from ChatDetailPane)
+  const [chatTotal, setChatTotal] = useState(0)
+  const [chatDateIndex, setChatDateIndex] = useState<DateIndex | null>(null)
 
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
-  const [ctxMenu, setCtxMenu]   = useState<ContextMenuState | null>(null)
-  const [toast, setToast]       = useState<string | null>(null)
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [showDatePicker, setShowDatePicker] = useState(false)
-  const [datePickerDefault, setDatePickerDefault] = useState('')
-
+  const [galleryCtxMenu, setGalleryCtxMenu] = useState<ContextMenuState | null>(null)
 
   // Refs
-  const chatRef       = useRef<HTMLDivElement>(null)
-  const deviceId      = useRef('')
-  const currentUserRef = useRef('')
-  const lastBookmarkTime = useRef(0)
-  const pendingJump         = useRef<string | null>(null)
-  const pendingScrollReset  = useRef(false)
-  const pendingScrollBottom = useRef(false)
-  const pendingLightboxScroll = useRef<string | null>(null)
-  const queuedLoad    = useRef<'older' | 'newer' | null>(null)
+  const chatScrollRef      = useRef<HTMLDivElement>(null)
+  const jumpFnRef          = useRef<JumpFn | null>(null)
+  const dbHiddenItemsRef   = useRef(dbHiddenItems)
+  useEffect(() => { dbHiddenItemsRef.current = dbHiddenItems }, [dbHiddenItems])
 
-  // ─── Helpers ────────────────────────────────────────────────────────────────
+  // ─── Jump wrapper ───────────────────────────────────────────────────────────
 
-  const applyMessages = (msgs: Message[]) => {
-    const seen = new Set<string>()
-    const deduped = msgs.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
-    messagesRef.current = deduped
-    setMessages(deduped)
-  }
+  const jumpToMessage = useCallback(async (ts: number, msgId: string | null) => {
+    setSection('chat')
+    setChatDetailOpen(true)
+    await jumpFnRef.current?.(ts, msgId)
+  }, [])
 
   const reloadHashtags = useCallback(async () => {
     const d = await apiFetch<{ docs: Hashtag[] }>('/api/hashtags?limit=200&sort=firstMsgTs&depth=0')
@@ -137,690 +111,138 @@ export default function ViewerApp() {
     setHideImages(localStorage.getItem('hideImages') === '1')
   }, [])
 
-  // ─── Scroll chat to current lightbox photo in background ───────────────────
-
-  useEffect(() => {
-    const msgId = lightbox?.msgId
-    if (!msgId || !chatRef.current) return
-    const anchor = document.querySelector<HTMLElement>(`[data-msg-id="${msgId}"]`)?.closest<HTMLElement>('.msg-group')
-    if (anchor) {
-      anchor.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    } else {
-      pendingLightboxScroll.current = msgId
-      apiFetch<{ index: number | null }>(`/api/jump?msgId=${msgId}`)
-        .then(d => {
-          if (d.index == null) return
-          lowerOffset.current = Math.max(0, d.index - Math.floor(LIMIT / 2))
-          upperOffset.current = lowerOffset.current
-          loadMessages('fresh').catch(() => {})
-        }).catch(() => {})
-    }
-  }, [lightbox?.msgId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Scroll to pending jump target after messages render ────────────────────
-
-  function scrollToMsg(msgId: string): boolean {
-    // Try [data-id] first — direct group match when msgId is the group's first
-    // message. Fall back to [data-msg-id] → closest for mid-group messages.
-    const group =
-      document.querySelector<HTMLElement>(`[data-id="${msgId}"]`) ??
-      document.querySelector<HTMLElement>(`[data-msg-id="${msgId}"]`)?.closest<HTMLElement>('.msg-group')
-    if (!group) return false
-    group.scrollIntoView({ block: 'start' })
-    const isDarkMode = document.documentElement.classList.contains('dark')
-    group.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
-    setTimeout(() => { group.style.transition = 'background 1s'; group.style.background = '' }, 800)
-    setTimeout(() => { group.style.transition = '' }, 1800)
-    return true
-  }
-
-  useEffect(() => {
-    if (pendingScrollReset.current) {
-      pendingScrollReset.current = false
-      if (chatRef.current) chatRef.current.scrollTop = 0
-      return
-    }
-    if (pendingScrollBottom.current) {
-      pendingScrollBottom.current = false
-      if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight
-      return
-    }
-    const jumpId = pendingJump.current
-    if (jumpId && scrollToMsg(jumpId)) pendingJump.current = null
-    const scrollId = pendingLightboxScroll.current
-    if (scrollId) {
-      const anchor = document.getElementById('msg-' + scrollId)?.closest<HTMLElement>('.msg-group')
-      if (anchor) {
-        pendingLightboxScroll.current = null
-        anchor.scrollIntoView({ block: 'center', behavior: 'smooth' })
-      }
-    }
-  }, [messages])
-
   // ─── Sync section + mediaTab to/from URL ────────────────────────────────────
 
   const mountedRef = useRef(false)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (!mountedRef.current) {
-      // First run after hydration: read URL → state
       mountedRef.current = true
       const s = params.get('s')
-      const t = params.get('t')
-      if (s === 'media' || s === 'hashtags' || s === 'settings') setSection(s)
-      if (t === 'videos' || t === 'files') setMediaTab(t)
+      if (s === 'hashtags' || s === 'settings') setSection(s)
       return
     }
-    // Subsequent runs: state → URL
     if (section === 'chat') { params.delete('s'); params.delete('t') }
-    else { params.set('s', section); params.delete('msg'); if (section === 'media') params.set('t', mediaTab); else params.delete('t') }
+    else { params.set('s', section); params.delete('msg'); params.delete('t') }
     const qs = params.toString()
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-  }, [section, mediaTab])
-
-  // ─── Load messages ───────────────────────────────────────────────────────────
-
-  async function loadMessages(mode: 'fresh' | 'append' | 'prepend') {
-    const offset = mode === 'prepend' ? lowerOffset.current : mode === 'append' ? upperOffset.current : lowerOffset.current
-    const params = new URLSearchParams({ offset: String(offset), limit: String(LIMIT), asc: '1' })
-    const q = searchRef.current
-    if (q) { params.delete('asc'); params.set('offset', '0'); params.set('search', q) }
-    if (showHidden) params.set('showHidden', '1')
-
-    const data = await apiFetch<{ messages: Message[]; total: number; has_more: boolean }>('/api/messages?' + params)
-    setTotal(data.total)
-    hasMoreRef.current = !!(data.has_more && !q)
-    setHasMore(hasMoreRef.current)
-
-    const count = data.messages.length
-    const prev  = messagesRef.current
-
-    if (mode === 'prepend') {
-      const el = chatRef.current
-      const prevH = el?.scrollHeight ?? 0
-      const prevTop = el?.scrollTop ?? 0
-      const combined = [...data.messages, ...prev]
-
-      el?.style.setProperty('overflow-anchor', 'none')
-      flushSync(() => applyMessages(combined))
-      if (el) {
-        const newScrollTop = prevTop + el.scrollHeight - prevH
-        el.scrollTop = newScrollTop
-      }
-
-      if (combined.length > MAX_DOM && el) {
-        const excess = combined.length - MAX_DOM
-        const currentH = el.scrollHeight
-        const currentTop = el.scrollTop
-        const clientH = el.clientHeight
-        const estCullH = Math.round(currentH * excess / combined.length)
-        if (currentTop <= currentH - estCullH - clientH) {
-          upperOffset.current -= excess
-          flushSync(() => applyMessages(combined.slice(0, MAX_DOM)))
-        }
-      }
-      el?.style.removeProperty('overflow-anchor')
-
-    } else if (mode === 'append') {
-      upperOffset.current += count
-      const next = [...prev, ...data.messages]
-      const seen = new Set<string>()
-      const deduped = next.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
-      if (deduped.length > MAX_DOM) {
-        const excess = deduped.length - MAX_DOM
-        const culled = deduped.slice(-MAX_DOM)
-
-        flushSync(() => applyMessages(deduped))
-
-        const el = chatRef.current
-        const prevH2 = el?.scrollHeight ?? 0
-        const prevTop2 = el?.scrollTop ?? 0
-        const estCullH = Math.round(prevH2 * excess / deduped.length)
-        if (prevTop2 > estCullH) {
-          lowerOffset.current += excess
-          el?.style.setProperty('overflow-anchor', 'none')
-          flushSync(() => applyMessages(culled))
-          if (el) {
-            el.scrollTop = prevTop2 + el.scrollHeight - prevH2
-            el.style.removeProperty('overflow-anchor')
-          }
-        }
-      } else {
-        applyMessages(deduped)
-      }
-    } else {
-      upperOffset.current = lowerOffset.current + count
-      flushSync(() => applyMessages(data.messages))
-      if (chatRef.current) chatRef.current.scrollTop = 0
-    }
-  }
-
-  async function loadOlder() {
-    if (lowerOffset.current === 0) return
-    lowerOffset.current = Math.max(0, lowerOffset.current - LIMIT)
-    try { await loadMessages('prepend') } catch { lowerOffset.current += LIMIT }
-  }
-
-  async function loadNewer() {
-    await loadMessages('append')
-  }
-
-  // ─── Jump ────────────────────────────────────────────────────────────────────
-
-  function setMsgParam(msgId: string | null) {
-    const params = new URLSearchParams(window.location.search)
-    if (msgId) params.set('msg', msgId); else params.delete('msg')
-    const qs = params.toString()
-    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-  }
-
-  async function jumpToMessage(ts: number, msgId: string | null) {
-    setSection('chat')
-    setJumping(true)
-    try {
-      const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`
-      const d = await apiFetch<{ index: number | null }>(url)
-      if (d.index == null) return
-      lowerOffset.current = Math.max(0, d.index - (msgId ? Math.floor(LIMIT / 2) : 0))
-      upperOffset.current = lowerOffset.current
-      searchRef.current = ''; setSearchInput('')
-      if (msgId) setMsgParam(msgId)
-      else pendingScrollReset.current = true
-      await loadMessages('fresh')
-      // Scroll to the exact message synchronously (before paint) so there is no
-      // visible flash of the context buffer that was loaded above the target.
-      if (msgId && !scrollToMsg(msgId)) pendingJump.current = msgId
-    } finally {
-      setJumping(false)
-    }
-  }
-
-  // ─── Scroll handler ──────────────────────────────────────────────────────────
-
-  const handleScroll = useCallback(() => {
-    const el = chatRef.current
-    if (!el) return
-
-    const chatTop = el.getBoundingClientRect().top
-
-    const id = deviceId.current
-    if (id && !searchRef.current) {
-      const now = Date.now()
-      if (now - lastBookmarkTime.current >= 300) {
-        lastBookmarkTime.current = now
-        for (const g of el.querySelectorAll<HTMLElement>('.msg-group')) {
-          const rect = g.getBoundingClientRect()
-          if (rect.bottom > chatTop) {
-            fetch('/api/bookmark', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ msgId: g.dataset.id, offset: Math.max(0, rect.top - chatTop), deviceId: id, ns: currentUserRef.current || undefined }) }).catch(() => {})
-            break
-          }
-        }
-      }
-    }
-
-    const nearTop    = el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0
-    const nearBottom = el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current
-
-    if (loadingRef.current || searchRef.current) {
-      if (nearTop)    queuedLoad.current = 'older'
-      if (nearBottom) queuedLoad.current = 'newer'
-      return
-    }
-
-    const run = (fn: () => Promise<void>) => {
-      loadingRef.current = true
-      fn().finally(async () => {
-        const queued = queuedLoad.current
-        queuedLoad.current = null
-        const qel = chatRef.current
-        const stillNearTop    = qel && qel.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0
-        const stillNearBottom = qel && qel.scrollTop + qel.clientHeight > qel.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current
-        if (queued === 'older' && stillNearTop)    { await loadOlder().catch(() => {}) }
-        else if (queued === 'newer' && stillNearBottom) { await loadNewer().catch(() => {}) }
-        loadingRef.current = false
-      })
-    }
-
-    if (nearTop)         run(loadOlder)
-    else if (nearBottom) run(loadNewer)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [section])
 
   // ─── Init ───────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    let id = localStorage.getItem('deviceId')
-    if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id) }
-    deviceId.current = id
-
-    fetch('/api/hidden-items').then(r => r.ok ? r.json() : null).then(d => {
-      if (!d?.items) return
-      setDbHiddenItems(d.items.map((i: any) => ({ _id: i._id, type: i.type, value: i.value })))
-    }).catch(() => {})
-    reloadHashtags()
-    apiFetch<DateIndex>('/api/date-index').then(setDateIndex).catch(() => {})
-
-    Promise.all(['photos', 'videos', 'files'].map(t =>
-      apiFetch<{ total: number }>(`/api/attachments?type=${t}&limit=1`).then(d => ({ t, n: d.total ?? 0 })).catch(() => ({ t, n: 0 }))
-    )).then(results => {
-      const c = Object.fromEntries(results.map(r => [r.t, r.n])) as { photos: number; videos: number; files: number }
-      setMediaCounts(c)
-    })
-
     async function init() {
-      let userName = ''
       try {
-        const d = await fetch('/api/auth/me').then(r => r.json())
-        if (d?.name) { userName = d.name; currentUserRef.current = d.name; setCurrentUser(d.name) }
-        if (d?.superAdmin) { setIsSuperAdmin(true); setShowHidden(true) }
+        const d = await fetch('/api/init').then(r => r.ok ? r.json() : null)
+        if (!d) return
+
+        if (d.user?.name) setCurrentUser(d.user.name)
+        if (d.user?.superAdmin) { setIsSuperAdmin(true); setShowHidden(true) }
+
+        if (d.threadLastMsg) {
+          setThreadMeta(prev => ({
+            ...prev,
+            messages: { subtitle: d.threadLastMsg.subtitle, badge: relTime(d.threadLastMsg.ts) },
+          }))
+        }
+
+        if (d.hiddenItems?.length) {
+          setDbHiddenItems(d.hiddenItems)
+        }
+
+        if (d.hashtags?.length) {
+          setHashtags(d.hashtags)
+        } else {
+          reloadHashtags()
+        }
+
+        if (d.userSettings?.chatContentTypes) {
+          setEnabledTypes(new Set<ContentTypeKey>(d.userSettings.chatContentTypes))
+        }
+
+        if (d.mediaCounts) {
+          setMediaCounts(d.mediaCounts)
+        }
       } catch {}
-
-      let startIdx = 0, anchorMsgId: string | null = null, anchorOffset = 0
-      const urlMsgId = new URLSearchParams(window.location.search).get('msg')
-      if (urlMsgId) {
-        anchorMsgId = urlMsgId
-        try {
-          const jd = await apiFetch<{ index: number | null }>('/api/jump?msgId=' + urlMsgId)
-          if (jd.index != null) startIdx = jd.index
-        } catch {}
-      } else {
-        try {
-          const nsParam = userName ? `&ns=${encodeURIComponent(userName)}` : ''
-          const bk = await apiFetch<{ msgId: string | null; offset: number }>(`/api/bookmark?deviceId=${id}${nsParam}`)
-          if (bk.msgId) {
-            anchorMsgId = bk.msgId; anchorOffset = bk.offset ?? 0
-            const jd = await apiFetch<{ index: number | null }>('/api/jump?msgId=' + bk.msgId)
-            if (jd.index != null) startIdx = jd.index
-          }
-        } catch {}
-      }
-
-      lowerOffset.current = Math.max(0, startIdx - Math.floor(LIMIT / 2))
-      upperOffset.current = lowerOffset.current
-      if (urlMsgId) pendingJump.current = urlMsgId
-      try { await loadMessages('fresh') } catch {}
-
-      loadingRef.current = true
-      if (anchorMsgId && chatRef.current) {
-        const anchor = document.querySelector<HTMLElement>(`[data-msg-id="${anchorMsgId}"]`)?.closest<HTMLElement>('.msg-group')
-        if (anchor) {
-          chatRef.current.scrollTop = 0
-          chatRef.current.scrollTop = anchor.getBoundingClientRect().top - chatRef.current.getBoundingClientRect().top - anchorOffset
-        }
-      }
-      setChatVisible(true)
-      loadingRef.current = false
-
-      const el = chatRef.current
-      if (el) {
-        loadingRef.current = true
-        if (el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0) {
-          await loadOlder().catch(() => {})
-        }
-        if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current) {
-          await loadNewer().catch(() => {})
-        }
-        loadingRef.current = false
-      }
     }
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Search ──────────────────────────────────────────────────────────────────
-
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  function handleSearchChange(v: string) {
-    setSearchInput(v)
-    clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(async () => {
-      const trimmed = v.trim()
-
-      if (/^[0-9a-f]{24}$/i.test(trimmed)) {
-        setSearching(true)
-        const byBlock = await apiFetch<{ messages: Message[] }>(`/api/messages?groupIds=${trimmed}`)
-        const msgs = byBlock.messages.length
-          ? byBlock.messages
-          : (await apiFetch<{ messages: Message[] }>(`/api/messages?ids=${trimmed}`)).messages
-        if (msgs.length) {
-          searchRef.current = ''
-          lowerOffset.current = 0; upperOffset.current = 0
-          setMessages(msgs)
-          messagesRef.current = msgs
-          pendingJump.current = msgs[0]._id
-        }
-        setSearchInput(trimmed)
-        setSearching(false)
-        return
-      }
-
-      searchRef.current = trimmed
-      lowerOffset.current = 0; upperOffset.current = 0
-      setSearching(!!trimmed)
-      await loadMessages('fresh')
-      setSearching(false)
-    }, 350)
-  }
-
-  // ─── Date jump ───────────────────────────────────────────────────────────────
-
-  function openDatePicker() {
-    const el = chatRef.current
-    if (el) {
-      const containerTop = el.getBoundingClientRect().top
-      const dayEls = el.querySelectorAll<HTMLElement>('[data-day-iso]')
-      let current = ''
-      for (const dayEl of dayEls) {
-        if (dayEl.getBoundingClientRect().top <= containerTop + 1) {
-          current = dayEl.dataset.dayIso ?? ''
-        } else {
-          break
-        }
-      }
-      setDatePickerDefault(current)
-    }
-    setShowDatePicker(true)
-  }
-
-  async function handleDateJump(date: string) {
-    if (!date) return
-    setJumping(true)
-    try {
-      let offset: number | null = null
-
-      if (date.startsWith('ts:')) {
-        const ts = parseInt(date.slice(3))
-        const t = new Date(ts)
-        const midnight = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime()
-        const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(midnight).toISOString()}`)
-        offset = d.index
-      } else {
-        // Week/month entries from DateMenu use precomputed index offsets.
-        // dateIndex.days is UTC-based so skip it — day and specific-date jumps
-        // both go through the API with a local midnight timestamp instead.
-        offset = dateIndex
-          ? (dateIndex.weeks.find(w => w.iso === date) ?? dateIndex.months.find(m => m.iso === date))?.offset ?? null
-          : null
-        if (offset == null) {
-          const parts = date.split('-').map(Number)
-          const localTs = parts.length === 3 && parts[0] && parts[1] && parts[2]
-            ? new Date(parts[0], parts[1] - 1, parts[2]).getTime()
-            : new Date(date).getTime()
-          const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(localTs).toISOString()}`)
-          offset = d.index
-        }
-      }
-
-      if (offset == null) return
-      lowerOffset.current = offset
-      upperOffset.current = offset
-      searchRef.current = ''; setSearchInput('')
-      pendingJump.current = null
-      pendingScrollReset.current = true
-      await loadMessages('fresh')
-
-    } finally {
-      setJumping(false)
-    }
-  }
-
-  // ─── Selection ───────────────────────────────────────────────────────────────
-
-  async function handleToggle(id: string, ts: number, tsEnd: number, allIds: string[], blockId: string, shiftKey?: boolean) {
-    if (shiftKey && lastSelectedAnchor.current) {
-      const anchor = lastSelectedAnchor.current
-      const anchorIdx = blocks.findIndex(b => b.msgs[0]._id === anchor.id)
-      const clickedIdx = blocks.findIndex(b => b.msgs[0]._id === id)
-      if (anchorIdx !== -1 && clickedIdx !== -1) {
-        const [start, end] = anchorIdx < clickedIdx ? [anchorIdx, clickedIdx] : [clickedIdx, anchorIdx]
-        setSelectedMsgs(prev => {
-          const next = new Map(prev)
-          for (let i = start; i <= end; i++) {
-            const b = blocks[i]
-            const f = b.msgs[0]
-            const l = b.msgs[b.msgs.length - 1]
-            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map(m => m._id), blockId: f.blockId ?? f._id })
-          }
-          return next
-        })
-      } else {
-        const minTs = Math.min(anchor.ts, ts)
-        const maxTs = Math.max(anchor.tsEnd, tsEnd)
-        const data = await apiFetch<{ messages: Message[] }>(`/api/messages?tsFrom=${minTs}&tsTo=${maxTs}`)
-        const rangeBlocks = groupMessages(data.messages)
-        setSelectedMsgs(prev => {
-          const next = new Map(prev)
-          for (const b of rangeBlocks) {
-            const f = b.msgs[0]
-            const l = b.msgs[b.msgs.length - 1]
-            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map(m => m._id), blockId: f.blockId ?? f._id })
-          }
-          return next
-        })
-      }
-      return
-    }
-    lastSelectedAnchor.current = { id, ts, tsEnd }
-    setSelectedMsgs(prev => {
-      const next = new Map(prev)
-      next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd, allIds, blockId })
-      return next
-    })
-  }
-
-  function clearSelection() {
-    setSelectedMsgs(new Map())
-    lastSelectedAnchor.current = null
-    setPreloadedHashtagIds(null)
-  }
-
-  useEffect(() => {
-    clearTimeout(preloadTimer.current)
-    if (selectedMsgs.size === 0) { setPreloadedHashtagIds(null); return }
-    const blockIds = [...new Set([...selectedMsgs.values()].map(v => v.blockId).filter(Boolean))]
-    preloadTimer.current = setTimeout(() => {
-      fetch(`/api/hashtag-groups?blockIds=${blockIds.join(',')}`)
-        .then(r => r.json())
-        .then(d => setPreloadedHashtagIds(new Set<string>(d.hashtagIds ?? [])))
-        .catch(() => {})
-    }, 300)
-    return () => clearTimeout(preloadTimer.current)
-  }, [selectedMsgs])
-
-  function openNoteFromSelection() {
-    const values = [...selectedMsgs.values()]
-    const allIds = [...new Set(values.flatMap(v => v.allIds))]
-    const blockIds = [...new Set(values.map(v => v.blockId).filter(Boolean))]
-    setHashtagPicker({ msgIds: allIds, blockIds })
-  }
-
-  function applyHashtags(hashtagIds: string[], newNames: string[]) {
-    const blockIds     = hashtagPicker?.blockIds ?? []
-    const snapHashtags = hashtags
-
-    setHashtagPicker(null)
-    clearSelection()
-
-    const tagBlocks = (hashtagId: string) =>
-      fetch('/api/hashtag-groups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hashtagId, blockIds }),
-      })
-
-    Promise.all(newNames.map(name => {
-      const existing = snapHashtags.find(h => h.name === name)
-      if (existing) return Promise.resolve(existing.id as string | undefined)
-      return fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
-        .then(r => r.json()).then(d => d.doc?.id as string | undefined)
-    }))
-      .then(ids => Promise.all([...hashtagIds, ...ids.filter((id): id is string => !!id)].map(tagBlocks)))
-      .then(() => reloadHashtags())
-  }
-
-  // ─── Message blocks (memoized) ───────────────────────────────────────────────
-
-  const blocks = useMemo(() => groupMessages(messages), [messages])
-
-  // ─── Context menu ────────────────────────────────────────────────────────────
+  // ─── Context menu (gallery only) ─────────────────────────────────────────────
 
   useEffect(() => {
     const handler = (e: Event) => {
       const { x, y, uri } = (e as CustomEvent).detail
-      setCtxMenu({ x, y, kind: 'media', mediaUri: uri })
+      setGalleryCtxMenu({ x, y, kind: 'media', mediaUri: uri })
     }
     window.addEventListener('media-ctx', handler)
     return () => window.removeEventListener('media-ctx', handler)
   }, [])
 
-  function hideUri(uri: string) {
+  const hideUri = useCallback((uri: string) => {
     setHiddenUris(prev => {
       const next = new Set(prev)
       next.add(uri)
       localStorage.setItem('hiddenUris', JSON.stringify([...next]))
       return next
     })
-  }
+  }, [])
 
-  function showToast(msg: string) {
-    if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast(msg)
-    toastTimer.current = setTimeout(() => setToast(null), 2000)
-  }
-
-  function copyLink(msgIds: string[]) {
-    const url = `${window.location.origin}${window.location.pathname}?msg=${msgIds[0]}`
-    navigator.clipboard.writeText(url).then(() => showToast('Link copied'))
-  }
-
-  function copyText(msgIds: string[]) {
-    const ids = new Set(msgIds)
-    const msgs = messagesRef.current.filter(m => ids.has(m._id))
-    if (!msgs.length) return
-    const first = msgs[0]
-    const header = `${first.sender_name} · ${fmtDate(first.timestamp_ms)} at ${fmtTime(first.timestamp_ms)}`
-    const lines = msgs.flatMap(m => {
-      const parts: string[] = []
-      if (m.content) parts.push(m.content)
-      if (m.photos?.length) parts.push('[photo]')
-      if (m.videos?.length) parts.push('[video]')
-      if (m.audio_files?.length) parts.push('[audio]')
-      if (m.gifs?.length) parts.push('[GIF]')
-      if (m.sticker) parts.push('[sticker]')
-      if (m.files?.length) parts.push('[file]')
-      if (m.share?.link) parts.push(m.share.share_text ? `${m.share.share_text} ${m.share.link}` : m.share.link)
-      if (m.call_duration != null) parts.push(m.missed ? 'Missed call' : `Call (${m.call_duration}s)`)
-      return parts
-    })
-    navigator.clipboard.writeText([header, ...lines].join('\n')).then(() => showToast('Text copied'))
-  }
-
-  async function handleHideMessage(msgId: string) {
+  const handleHideMessage = useCallback(async (msgId: string) => {
     const res = await fetch('/api/hidden-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'message', value: msgId }) })
     const { item } = await res.json()
     if (item) setDbHiddenItems(prev => [...prev.filter(i => !(i.type === 'message' && i.value === msgId)), { _id: item._id, type: 'message', value: msgId }])
-  }
+  }, [])
 
-  async function handleUnhideMessage(msgId: string) {
-    const item = dbHiddenItems.find(i => i.type === 'message' && i.value === msgId)
+  const handleUnhideMessage = useCallback(async (msgId: string) => {
+    const item = dbHiddenItemsRef.current.find(i => i.type === 'message' && i.value === msgId)
     if (!item) return
     await fetch(`/api/hidden-items?id=${item._id}`, { method: 'DELETE' })
     setDbHiddenItems(prev => prev.filter(i => i._id !== item._id))
-  }
+  }, [])
 
-  async function handleHideDbUri(uri: string) {
+  const handleHideDbUri = useCallback(async (uri: string) => {
     const res = await fetch('/api/hidden-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'uri', value: uri }) })
     const { item } = await res.json()
     if (item) setDbHiddenItems(prev => [...prev.filter(i => !(i.type === 'uri' && i.value === uri)), { _id: item._id, type: 'uri', value: uri }])
-  }
+  }, [])
 
-  async function handleUnhideDbUri(uri: string) {
-    const item = dbHiddenItems.find(i => i.type === 'uri' && i.value === uri)
+  const handleUnhideDbUri = useCallback(async (uri: string) => {
+    const item = dbHiddenItemsRef.current.find(i => i.type === 'uri' && i.value === uri)
     if (!item) return
     await fetch(`/api/hidden-items?id=${item._id}`, { method: 'DELETE' })
     setDbHiddenItems(prev => prev.filter(i => i._id !== item._id))
-  }
+  }, [])
 
-  function handleGalleryContextMenu(e: React.MouseEvent, item: GalleryItem) {
+  const handleGalleryContextMenu = useCallback((e: React.MouseEvent, item: GalleryItem) => {
     e.preventDefault()
-    setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'gallery', galTs: String(item.ts), galMsgId: item.msgId ?? null, mediaUri: item.uri })
-  }
+    setGalleryCtxMenu({ x: e.clientX, y: e.clientY, kind: 'gallery', galTs: String(item.ts), galMsgId: item.msgId ?? null, mediaUri: item.uri })
+  }, [])
 
-  function handleMsgContextMenu(e: React.MouseEvent, msgIds: string[]) {
-    e.preventDefault()
-    const fromTouch = !!(e as any)._fromTouch
-    const firstMsg = messagesRef.current.find(m => msgIds.includes(m._id))
-    setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'message', msgIds, msgTs: firstMsg?.timestamp_ms, fromTouch })
-  }
+  // ─── Content type settings ───────────────────────────────────────────────────
 
-  // ─── Lightbox with chat navigation ──────────────────────────────────────────
-
-  async function handleMsgLightbox(state: LightboxState) {
-    if (!state.ts) { setLightbox(state); return }
-
-    const mtype = state.mediaType ?? 'photos'
-    const uriParam = state.uri ? `&uri=${encodeURIComponent(state.uri)}` : ''
-    const { offset: photoOff } = await apiFetch<{ offset: number }>(
-      `/api/attachments?type=${mtype}&offsetOf=${state.ts}${uriParam}`
-    )
-    const { items, total } = await apiFetch<{ items: { uri: string; ts: number; sender: string; msgId: string }[]; total: number }>(
-      `/api/attachments?type=${mtype}&offset=${Math.max(0, photoOff - 1)}&limit=3`
-    )
-    const baseOff  = Math.max(0, photoOff - 1)
-    const localIdx = items.findIndex(i => i.uri === state.uri || (i.msgId === state.msgId && i.ts === state.ts))
-    const target   = localIdx >= 0 ? localIdx : 0
-
-    type PhotoItem = { uri: string; ts: number; sender: string; msgId: string }
-
-    const typeMap: Record<string, LightboxState['type']> = { photos: 'photo', videos: 'video', gifs: 'gif' }
-
-    const mkState = (absOff: number, item: PhotoItem): LightboxState => ({
-      src:       r2(item.uri),
-      uri:       item.uri,
-      type:      typeMap[mtype] ?? 'photo',
-      mediaType: mtype,
-      caption:   `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
-      msgId:     item.msgId,
-      ts:        item.ts,
-      onPrev:  absOff > 0
-        ? async () => {
-            const { items: pi } = await apiFetch<{ items: PhotoItem[] }>(
-              `/api/attachments?type=${mtype}&offset=${absOff - 1}&limit=1`
-            )
-            if (pi[0]) setLightbox(mkState(absOff - 1, pi[0]))
-          }
-        : undefined,
-      onNext:  absOff < total - 1
-        ? async () => {
-            const { items: ni } = await apiFetch<{ items: PhotoItem[] }>(
-              `/api/attachments?type=${mtype}&offset=${absOff + 1}&limit=1`
-            )
-            if (ni[0]) setLightbox(mkState(absOff + 1, ni[0]))
-          }
-        : undefined,
+  const handleContentTypeChange = useCallback((key: ContentTypeKey, enabled: boolean) => {
+    setEnabledTypes(prev => {
+      const next = new Set(prev)
+      enabled ? next.add(key) : next.delete(key)
+      fetch('/api/user-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatContentTypes: [...next] }),
+      }).catch(() => {})
+      return next
     })
+  }, [])
 
-    setLightbox(mkState(baseOff + target, items[target]))
-  }
-
-  // ─── Chat date jump (for DateMenu inside MessageList) ────────────────────────
-
-  async function handleChatJump(target: string) {
-    if (target === 'recent') {
-      const d = await apiFetch<{ total: number }>('/api/messages?offset=0&limit=1&asc=1')
-      lowerOffset.current = Math.max(0, d.total - LIMIT)
-      upperOffset.current = lowerOffset.current
-      pendingJump.current = null
-      pendingScrollBottom.current = true
-      await loadMessages('fresh')
-    } else if (target === 'beginning') {
-      lowerOffset.current = 0; upperOffset.current = 0
-      pendingJump.current = null
-      pendingScrollReset.current = true
-      await loadMessages('fresh')
-    } else {
-      handleDateJump(target)
-    }
-  }
+  const handleResetContentTypes = useCallback(() => {
+    const next = new Set<ContentTypeKey>(ALL_CONTENT_TYPE_KEYS)
+    setEnabledTypes(next)
+    fetch('/api/user-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatContentTypes: [...next] }),
+    }).catch(() => {})
+  }, [])
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
@@ -828,146 +250,207 @@ export default function ViewerApp() {
     ? currentUser.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
     : ''
 
-  const sectionTitle = section === 'chat' ? 'Chat' : section === 'media' ? 'Media' : section === 'settings' ? 'Settings' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
+  const sectionTitle = section === 'chat' ? 'Chat' : section === 'settings' ? 'Settings' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
 
-  return (
-    <div className="p-3 font-sans bg-white dark:bg-mauve-950 h-dvh flex flex-col overflow-hidden">
+  const threadItems = useMemo<ListPaneItem[]>(() => THREADS.map(t => ({
+    id: t.id, label: t.name, initials: t.initials, color: t.color,
+    subtitle: threadMeta[t.id]?.subtitle, badge: threadMeta[t.id]?.badge,
+  })), [threadMeta])
 
-      {/* Body */}
-      <div className="gap-3 flex-1 overflow-hidden flex flex-col md:flex-row min-h-0 pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] md:pb-0">
+  const hashtagItems = useMemo<ListPaneItem[]>(() => hashtags.map(h => ({
+    id: h.id,
+    label: `#${h.name}`,
+    isPrivate: h.isPrivate,
+    author: h.createdBy ?? undefined,
+  })), [hashtags])
 
-        {/* Nav — left on desktop, bottom on mobile */}
-        <AppNav section={section} initials={initials} onSectionChange={s => { setSection(s); setMobileShowThreads(false) }} />
+  function renderDetailPane(controls: AppLayoutControls) {
+    const thread = THREADS.find(t => t.id === activeThread)
+    const backFn = section === 'settings'
+      ? () => { setSection(prevSection); controls.onShowList() }
+      : section === 'hashtags' && activeHashtagName
+        ? () => { hashtagActionsRef.current?.back(); controls.onShowList() }
+        : section === 'hashtags' && hashtagCreating
+        ? () => { setHashtagCreating(false); controls.onShowList() }
+        : () => { setChatDetailOpen(false); controls.onShowList() }
 
-        {/* Thread list — full screen on mobile when mobileShowThreads, fixed pane on desktop */}
-        <div className={`flex-col flex-shrink-0 md:w-[280px] md:flex ${mobileShowThreads ? 'flex absolute inset-0 z-10 pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] md:pb-0 md:static md:z-auto' : 'hidden md:flex'}`}>
-          <ThreadListPane
-            threads={THREADS}
-            activeThreadId={activeThread}
-            onSelect={id => { setActiveThread(id); setMobileShowThreads(false) }}
-          />
+    // ── Title ──────────────────────────────────────────────────────────────────
+    const activeHashtag = hashtags.find(h => h.name === activeHashtagName)
+
+    const title =
+      section === 'chat' && thread ? (
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold select-none ${thread.color}`}>
+            {thread.initials}
+          </div>
+          <span className="text-sm font-bold truncate">{thread.name}</span>
         </div>
-
-        {/* Main content */}
-        <div className={`flex-1 flex-col min-w-0 min-h-0 overflow-hidden dark:bg-gray-900 ${mobileShowThreads ? 'hidden md:flex' : 'flex'}`}>
-
-          {/* Header */}
-          <AppHeader
-            section={section}
-            sectionTitle={sectionTitle}
-            onBack={() => setMobileShowThreads(true)}
-            thread={THREADS.find(t => t.id === activeThread)}
-            activeHashtagName={activeHashtagName}
-            editingHashtagTitle={editingHashtagTitle}
-            setEditingHashtagTitle={setEditingHashtagTitle}
-            hashtagTitleInput={hashtagTitleInput}
-            setHashtagTitleInput={setHashtagTitleInput}
-            hashtagTitleInputRef={hashtagTitleInputRef}
-            hashtagActionsRef={hashtagActionsRef}
-            setActiveHashtagName={setActiveHashtagName}
-            searchInput={searchInput}
-            onSearchChange={handleSearchChange}
-            hashtagFilter={hashtagFilter}
-            onHashtagFilterChange={setHashtagFilter}
-            onHashtagCreatingChange={setHashtagCreating}
-            showHashtagMenu={showHashtagMenu}
-            setShowHashtagMenu={setShowHashtagMenu}
-            scrollContainerRef={chatRef}
-            hideImages={hideImages}
-            onToggleHideImages={() => setHideImages(v => {
-              const next = !v
-              localStorage.setItem('hideImages', next ? '1' : '0')
-              return next
-            })}
+      ) : section === 'hashtags' && activeHashtagName ? (
+        editingHashtagTitle ? (
+          <input
+            ref={hashtagTitleInputRef}
+            value={hashtagTitleInput}
+            onChange={e => setHashtagTitleInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+            onKeyDown={async e => {
+              if (e.key === 'Enter') {
+                const name = hashtagTitleInput.trim()
+                if (name) { await hashtagActionsRef.current?.rename?.(name); setActiveHashtagName(name) }
+                setEditingHashtagTitle(false)
+              }
+              if (e.key === 'Escape') setEditingHashtagTitle(false)
+            }}
+            onBlur={async () => {
+              const name = hashtagTitleInput.trim()
+              if (name) { await hashtagActionsRef.current?.rename?.(name); setActiveHashtagName(name) }
+              setEditingHashtagTitle(false)
+            }}
+            className="text-sm font-bold bg-transparent border-b border-mist-300 dark:border-mist-600 outline-hidden text-gray-900 dark:text-white w-40"
+            autoFocus
           />
-
-          {/* Chat section — always mounted, hidden when not active */}
-          <div className={`flex-1 flex flex-col min-h-0 relative${section !== 'chat' ? ' hidden' : ''}`}>
-
-            {/* Selection bar */}
-            {selectedMsgs.size > 0 && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-4 py-2 flex items-center gap-3 text-[13px] whitespace-nowrap shadow-xl z-20">
-                <span>{selectedMsgs.size} message{selectedMsgs.size > 1 ? 's' : ''} selected</span>
-                <button onClick={openNoteFromSelection} className="bg-blue-600 px-3.5 py-1 rounded-full text-[13px] font-semibold"># Tag</button>
-                <button onClick={clearSelection} className="opacity-80 hover:opacity-100">✕</button>
-              </div>
-            )}
-
-            {/* Date-jump loading overlay */}
-            {jumping && (
-              <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-[2px] pointer-events-none">
-                <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md rounded-full px-4 py-2 text-[13px] text-gray-600 dark:text-gray-300">
-                  <svg className="animate-spin w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                  </svg>
-                  Loading…
-                </div>
-              </div>
-            )}
-
-            {/* Initial load spinner */}
-            {!chatVisible && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                <svg className="animate-spin w-6 h-6 text-blue-400 opacity-60" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-                </svg>
-              </div>
-            )}
-
-            {/* Chat scroll */}
-            <div
-              ref={chatRef}
-              onScroll={handleScroll}
-              className={`flex-1 overflow-y-auto flex flex-col min-h-0${selectedMsgs.size > 0 ? ' select-none' : ''}`}
-              style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
+        ) : (
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => { setHashtagTitleInput(activeHashtagName); setEditingHashtagTitle(true) }}
+              className="text-sm font-bold hover:underline decoration-mist-400 flex items-center gap-1 group truncate"
             >
-              {searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}
-              <MessageList
-                blocks={blocks}
-                onLightbox={handleMsgLightbox}
-                isSelected={id => selectedMsgs.has(id)}
-                onToggle={handleToggle}
-                onContextMenu={handleMsgContextMenu}
-                dateIndex={dateIndex}
-                onJumpTo={handleChatJump}
-                onOpenDatePicker={openDatePicker}
-                hideImages={hideImages}
-                hiddenUris={allHiddenUris}
-                isSuperAdmin={isSuperAdmin}
-                hiddenMsgIds={dbHiddenMsgIds}
-                onHideMessage={handleHideMessage}
-                onUnhideMessage={handleUnhideMessage}
-                onHideUri={handleHideDbUri}
-                onUnhideUri={handleUnhideDbUri}
-              />
+              {sectionTitle}
+              <svg className="opacity-0 group-hover:opacity-60 transition-opacity shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            {activeHashtag?.isPrivate && (
+              <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                🔒 Private
+              </span>
+            )}
+          </div>
+        )
+      ) : (
+        <span className="text-sm font-bold">{section === 'hashtags' && hashtagCreating ? 'Create New Hashtag' : sectionTitle}</span>
+      )
+
+    // ── Actions ────────────────────────────────────────────────────────────────
+    const actions =
+      section === 'chat' && thread ? (
+        <>
+          <div className="relative">
+            <button onClick={() => setShowHashtagMenu(v => !v)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+            </button>
+            {showHashtagMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowHashtagMenu(false)} />
+                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-mist-800 rounded-lg shadow-lg py-1 z-50 min-w-[150px] border border-mist-100 dark:border-mist-700">
+                  <button onClick={() => { setShowViewSettings(true); setShowHashtagMenu(false) }} className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-mist-200 hover:bg-mist-100 dark:hover:bg-mist-700">View settings</button>
+                </div>
+              </>
+            )}
+          </div>
+          <button onClick={() => setShowMediaPane(v => !v)} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${showMediaPane ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+          </button>
+        </>
+      ) : section === 'hashtags' && activeHashtagName ? (
+        <div className="relative">
+          <button onClick={() => setShowHashtagMenu(v => !v)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
+          {showHashtagMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowHashtagMenu(false)} />
+              <div className="absolute right-0 top-full mt-1 bg-white dark:bg-mist-800 rounded-lg shadow-lg py-1 z-50 min-w-[150px] border border-mist-100 dark:border-mist-700">
+                {isSuperAdmin && activeHashtag && (
+                  <button
+                    onClick={async () => {
+                      await fetch(`/api/hashtags/${activeHashtag.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPrivate: !activeHashtag.isPrivate }) })
+                      await reloadHashtags()
+                      setShowHashtagMenu(false)
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-mist-200 hover:bg-mist-100 dark:hover:bg-mist-700"
+                  >
+                    {activeHashtag.isPrivate ? '🌐 Make Public' : '🔒 Make Private'}
+                  </button>
+                )}
+                <button onClick={() => { hashtagActionsRef.current?.delete(); setShowHashtagMenu(false) }} className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null
+
+    // ── Search ─────────────────────────────────────────────────────────────────
+    const search = section === 'chat' ? (
+      <input type="search" value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Search messages…"
+        className="px-3.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-100 text-[13px] outline-hidden placeholder:text-mist-400 focus:bg-mist-200 dark:focus:bg-mist-700 w-full" />
+    ) : section === 'hashtags' && activeHashtagName && hashtagActiveTab === 'messages' ? (
+      <input type="search" value={hashtagMsgFilter} onChange={e => setHashtagMsgFilter(e.target.value)} placeholder="Search messages…"
+        className="px-3.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-100 text-[13px] outline-hidden placeholder:text-mist-400 focus:bg-mist-200 dark:focus:bg-mist-700 w-full" />
+    ) : null
+
+    return (
+      <>
+        {((section === 'chat' && chatDetailOpen) || (section === 'hashtags' && (!!activeHashtagName || hashtagCreating)) || section === 'settings') && (
+          <AppHeader
+            title={title}
+            onBack={backFn}
+            actions={actions}
+            search={search}
+            scrollContainerRef={chatScrollRef}
+          />
+        )}
+        <div key={section} className="flex-1 flex flex-col min-h-0 relative overflow-hidden [animation:fade-in_180ms_ease-out]">
+
+          {/* Chat — empty state on desktop until thread is opened */}
+          {section === 'chat' && !chatDetailOpen && (
+            <div className="hidden md:flex flex-1 flex-col items-center justify-center gap-3 text-center px-8">
+              <div className="w-16 h-16 rounded-full bg-mist-100 dark:bg-mist-800 flex items-center justify-center">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-mist-400 dark:text-mist-500"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <p className="text-sm text-mist-400 dark:text-mist-500">Select a conversation</p>
             </div>
+          )}
+
+          {/* Chat section */}
+          <div className={`flex-1 flex flex-col min-h-0 relative${section !== 'chat' ? ' hidden' : !chatDetailOpen ? ' md:hidden' : ''}`}>
+            <ChatDetailPane
+              search={searchInput}
+              onSearchChange={setSearchInput}
+              scrollRef={chatScrollRef}
+              hashtags={hashtags}
+              onReloadHashtags={reloadHashtags}
+              currentUser={currentUser}
+              isSuperAdmin={isSuperAdmin}
+              showHidden={showHidden}
+              hideImages={hideImages}
+              hiddenUris={allHiddenUris}
+              hiddenMsgIds={dbHiddenMsgIds}
+              onHideUri={hideUri}
+              onHideDbUri={handleHideDbUri}
+              onUnhideDbUri={handleUnhideDbUri}
+              onHideMessage={handleHideMessage}
+              onUnhideMessage={handleUnhideMessage}
+              onLightbox={setLightbox}
+              onRegisterJump={fn => { jumpFnRef.current = fn }}
+              onStatsChange={(total, dateIndex) => { setChatTotal(total); setChatDateIndex(dateIndex) }}
+              enabledTypes={enabledTypes}
+            />
           </div>
 
-          {/* Media section */}
-          {section === 'media' && (
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-900">
-                {([
-                  { key: 'photos' as MediaTab, label: `Photos${mediaCounts.photos ? ` (${mediaCounts.photos.toLocaleString()})` : ''}` },
-                  { key: 'videos' as MediaTab, label: `Videos${mediaCounts.videos ? ` (${mediaCounts.videos.toLocaleString()})` : ''}` },
-                  { key: 'files'  as MediaTab, label: `Files & Audio${mediaCounts.files ? ` (${mediaCounts.files.toLocaleString()})` : ''}` },
-                ]).map(t => (
-                  <button key={t.key} onClick={() => setMediaTab(t.key)}
-                    className={`px-5 py-2.5 text-[13px] font-semibold border-b-[3px] -mb-px select-none transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${mediaTab === t.key ? 'text-blue-600 dark:text-blue-400 border-blue-600 dark:border-blue-400' : 'text-gray-500 dark:text-gray-400 border-transparent'}`}>
-                    {t.label}
-                  </button>
-                ))}
+          {/* Hashtags — empty state on desktop when none selected */}
+          {section === 'hashtags' && !activeHashtagName && !hashtagCreating && (
+            <div className="hidden md:flex flex-1 flex-col items-center justify-center gap-3 text-center px-8">
+              <div className="w-16 h-16 rounded-full bg-mist-100 dark:bg-mist-800 flex items-center justify-center">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-mist-400 dark:text-mist-500"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
               </div>
-              {mediaTab === 'photos' && <Gallery type="photos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} hideImages={hideImages} hiddenUris={allHiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={handleHideDbUri} onUnhideUri={handleUnhideDbUri} />}
-              {mediaTab === 'videos' && <Gallery type="videos" onLightbox={setLightbox} onContextMenu={handleGalleryContextMenu} hideImages={hideImages} hiddenUris={allHiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={handleHideDbUri} onUnhideUri={handleUnhideDbUri} />}
-              {mediaTab === 'files'  && <FilesView />}
+              <p className="text-sm text-mist-400 dark:text-mist-500">Select a hashtag</p>
             </div>
           )}
 
           {/* Hashtags section — always mounted, hidden when not active */}
-          <div className={`flex-1 flex flex-col min-h-0${section !== 'hashtags' ? ' hidden' : ''}`}>
+          <div className={`flex-1 flex flex-col min-h-0${section !== 'hashtags' ? ' hidden' : (!activeHashtagName && !hashtagCreating) ? ' md:hidden' : ''}`}>
             <HashtagsPane
               hashtags={hashtags}
               onReload={reloadHashtags}
@@ -976,8 +459,14 @@ export default function ViewerApp() {
               onFilterChange={setHashtagFilter}
               creating={hashtagCreating}
               onCreatingChange={setHashtagCreating}
-              onActiveHashtagChange={setActiveHashtagName}
+              onActiveHashtagChange={name => { setActiveHashtagName(name); if (name) { setHashtagActiveTab('context'); setHashtagMsgFilter('') } }}
               onActionsChange={a => { hashtagActionsRef.current = a }}
+              activeTab={hashtagActiveTab}
+              onActiveTabChange={setHashtagActiveTab}
+              msgFilter={hashtagMsgFilter}
+              onMsgFilterChange={setHashtagMsgFilter}
+              onNavigateBack={controls.onShowList}
+              pendingSelect={pendingHashtag}
               isSuperAdmin={isSuperAdmin}
               hideImages={hideImages}
               hiddenUris={allHiddenUris}
@@ -992,8 +481,8 @@ export default function ViewerApp() {
           {/* Settings section */}
           {section === 'settings' && (
             <SettingsPane
-              total={total}
-              dateIndex={dateIndex}
+              total={chatTotal}
+              dateIndex={chatDateIndex}
               currentUser={currentUser}
               isSuperAdmin={isSuperAdmin}
               showHidden={showHidden}
@@ -1010,26 +499,74 @@ export default function ViewerApp() {
             />
           )}
 
-        </div>
-      </div>
+          </div>{/* end section content */}
+      </>
+    )
+  }
+
+  return (
+    <div className="md:p-3 font-sans bg-white dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: '100%' }}>
+      <AppLayout
+        section={section}
+        onSectionChange={s => {
+          if (s === 'settings') setPrevSection(section === 'settings' ? prevSection : section as 'chat' | 'hashtags')
+          setSection(s)
+        }}
+        initials={initials}
+        prevSection={prevSection}
+        detailGrow={section === 'settings' ? 4 : section === 'hashtags' || !showMediaPane ? 12 : 7}
+        listGrow={section === 'settings' ? 4 : 4}
+        centeredDetail={section === 'settings'}
+        listPane={controls => section === 'hashtags' ? (
+          <ListPane
+            title="Hashtags"
+            items={hashtagItems}
+            activeId={hashtags.find(h => h.name === activeHashtagName)?.id ?? null}
+            filter={hashtagFilter}
+            onFilterChange={setHashtagFilter}
+            filterPlaceholder="Filter hashtags"
+            onNew={() => { setHashtagCreating(true); controls.onShowDetail() }}
+            onSelect={id => { const h = hashtags.find(h => h.id === id); if (h) { setPendingHashtag(h); controls.onShowDetail(); setTimeout(() => setPendingHashtag(null), 100) } }}
+            emptyMessage="No hashtags yet."
+          />
+        ) : (
+          <ListPane
+            title="Chats"
+            items={threadItems}
+            activeId={chatDetailOpen ? activeThread : null}
+            filter={threadFilter}
+            onFilterChange={setThreadFilter}
+            filterPlaceholder="Search Messenger"
+            onSelect={id => { setActiveThread(id); setChatDetailOpen(true); controls.onShowDetail() }}
+          />
+        )}
+        detailPane={renderDetailPane}
+        mediaPane={section === 'chat' && showMediaPane ? (
+          <MediaPane
+            counts={mediaCounts}
+            onLightbox={setLightbox}
+            onContextMenu={handleGalleryContextMenu}
+            hideImages={hideImages}
+            hiddenUris={allHiddenUris}
+            isSuperAdmin={isSuperAdmin}
+            onHideUri={handleHideDbUri}
+            onUnhideUri={handleUnhideDbUri}
+            onClose={() => setShowMediaPane(false)}
+          />
+        ) : undefined}
+      />
+
+      {/* View settings modal */}
+      {showViewSettings && (
+        <ChatViewSettingsModal
+          enabledTypes={enabledTypes}
+          onChange={handleContentTypeChange}
+          onReset={handleResetContentTypes}
+          onClose={() => setShowViewSettings(false)}
+        />
+      )}
 
       {/* Overlays */}
-      {showDatePicker && (
-        <DatePickerModal
-          defaultDate={datePickerDefault}
-          onClose={() => setShowDatePicker(false)}
-          onJump={handleChatJump}
-        />
-      )}
-      {hashtagPicker && (
-        <HashtagPicker
-          hashtags={hashtags}
-          blockIds={hashtagPicker.blockIds}
-          initialSelected={preloadedHashtagIds ?? undefined}
-          onClose={() => setHashtagPicker(null)}
-          onApply={applyHashtags}
-        />
-      )}
       {lightbox && <Lightbox state={lightbox}
         onClose={() => {
           const { ts, msgId } = lightbox
@@ -1038,59 +575,30 @@ export default function ViewerApp() {
         }}
         onJumpToMessage={(ts, msgId) => { setLightbox(null); jumpToMessage(ts, msgId) }}
       />}
-      {ctxMenu && ctxMenu.fromTouch ? (
+      {galleryCtxMenu && galleryCtxMenu.fromTouch ? (
         <ActionSheet
-          onClose={() => setCtxMenu(null)}
+          onClose={() => setGalleryCtxMenu(null)}
           actions={[
-            ...(ctxMenu.kind === 'message' && ctxMenu.msgTs != null ? [{
-              label: 'Go to message',
-              onPress: () => { jumpToMessage(ctxMenu.msgTs!, ctxMenu.msgIds?.[0] ?? null); setCtxMenu(null) },
-            }] : []),
-            ...(ctxMenu.kind === 'message' && ctxMenu.msgIds ? [{
-              label: 'Copy link',
-              onPress: () => { copyLink(ctxMenu.msgIds!); setCtxMenu(null) },
-            }, {
-              label: 'Copy text',
-              onPress: () => { copyText(ctxMenu.msgIds!); setCtxMenu(null) },
-            }, {
-              label: '# Tag',
-              onPress: () => {
-                const data = messagesRef.current.filter(m => ctxMenu.msgIds!.includes(m._id))
-                setHashtagPicker({ msgIds: ctxMenu.msgIds!, blockIds: toBlockIds(data, messagesRef.current) })
-                setCtxMenu(null)
-              },
-            }] : []),
-            ...(ctxMenu.kind === 'message' && isSuperAdmin && ctxMenu.msgIds?.length ? [dbHiddenMsgIds.has(ctxMenu.msgIds[0]) ? {
-              label: 'Unhide message',
-              onPress: () => { handleUnhideMessage(ctxMenu.msgIds![0]); setCtxMenu(null) },
-            } : {
-              label: 'Hide message',
-              destructive: true,
-              onPress: () => { handleHideMessage(ctxMenu.msgIds![0]); setCtxMenu(null) },
-            }] : []),
+            ...(galleryCtxMenu.galMsgId ? [{ label: 'Go to message', onPress: () => { jumpToMessage(Number(galleryCtxMenu.galTs), galleryCtxMenu.galMsgId!); setGalleryCtxMenu(null) } }] : []),
+            ...(galleryCtxMenu.mediaUri ? [
+              allHiddenUris.has(galleryCtxMenu.mediaUri)
+                ? { label: 'Unhide', onPress: () => { handleUnhideDbUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } }
+                : { label: 'Hide', destructive: true, onPress: () => { handleHideDbUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } }
+            ] : []),
           ]}
         />
-      ) : ctxMenu ? (
+      ) : galleryCtxMenu ? (
         <ContextMenu
-          state={ctxMenu}
-          onClose={() => setCtxMenu(null)}
-          onEditNote={() => setCtxMenu(null)}
-          onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setCtxMenu(null) }}
+          state={galleryCtxMenu}
+          onClose={() => setGalleryCtxMenu(null)}
+          onEditNote={() => setGalleryCtxMenu(null)}
+          onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setGalleryCtxMenu(null) }}
           onHideUri={hideUri}
-          onTagMessages={msgIds => {
-            const selectedMsgsData = messagesRef.current.filter(m => msgIds.includes(m._id))
-            const blockIds = toBlockIds(selectedMsgsData, messagesRef.current)
-            setHashtagPicker({ msgIds, blockIds })
-          }}
-          onCopyLink={msgIds => copyLink(msgIds)}
-          onCopyText={msgIds => copyText(msgIds)}
+          onTagMessages={() => {}}
+          onCopyLink={() => {}}
+          onCopyText={() => {}}
         />
       ) : null}
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none z-[400]">
-          {toast}
-        </div>
-      )}
     </div>
   )
 }

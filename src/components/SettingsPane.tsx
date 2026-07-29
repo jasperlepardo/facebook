@@ -43,11 +43,11 @@ function ChevronRight() {
   return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M9 18l6-6-6-6"/></svg>
 }
 
-const inputCls = 'w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500'
-const sectionCls = 'bg-white dark:bg-gray-800 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700'
+const inputCls = 'w-full px-3 py-2.5 border border-gray-300 dark:border-mist-700 rounded-xl text-sm bg-white dark:bg-mist-900 text-gray-900 dark:text-mist-100 focus:outline-hidden focus:ring-2 focus:ring-mist-500'
+const sectionCls = 'bg-white dark:bg-mist-800 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700'
 const rowCls = 'flex items-center justify-between px-4 py-3'
-const labelCls = 'text-sm text-gray-500 dark:text-gray-400'
-const valueCls = 'text-sm font-medium text-gray-900 dark:text-gray-100'
+const labelCls = 'text-sm text-gray-500 dark:text-mist-400'
+const valueCls = 'text-sm font-medium text-gray-900 dark:text-mist-100'
 
 export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdmin, showHidden, onToggleShowHidden, hiddenUriCount, onClearHiddenUris }: SettingsPaneProps) {
   const router = useRouter()
@@ -247,26 +247,26 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
   // ─── Sub-view: Edit Profile ─────────────────────────────────────────────────
 
   if (view === 'profile') return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-lg mx-auto px-4 py-6">
-        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-6">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
+      <div className="px-4 py-6">
+        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
           <BackIcon /> Back
         </button>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Edit profile</h1>
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-mist-100 mb-6">Edit profile</h1>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-1">Name</label>
             <input type="text" value={nameInput} onChange={e => setNameInput(e.target.value)} className={inputCls} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-1">Email</label>
             <input type="email" value={emailInput} onChange={e => setEmailInput(e.target.value)} className={inputCls} />
           </div>
           {profileError && <p className="text-sm text-red-600">{profileError}</p>}
           <button
             onClick={saveProfile}
             disabled={profileSave === 'saving'}
-            className={`w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 transition-colors ${profileSave === 'saved' ? 'bg-green-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+            className={`w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 transition-colors ${profileSave === 'saved' ? 'bg-green-600 text-white' : 'bg-mist-600 hover:bg-mist-700 text-white'}`}
           >
             {profileSave === 'saving' ? 'Saving…' : profileSave === 'saved' ? 'Saved!' : 'Save changes'}
           </button>
@@ -278,19 +278,19 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
   // ─── Sub-view: Change Password ───────────────────────────────────────────────
 
   if (view === 'password') return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-lg mx-auto px-4 py-6">
-        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-6">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
+      <div className="px-4 py-6">
+        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
           <BackIcon /> Back
         </button>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Change password</h1>
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-mist-100 mb-6">Change password</h1>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New password</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-1">New password</label>
             <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="••••••••" className={inputCls} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm new password</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-1">Confirm new password</label>
             <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="••••••••"
               onKeyDown={e => { if (e.key === 'Enter') changePassword() }} className={inputCls} />
           </div>
@@ -298,7 +298,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
           <button
             onClick={changePassword}
             disabled={pwSave === 'saving' || !newPw}
-            className={`w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 transition-colors ${pwSave === 'saved' ? 'bg-green-600 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+            className={`w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 transition-colors ${pwSave === 'saved' ? 'bg-green-600 text-white' : 'bg-mist-600 hover:bg-mist-700 text-white'}`}
           >
             {pwSave === 'saving' ? 'Updating…' : pwSave === 'saved' ? 'Updated!' : 'Update password'}
           </button>
@@ -310,20 +310,20 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
   // ─── Sub-view: Hidden Items ──────────────────────────────────────────────────
 
   if (view === 'hidden-items') return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-lg mx-auto px-4 py-6">
-        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 mb-6">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
+      <div className="px-4 py-6">
+        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
           <BackIcon /> Back
         </button>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">Hidden items</h1>
+        <h1 className="text-lg font-semibold text-gray-900 dark:text-mist-100 mb-6">Hidden items</h1>
 
         {/* Add form */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-4 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Add hidden item</p>
+        <div className="bg-white dark:bg-mist-800 rounded-xl p-4 mb-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500">Add hidden item</p>
           <div className="flex gap-2">
             {(['message', 'uri'] as const).map(t => (
               <button key={t} onClick={() => setHiAddType(t)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${hiAddType === t ? 'border-blue-600 text-blue-600 bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:bg-blue-900/30' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${hiAddType === t ? 'border-mist-600 text-mist-600 bg-mist-50 dark:border-mist-400 dark:text-mist-400 dark:bg-mist-900/30' : 'border-gray-200 dark:border-mist-700 text-gray-500 dark:text-mist-400'}`}>
                 {t === 'message' ? 'Message ID' : 'Image URI'}
               </button>
             ))}
@@ -341,7 +341,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
             className={inputCls}
           />
           <button onClick={addHiddenItem} disabled={hiAdding || !hiAddValue.trim()}
-            className="w-full py-2.5 rounded-xl text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-colors">
+            className="w-full py-2.5 rounded-xl text-sm font-medium bg-mist-600 hover:bg-mist-700 text-white disabled:opacity-50 transition-colors">
             {hiAdding ? 'Adding…' : 'Add'}
           </button>
         </div>
@@ -357,13 +357,13 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
               <div key={item._id} className={`${rowCls} gap-3`}>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${item.type === 'message' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-sm ${item.type === 'message' ? 'bg-mist-100 text-mist-700 dark:bg-mist-900/40 dark:text-mist-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
                       {item.type === 'message' ? 'MSG' : 'URI'}
                     </span>
-                    <span className="text-xs font-mono text-gray-600 dark:text-gray-300 truncate">{item.value}</span>
+                    <span className="text-xs font-mono text-gray-600 dark:text-mist-300 truncate">{item.value}</span>
                   </div>
-                  {item.note && <p className="text-xs text-gray-400 dark:text-gray-500">{item.note}</p>}
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{new Date(item.createdAt).toLocaleDateString()}</p>
+                  {item.note && <p className="text-xs text-gray-400 dark:text-mist-500">{item.note}</p>}
+                  <p className="text-xs text-gray-400 dark:text-mist-500">{new Date(item.createdAt).toLocaleDateString()}</p>
                 </div>
                 <button onClick={() => removeHiddenItem(item._id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">Remove</button>
               </div>
@@ -377,11 +377,11 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
   // ─── Main view ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
+      <div className="px-4 py-6 space-y-6">
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2 px-1">Profile</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Profile</h2>
           <div className={sectionCls}>
             <div className={rowCls}>
               <span className={labelCls}>Name</span>
@@ -391,29 +391,29 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
               <span className={labelCls}>Email</span>
               <span className={valueCls}>{email || '—'}</span>
             </div>
-            <button onClick={openProfile} className={`${rowCls} w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
-              <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">Edit profile</span>
+            <button onClick={openProfile} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+              <span className="text-sm text-mist-600 dark:text-mist-400 font-medium">Edit profile</span>
               <ChevronRight />
             </button>
           </div>
         </section>
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2 px-1">Security</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Security</h2>
           <div className={sectionCls}>
             <div className={rowCls}>
               <span className={labelCls}>Password</span>
-              <span className="text-sm text-gray-400 dark:text-gray-500 tracking-widest">••••••••</span>
+              <span className="text-sm text-gray-400 dark:text-mist-500 tracking-widest">••••••••</span>
             </div>
-            <button onClick={openPassword} className={`${rowCls} w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
-              <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">Change password</span>
+            <button onClick={openPassword} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+              <span className="text-sm text-mist-600 dark:text-mist-400 font-medium">Change password</span>
               <ChevronRight />
             </button>
           </div>
         </section>
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2 px-1">Passkeys</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Passkeys</h2>
           <div className={sectionCls}>
             {passkeys.length === 0 && (
               <div className={rowCls}><span className={labelCls}>No passkeys registered</span></div>
@@ -437,13 +437,13 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
 
               return (
                 <div key={pk.credentialID} className={`${rowCls} gap-3`}>
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-mist-100 dark:bg-mist-900/40 flex items-center justify-center shrink-0">
                     {isInternal ? (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 dark:text-blue-400"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M12 16v2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-mist-600 dark:text-mist-400"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M12 16v2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
                     ) : isHybrid ? (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 dark:text-blue-400"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-mist-600 dark:text-mist-400"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
                     ) : (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600 dark:text-blue-400"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-mist-600 dark:text-mist-400"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -452,15 +452,15 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
                         onKeyDown={e => { if (e.key === 'Enter') saveNickname(nicknameInput); if (e.key === 'Escape') setEditingNickname(null) }}
                         onBlur={() => saveNickname(nicknameInput)}
                         placeholder={transportLabel}
-                        className="text-sm font-medium bg-transparent border-b border-blue-400 outline-none text-gray-900 dark:text-gray-100 w-full" />
+                        className="text-sm font-medium bg-transparent border-b border-mist-400 outline-hidden text-gray-900 dark:text-mist-100 w-full" />
                     ) : (
                       <button onClick={() => { setNicknameInput(pk.nickname ?? ''); setEditingNickname(pk.credentialID) }}
-                        className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 text-left group flex items-center gap-1">
+                        className="text-sm font-medium text-gray-900 dark:text-mist-100 hover:text-mist-600 dark:hover:text-mist-400 text-left group flex items-center gap-1">
                         {pk.nickname || transportLabel}
                         <svg className="opacity-0 group-hover:opacity-50" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </button>
                     )}
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex flex-wrap gap-x-1.5">
+                    <p className="text-xs text-gray-400 dark:text-mist-500 mt-0.5 flex flex-wrap gap-x-1.5">
                       <span>{transportLabel}</span>
                       {pk.createdAt && <><span>·</span><span>Added {fmtDate(pk.createdAt)}</span></>}
                       {pk.lastUsedAt && <><span>·</span><span>Used {fmtDate(pk.lastUsedAt)}</span></>}
@@ -481,7 +481,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
             <div className={rowCls}>
               {passkeyError && <p className="text-xs text-red-500 mr-2">{passkeyError}</p>}
               <button onClick={addPasskey} disabled={passkeyStatus === 'loading' || !userId}
-                className="text-sm text-blue-600 dark:text-blue-400 font-medium disabled:opacity-50">
+                className="text-sm text-mist-600 dark:text-mist-400 font-medium disabled:opacity-50">
                 {passkeyStatus === 'loading' ? 'Waiting…' : passkeyStatus === 'success' ? 'Passkey added!' : '+ Add passkey'}
               </button>
             </div>
@@ -489,17 +489,17 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
         </section>
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2 px-1">Appearance</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Appearance</h2>
           <div className={sectionCls}>
             <div className="px-4 py-3">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Theme</p>
+              <p className="text-sm text-gray-500 dark:text-mist-400 mb-3">Theme</p>
               <div className="flex gap-2">
                 {themeOptions.map(({ value, label, icon }) => (
                   <button key={value} onClick={() => applyTheme(value)}
                     className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border-2 transition-colors text-xs font-semibold ${
                       theme === value
-                        ? 'border-blue-600 text-blue-600 bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:bg-blue-900/30'
-                        : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                        ? 'border-mist-600 text-mist-600 bg-mist-50 dark:border-mist-400 dark:text-mist-400 dark:bg-mist-900/30'
+                        : 'border-gray-200 dark:border-mist-700 text-gray-500 dark:text-mist-400 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}>
                     {icon}{label}
                   </button>
@@ -507,9 +507,9 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
               </div>
             </div>
             {!!hiddenUriCount && onClearHiddenUris && (
-              <button onClick={onClearHiddenUris} className={`${rowCls} w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
-                <span className="text-sm text-gray-900 dark:text-gray-100">Hidden images</span>
-                <span className="text-sm text-blue-600 dark:text-blue-400 font-medium">Unhide all ({hiddenUriCount})</span>
+              <button onClick={onClearHiddenUris} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+                <span className="text-sm text-gray-900 dark:text-mist-100">Hidden images</span>
+                <span className="text-sm text-mist-600 dark:text-mist-400 font-medium">Unhide all ({hiddenUriCount})</span>
               </button>
             )}
           </div>
@@ -517,20 +517,20 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
 
         {isSuperAdmin && (
           <section>
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2 px-1">Super Admin</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Super Admin</h2>
             <div className={sectionCls}>
-              <button onClick={onToggleShowHidden} className={`${rowCls} w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
-                <span className="text-sm text-gray-900 dark:text-gray-100">Show hidden messages</span>
-                <div className={`w-10 h-6 rounded-full transition-colors ${showHidden ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'} relative`}>
-                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${showHidden ? 'translate-x-5' : 'translate-x-1'}`} />
+              <button onClick={onToggleShowHidden} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+                <span className="text-sm text-gray-900 dark:text-mist-100">Show hidden messages</span>
+                <div className={`w-10 h-6 rounded-full transition-colors ${showHidden ? 'bg-mist-600' : 'bg-gray-300 dark:bg-gray-600'} relative`}>
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${showHidden ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
               </button>
-              <button onClick={() => { loadHiddenItems(); setView('hidden-items') }} className={`${rowCls} w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
-                <span className="text-sm text-gray-900 dark:text-gray-100">Hidden items</span>
+              <button onClick={() => { loadHiddenItems(); setView('hidden-items') }} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+                <span className="text-sm text-gray-900 dark:text-mist-100">Hidden items</span>
                 <ChevronRight />
               </button>
-              <a href="/admin" target="_blank" rel="noopener noreferrer" className={`${rowCls} w-full hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}>
-                <span className="text-sm text-gray-900 dark:text-gray-100">Payload admin</span>
+              <a href="/admin" target="_blank" rel="noopener noreferrer" className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+                <span className="text-sm text-gray-900 dark:text-mist-100">Payload admin</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               </a>
             </div>
@@ -538,7 +538,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
         )}
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2 px-1">About</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">About</h2>
           <div className={sectionCls}>
             {currentUser && <div className={rowCls}><span className={labelCls}>Viewing as</span><span className={valueCls}>{currentUser}</span></div>}
             {total > 0 && <div className={rowCls}><span className={labelCls}>Messages</span><span className={valueCls}>{total.toLocaleString()}</span></div>}

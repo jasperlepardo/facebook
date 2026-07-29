@@ -1,7 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { Message, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
+import { ContentTypeKey } from '@/lib/contentTypes'
 
 function VideoThumb({ src, onClick }: { src: string; onClick: () => void }) {
   const [thumb, setThumb] = useState<string | null>(null)
@@ -27,13 +28,13 @@ function VideoThumb({ src, onClick }: { src: string; onClick: () => void }) {
   }, [src])
 
   return (
-    <div className="relative max-w-[360px] mt-1 cursor-pointer group bg-black rounded overflow-hidden min-h-[120px]" onClick={onClick}>
+    <div className="relative max-w-[360px] mt-1 cursor-pointer group bg-black rounded-sm overflow-hidden min-h-[120px]" onClick={onClick}>
       {thumb
-        ? <img src={thumb} className="w-full rounded block" />
-        : <div className="w-full min-h-[120px] bg-gray-900 rounded" />
+        ? <img src={thumb} className="w-full rounded-sm block" />
+        : <div className="w-full min-h-[120px] bg-gray-900 rounded-sm" />
       }
-      <div className="absolute inset-0 flex items-center justify-center bg-black/25 rounded group-hover:bg-black/40 transition-colors">
-        <span className="text-white text-4xl drop-shadow">▶</span>
+      <div className="absolute inset-0 flex items-center justify-center bg-black/25 rounded-sm group-hover:bg-black/40 transition-colors">
+        <span className="text-white text-4xl drop-shadow-sm">▶</span>
       </div>
     </div>
   )
@@ -45,83 +46,124 @@ function imgCtx(e: React.MouseEvent, uri: string) {
   window.dispatchEvent(new CustomEvent('media-ctx', { detail: { x: e.clientX, y: e.clientY, uri } }))
 }
 
-export default function Media({ m, onLightbox, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri }: { m: Message; onLightbox: (s: LightboxState) => void; hideImages?: boolean; hiddenUris?: Set<string>; isSuperAdmin?: boolean; onHideUri?: (uri: string) => void; onUnhideUri?: (uri: string) => void }) {
+function HiddenPill({ icon, label }: { icon: string; label: string }) {
+  return (
+    <div className="text-[11px] text-gray-300 dark:text-mist-700 italic mt-0.5 select-none">
+      {icon} {label} · hidden
+    </div>
+  )
+}
+
+interface MediaProps {
+  m: Message
+  onLightbox: (s: LightboxState) => void
+  hideImages?: boolean
+  hiddenUris?: Set<string>
+  isSuperAdmin?: boolean
+  onHideUri?: (uri: string) => void
+  onUnhideUri?: (uri: string) => void
+  enabledTypes?: Set<ContentTypeKey>
+}
+
+export default memo(function Media({ m, onLightbox, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri, enabledTypes }: MediaProps) {
+  const show = (key: ContentTypeKey) => !enabledTypes || enabledTypes.has(key)
+
   return (
     <>
-      {!hideImages && m.photos?.map((p, i) => {
+      {/* Photos */}
+      {m.photos?.map((p, i) => {
+        if (!show('photos')) return <HiddenPill key={i} icon="🖼️" label="Photo" />
+        if (hideImages) return null
         const hidden = hiddenUris?.has(p.uri)
         if (hidden && !isSuperAdmin) return null
         if (hidden && isSuperAdmin) return (
           <div key={i} className="relative mt-1 w-fit group/img">
-            <div className="w-[180px] h-[120px] rounded bg-gray-200 dark:bg-gray-700 flex flex-col items-center justify-center gap-1 border border-dashed border-gray-400 dark:border-gray-500">
+            <div className="w-[180px] h-[120px] rounded-sm bg-gray-200 dark:bg-gray-700 flex flex-col items-center justify-center gap-1 border border-dashed border-gray-400 dark:border-gray-500">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hidden</span>
             </div>
-            <button
-              onClick={e => { e.stopPropagation(); onUnhideUri?.(p.uri) }}
-              className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity text-[11px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded-full"
-            >Unhide</button>
+            <button onClick={e => { e.stopPropagation(); onUnhideUri?.(p.uri) }} className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity text-[11px] bg-mist-600 hover:bg-mist-700 text-white px-2 py-0.5 rounded-full">Unhide</button>
           </div>
         )
         return (
           <div key={i} className="relative mt-1 w-fit group/img">
             <img src={r2(p.uri)} loading="lazy"
-              className="max-w-[360px] max-h-[280px] rounded block cursor-pointer hover:opacity-90"
+              className="max-w-[360px] max-h-[280px] rounded-sm block cursor-pointer hover:opacity-90"
               onClick={() => onLightbox({ src: r2(p.uri), uri: p.uri, type: 'photo', mediaType: 'photos', caption: '', msgId: m._id, ts: m.timestamp_ms })}
               onContextMenu={e => imgCtx(e, p.uri)}
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
             {isSuperAdmin && onHideUri && (
-              <button
-                onClick={e => { e.stopPropagation(); onHideUri(p.uri) }}
-                className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity text-[11px] bg-black/60 hover:bg-black/80 text-white px-2 py-0.5 rounded-full"
-              >Hide</button>
+              <button onClick={e => { e.stopPropagation(); onHideUri(p.uri) }} className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity text-[11px] bg-black/60 hover:bg-black/80 text-white px-2 py-0.5 rounded-full">Hide</button>
             )}
           </div>
         )
       })}
-      {!hideImages && m.videos?.filter(v => !hiddenUris?.has(v.uri)).map((v, i) => (
-        <VideoThumb key={i} src={r2(v.uri)}
-          onClick={() => onLightbox({ src: r2(v.uri), type: 'video', mediaType: 'videos', caption: '', msgId: m._id, ts: m.timestamp_ms })} />
-      ))}
-      {m.audio_files?.map((a, i) => (
-        <audio key={i} src={r2(a.uri)} controls preload="none" className="w-[280px] my-1 block" />
-      ))}
-      {!hideImages && m.gifs?.filter(g => !hiddenUris?.has(g.uri)).map((g, i) => (
-        <img key={i} src={r2(g.uri)} loading="lazy"
-          className="max-w-[360px] max-h-[280px] rounded block cursor-pointer mt-1"
-          onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', mediaType: 'gifs', caption: '', msgId: m._id, ts: m.timestamp_ms })}
-          onContextMenu={e => imgCtx(e, g.uri)}
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-      ))}
-      {!hideImages && m.sticker && (hiddenUris?.has(m.sticker.uri) ? null : (
-        <img src={r2(m.sticker.uri)} loading="lazy" className="max-w-[72px] max-h-[72px]"
-          onContextMenu={e => imgCtx(e, m.sticker!.uri)}
-          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-      ))}
+
+      {/* Videos */}
+      {m.videos?.map((v, i) =>
+        !show('videos')
+          ? <HiddenPill key={i} icon="📹" label="Video" />
+          : hideImages || hiddenUris?.has(v.uri) ? null
+          : <VideoThumb key={i} src={r2(v.uri)} onClick={() => onLightbox({ src: r2(v.uri), type: 'video', mediaType: 'videos', caption: '', msgId: m._id, ts: m.timestamp_ms })} />
+      )}
+
+      {/* Audio */}
+      {m.audio_files?.map((a, i) =>
+        !show('audio')
+          ? <HiddenPill key={i} icon="🎵" label="Audio" />
+          : <audio key={i} src={r2(a.uri)} controls preload="none" className="w-[280px] my-1 block" />
+      )}
+
+      {/* GIFs */}
+      {m.gifs?.map((g, i) =>
+        !show('gifs')
+          ? <HiddenPill key={i} icon="🎞️" label="GIF" />
+          : hideImages || hiddenUris?.has(g.uri) ? null
+          : <img key={i} src={r2(g.uri)} loading="lazy"
+              className="max-w-[360px] max-h-[280px] rounded-sm block cursor-pointer mt-1"
+              onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', mediaType: 'gifs', caption: '', msgId: m._id, ts: m.timestamp_ms })}
+              onContextMenu={e => imgCtx(e, g.uri)}
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+      )}
+
+      {/* Sticker */}
+      {m.sticker && (
+        !show('stickers')
+          ? <HiddenPill icon="🎭" label="Sticker" />
+          : hideImages || hiddenUris?.has(m.sticker.uri) ? null
+          : <img src={r2(m.sticker.uri)} loading="lazy" className="max-w-[72px] max-h-[72px]"
+              onContextMenu={e => imgCtx(e, m.sticker!.uri)}
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+      )}
+
+      {/* Files */}
       {m.files?.map((f, i) => {
         const name = f.uri.split('/').pop() ?? ''
-        return (
-          <div key={i} className="text-[13px] mt-0.5">
-            📎 <a href={r2(f.uri)} target="_blank" rel="noopener" className="text-blue-600">{name}</a>
-          </div>
-        )
+        return !show('files')
+          ? <HiddenPill key={i} icon="📎" label="File" />
+          : <div key={i} className="text-[13px] mt-0.5">📎 <a href={r2(f.uri)} target="_blank" rel="noopener" className="text-mist-600 dark:text-mist-400">{name}</a></div>
       })}
+
+      {/* Share / link */}
       {m.share?.link && (
-        <div className="mt-1 border-l-2 border-gray-200 dark:border-gray-600 pl-2">
-          {m.share.share_text && (
-            <div className="text-[12px] text-gray-700 dark:text-gray-200 font-medium mb-0.5 line-clamp-2">{m.share.share_text}</div>
-          )}
-          <a href={m.share.link} target="_blank" rel="noopener" className="text-[12px] text-blue-500 dark:text-blue-400 break-all hover:underline">
-            {m.share.link.slice(0, 80)}{m.share.link.length > 80 ? '…' : ''}
-          </a>
-        </div>
+        !show('links')
+          ? <HiddenPill icon="🔗" label="Link" />
+          : <div className="mt-1 border-l-2 border-gray-200 dark:border-gray-600 pl-2">
+              {m.share.share_text && <div className="text-[12px] text-gray-700 dark:text-gray-200 font-medium mb-0.5 line-clamp-2">{m.share.share_text}</div>}
+              <a href={m.share.link} target="_blank" rel="noopener" className="text-[12px] text-mist-600 dark:text-mist-400 break-all hover:underline">
+                {m.share.link.slice(0, 80)}{m.share.link.length > 80 ? '…' : ''}
+              </a>
+            </div>
       )}
+
+      {/* Call */}
       {m.call_duration != null && (() => {
+        if (!show('calls')) return <HiddenPill icon="📞" label="Call" />
         const isVideo  = (m.content ?? '').toLowerCase().includes('video')
         const icon     = isVideo ? '📹' : '📞'
         const callType = isVideo ? 'Video call' : 'Call'
         if (m.missed) return (
-          <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-red-400 dark:text-red-400">
+          <div className="flex items-center gap-1.5 mt-0.5 text-[13px] text-red-400">
             {icon} Missed {callType.toLowerCase()}
           </div>
         )
@@ -134,7 +176,9 @@ export default function Media({ m, onLightbox, hideImages, hiddenUris, isSuperAd
           </div>
         )
       })()}
-      {!!m.reactions?.length && (
+
+      {/* Reactions */}
+      {show('reactions') && !!m.reactions?.length && (
         <div className="flex gap-1 flex-wrap mt-1">
           {Object.entries(
             m.reactions.reduce((c, r) => ({ ...c, [r.reaction]: (c[r.reaction] ?? 0) + 1 }), {} as Record<string, number>)
@@ -145,4 +189,4 @@ export default function Media({ m, onLightbox, hideImages, hiddenUris, isSuperAd
       )}
     </>
   )
-}
+})
