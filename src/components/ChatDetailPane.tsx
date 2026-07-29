@@ -382,9 +382,9 @@ export default function ChatDetailPane({
       lowerOffset.current = Math.max(0, startIdx - Math.floor(LIMIT / 2))
       upperOffset.current = lowerOffset.current
       if (urlMsgId) pendingJump.current = urlMsgId
+      loadingRef.current = true
       try { await loadMessages('fresh') } catch {}
 
-      loadingRef.current = true
       if (anchorMsgId && scrollRef.current) {
         const anchor = document.querySelector<HTMLElement>(`[data-msg-id="${anchorMsgId}"]`)?.closest<HTMLElement>('.msg-group')
         if (anchor) {
@@ -408,7 +408,9 @@ export default function ChatDetailPane({
 
   // ─── Search (react to prop) ────────────────────────────────────────────────
 
+  const searchEffectMounted = useRef(false)
   useEffect(() => {
+    if (!searchEffectMounted.current) { searchEffectMounted.current = true; return }
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(async () => {
       const trimmed = search.trim()
@@ -647,13 +649,30 @@ export default function ChatDetailPane({
         </div>
       )}
 
-      {/* Initial spinner */}
+      {/* Initial skeleton */}
       {!chatVisible && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <svg className="animate-spin w-6 h-6 text-mist-400 opacity-60" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-          </svg>
+        <div className="absolute inset-0 flex flex-col justify-end px-4 pb-6 pointer-events-none z-10 overflow-hidden">
+          {[
+            { side: 'left',  widths: ['w-48', 'w-32'] },
+            { side: 'right', widths: ['w-56'] },
+            { side: 'left',  widths: ['w-40'] },
+            { side: 'right', widths: ['w-36', 'w-44'] },
+            { side: 'left',  widths: ['w-52', 'w-28'] },
+            { side: 'right', widths: ['w-40'] },
+          ].map((row, i) => (
+            <div key={i} className={`flex flex-col gap-1 mb-2 ${row.side === 'right' ? 'items-end' : 'items-start'}`}>
+              {row.widths.map((w, j) => (
+                <div
+                  key={j}
+                  className={`h-9 rounded-2xl animate-pulse ${w} ${
+                    row.side === 'right'
+                      ? 'bg-blue-200 dark:bg-blue-900/40'
+                      : 'bg-mist-200 dark:bg-mist-700/60'
+                  }`}
+                />
+              ))}
+            </div>
+          ))}
         </div>
       )}
 

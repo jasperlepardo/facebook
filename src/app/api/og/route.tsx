@@ -8,14 +8,16 @@ export const runtime = 'nodejs'
 
 const W = 1200, H = 630, PAD = 52
 
-async function loadFont(family: string, weight: 400 | 700): Promise<ArrayBuffer> {
-  const css = await fetch(
-    `https://fonts.googleapis.com/css2?family=${family.replace(' ', '+')}:wght@${weight}`,
-    { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OGBot/1.0)' } }
-  ).then(r => r.text())
-  const url = css.match(/src: url\(([^)]+)\) format\('woff2'\)/)?.[1]
-  if (!url) throw new Error(`woff2 url not found for ${family} ${weight}`)
-  return fetch(url).then(r => r.arrayBuffer())
+const fontCache: Partial<Record<number, ArrayBuffer>> = {}
+
+async function loadFont(weight: 400 | 700): Promise<ArrayBuffer> {
+  if (fontCache[weight]) return fontCache[weight]!
+  const url = `https://cdn.jsdelivr.net/npm/@fontsource/inter/files/inter-latin-${weight}-normal.woff2`
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`font ${weight} fetch failed: ${res.status}`)
+  const data = await res.arrayBuffer()
+  fontCache[weight] = data
+  return data
 }
 
 function truncate(s: string, n: number) {
@@ -73,8 +75,8 @@ export async function GET(req: NextRequest) {
     try { anchorId = new ObjectId(msgId) } catch { return new Response('invalid id', { status: 400 }) }
 
     const [fontRegular, fontBold, col] = await Promise.all([
-      loadFont('Inter', 400),
-      loadFont('Inter', 700),
+      loadFont(400),
+      loadFont(700),
       getMessages(),
     ])
 

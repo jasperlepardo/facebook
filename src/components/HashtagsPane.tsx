@@ -99,10 +99,13 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
   useEffect(() => {
     if (restoredFromUrl.current || !hashtags.length) return
     restoredFromUrl.current = true
-    const id = new URLSearchParams(window.location.search).get('h')
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get('h')
     if (!id) return
     const h = hashtags.find(h => h.id === id)
-    if (h) openDetail(h)
+    if (h) openDetail(h).then(() => {
+      if (params.get('tab') === 'messages') onActiveTabChange('messages')
+    })
   }, [hashtags]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bottom sentinel: append downward, cull from top

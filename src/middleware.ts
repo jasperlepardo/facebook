@@ -21,6 +21,12 @@ export async function middleware(req: NextRequest) {
     return new NextResponse(null, { status: 404 })
   }
 
+  // Allow social-preview crawlers through so OG meta tags are visible
+  const ua = req.headers.get('user-agent') ?? ''
+  if (/facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|TelegramBot|Discordbot/i.test(ua)) {
+    return NextResponse.next()
+  }
+
   const { pathname } = req.nextUrl
   const { authed, superAdmin } = await getSessionClaims(req)
 
@@ -36,7 +42,8 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!authed) {
-    return NextResponse.redirect(new URL('/auth/signin', req.url))
+    const next = encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search)
+    return NextResponse.redirect(new URL(`/auth/signin?next=${next}`, req.url))
   }
 
   return NextResponse.next()

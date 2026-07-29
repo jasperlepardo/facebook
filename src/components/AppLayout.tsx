@@ -31,6 +31,7 @@ export default function AppLayout({ section, onSectionChange, initials, prevSect
 
   useEffect(() => {
     if (localStorage.getItem('navExpanded') === '1') setNavExpanded(true)
+    if (new URLSearchParams(window.location.search).get('msg')) setMobileShowList(false)
   }, [])
 
   function toggleNav() {

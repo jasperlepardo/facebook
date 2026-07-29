@@ -112,9 +112,15 @@ export default function ThreadListPane({ threads, activeThreadId, onSelect }: Pr
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{t.name}</span>
-                  {t.time && <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{t.time}</span>}
+                  {meta[t.id]
+                    ? t.time && <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{t.time}</span>
+                    : <div className="h-2.5 w-6 rounded bg-mist-200 dark:bg-mist-700 animate-pulse shrink-0" />
+                  }
                 </div>
-                <div className="text-[13px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{t.preview}</div>
+                {meta[t.id]
+                  ? <div className="text-[13px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{t.preview}</div>
+                  : <div className="h-3 w-36 rounded bg-mist-200 dark:bg-mist-700 animate-pulse mt-1.5" />
+                }
               </div>
             </button>
           )
