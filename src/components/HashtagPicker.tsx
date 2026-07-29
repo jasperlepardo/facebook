@@ -65,7 +65,7 @@ export default function HashtagPicker({ hashtags, blockIds, initialSelected, onC
   const canApply = selected.size > 0 || newTags.length > 0 || !!pendingInput
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center">
+    <div className="fixed inset-0 z-500 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30" onClick={loading ? undefined : onClose} />
       <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl dark:shadow-gray-900 w-80 p-4 border border-transparent dark:border-gray-700">
         <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3">Tag messages</h3>
@@ -76,16 +76,16 @@ export default function HashtagPicker({ hashtags, blockIds, initialSelected, onC
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           placeholder="Type hashtag, press Enter…"
-          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg outline-none focus:border-blue-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg outline-hidden focus:border-mist-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
         />
 
         {/* New tags staged */}
         {newTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
             {newTags.map(t => (
-              <span key={t} className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded-full font-medium">
+              <span key={t} className="flex items-center gap-1 bg-mist-100 dark:bg-mist-900/40 text-mist-700 dark:text-mist-300 text-xs px-2 py-0.5 rounded-full font-medium">
                 #{t}
-                <button onClick={() => removeNew(t)} className="hover:text-blue-900 dark:hover:text-blue-100 leading-none">×</button>
+                <button onClick={() => removeNew(t)} className="hover:text-mist-900 dark:hover:text-mist-100 leading-none">×</button>
               </span>
             ))}
           </div>
@@ -97,8 +97,8 @@ export default function HashtagPicker({ hashtags, blockIds, initialSelected, onC
             <p className="text-xs text-gray-400 dark:text-gray-500 py-1 px-1">Press Enter to create <strong>#{input}</strong></p>
           )}
           {filtered.map(h => (
-            <label key={h.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
-              <input type="checkbox" checked={selected.has(h.id)} onChange={() => toggleExisting(h.id)} className="accent-blue-600" />
+            <label key={h.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-mist-50 dark:hover:bg-mist-700">
+              <input type="checkbox" checked={selected.has(h.id)} onChange={() => toggleExisting(h.id)} className="accent-mist-600" />
               <span className="text-sm text-gray-700 dark:text-gray-200">#{h.name}</span>
               <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">{h.groupCount ?? 0}</span>
             </label>
@@ -106,7 +106,7 @@ export default function HashtagPicker({ hashtags, blockIds, initialSelected, onC
         </div>
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} disabled={loading} className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg disabled:opacity-40 dark:hover:bg-gray-700">Cancel</button>
+          <button onClick={onClose} disabled={loading} className="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-600 rounded-lg disabled:opacity-40 dark:hover:bg-mist-700">Cancel</button>
           <button
             onClick={() => {
               if (!canApply || loading) return
@@ -115,7 +115,7 @@ export default function HashtagPicker({ hashtags, blockIds, initialSelected, onC
               onApply([...selected], allNew)
             }}
             disabled={!canApply || loading}
-            className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg font-medium disabled:opacity-40 flex items-center gap-2 min-w-[64px] justify-center"
+            className="px-3 py-1.5 text-sm bg-mist-600 text-white rounded-lg font-medium disabled:opacity-40 flex items-center gap-2 min-w-[64px] justify-center"
           >
             {loading && (
               <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">

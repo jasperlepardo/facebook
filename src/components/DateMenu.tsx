@@ -103,37 +103,37 @@ export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, on
   return (
     <div className="relative">
       <button ref={btnRef} onClick={openMenu}
-        className="flex items-center gap-1 px-4 py-0.5 rounded-full font-semibold bg-white/93 dark:bg-gray-800/95 border border-gray-200 dark:border-gray-600 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors whitespace-nowrap dark:text-gray-200"
+        className="flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-mist-50 dark:bg-mist-900 border border-mist-200 dark:border-mist-700 shadow-xs hover:bg-mist-100 dark:hover:bg-mist-800 transition-colors whitespace-nowrap text-mist-500 dark:text-mist-400"
       >
         {date} <span className="text-[10px] opacity-60">▾</span>
       </button>
 
       {open && (
         <div ref={dropRef}
-          className={`absolute left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl dark:shadow-gray-900 z-50 w-64 py-2 text-left text-[13px] text-gray-900 dark:text-gray-100 ${above ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
-          <button onClick={() => select('beginning')} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          className={`absolute left-1/2 -translate-x-1/2 bg-white dark:bg-mist-800 border border-mist-200 dark:border-mist-700 rounded-xl shadow-xl z-50 w-64 py-2 text-left text-[13px] text-gray-900 dark:text-mist-100 ${above ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
+          <button onClick={() => select('beginning')} className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
             Start from the beginning
           </button>
 
           {dynamicOptions.length > 0 && (
             <>
-              <div className="border-t border-gray-100 dark:border-gray-700 my-1" />
+              <div className="border-t border-mist-100 dark:border-mist-700 my-1" />
               {dynamicOptions.map(o => (
                 <button key={o.val} onClick={() => select(o.val)}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                  className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
                   {o.label}
                 </button>
               ))}
             </>
           )}
 
-          <div className="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
-            <button onClick={() => select('recent')} className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <div className="border-t border-mist-100 dark:border-mist-700 mt-1 pt-1">
+            <button onClick={() => select('recent')} className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
               Most recent
             </button>
             {onOpenDatePicker && (
               <button onClick={() => { setSticky(''); setOpen(false); onOpenDatePicker() }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
                 Jump to a specific date
               </button>
             )}

@@ -25,7 +25,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#2563eb',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)',  color: '#16181c' },
+  ],
 }
 
 export default async function ViewerLayout({ children }: { children: ReactNode }) {
@@ -39,7 +42,11 @@ export default async function ViewerLayout({ children }: { children: ReactNode }
         {/* Fallback for system theme with OS dark preference — runs before first paint */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){var s=document.cookie.match(/(?:^|; )theme=([^;]*)/);var t=s?decodeURIComponent(s[1]):null;if(t)return;var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark')})()` }} />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
+      <body
+        className={inter.className}
+        suppressHydrationWarning
+        style={{ background: darkClass ? 'var(--color-mist-950)' : 'white' }}
+      >
         {children}
         <ServiceWorker />
       </body>

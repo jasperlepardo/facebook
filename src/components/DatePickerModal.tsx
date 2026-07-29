@@ -29,17 +29,17 @@ export default function DatePickerModal({ onClose, onJump, defaultDate = '' }: D
           value={value}
           onChange={e => setValue(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose() }}
-          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-[14px] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-[14px] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 outline-hidden focus:ring-2 focus:ring-mist-500"
         />
         <div className="flex gap-2 justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg text-[13px] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="px-4 py-1.5 rounded-lg text-[13px] text-gray-600 dark:text-gray-300 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors"
           >Cancel</button>
           <button
             onClick={submit}
             disabled={!value}
-            className="px-4 py-1.5 rounded-lg text-[13px] font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-1.5 rounded-lg text-[13px] font-semibold bg-mist-600 text-white hover:bg-mist-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >Jump</button>
         </div>
       </div>

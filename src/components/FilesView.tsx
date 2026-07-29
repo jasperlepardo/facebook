@@ -3,21 +3,22 @@ import { useEffect, useState } from 'react'
 import { GalleryItem } from '@/types'
 import { r2 } from '@/lib/format'
 
-export default function FilesView() {
+export default function FilesView({ type = 'all' }: { type?: 'files' | 'audio' | 'all' }) {
   const [items, setItems] = useState<(GalleryItem & { kind: string })[]>([])
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/attachments?type=files&offset=0&limit=500').then(r => r.json()),
-      fetch('/api/attachments?type=audio&offset=0&limit=500').then(r => r.json()),
-    ]).then(([fd, ad]) => {
-      const all = [
-        ...fd.items.map((i: GalleryItem) => ({ ...i, kind: 'file' })),
-        ...ad.items.map((i: GalleryItem) => ({ ...i, kind: 'audio' })),
-      ].sort((a, b) => b.ts - a.ts)
-      setItems(all)
+    const fetches = type === 'files'
+      ? [fetch('/api/attachments?type=files&offset=0&limit=500').then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'file' })))]
+      : type === 'audio'
+      ? [fetch('/api/attachments?type=audio&offset=0&limit=500').then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'audio' })))]
+      : [
+          fetch('/api/attachments?type=files&offset=0&limit=500').then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'file' }))),
+          fetch('/api/attachments?type=audio&offset=0&limit=500').then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'audio' }))),
+        ]
+    Promise.all(fetches).then(results => {
+      setItems(results.flat().sort((a, b) => a.ts - b.ts))
     })
-  }, [])
+  }, [type])
 
   const icon = (item: { uri: string; kind: string }) => {
     if (item.kind === 'audio') return '🎵'
@@ -27,20 +28,20 @@ export default function FilesView() {
     return '📎'
   }
 
-  if (!items.length) return <div className="p-5 text-gray-500 dark:text-gray-400 text-sm">No files found.</div>
+  if (!items.length) return <div className="p-5 text-gray-500 dark:text-mist-400 text-sm">No files found.</div>
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900">
+    <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-mist-900">
       {items.map((item, i) => {
         const name = item.uri.split('/').pop() ?? ''
         return (
-          <div key={i} className="bg-white dark:bg-gray-800 rounded-lg px-3.5 py-3 mb-2 flex items-center gap-3 shadow-sm dark:shadow-gray-900 border border-transparent dark:border-gray-700">
+          <div key={i} className="bg-white dark:bg-mist-800 rounded-lg px-3.5 py-3 mb-2 flex items-center gap-3 shadow-xs dark:shadow-gray-900 border border-transparent dark:border-mist-700">
             <div className="text-[22px]">{icon(item)}</div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">
-                <a href={r2(item.uri)} target="_blank" rel="noopener" className="text-blue-600 dark:text-blue-400 no-underline hover:underline">{name}</a>
+                <a href={r2(item.uri)} target="_blank" rel="noopener" className="text-mist-600 dark:text-mist-400 no-underline hover:underline">{name}</a>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{new Date(item.ts).toLocaleDateString()} · {item.sender}</div>
+              <div className="text-xs text-gray-500 dark:text-mist-400 mt-0.5">{new Date(item.ts).toLocaleDateString()} · {item.sender}</div>
             </div>
           </div>
         )

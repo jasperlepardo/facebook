@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { startAuthentication } from '@simplewebauthn/browser'
 import Link from 'next/link'
 
-const inputCls = 'w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500'
+const inputCls = 'w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-mist-500'
 
 export default function SigninPage() {
   const [email, setEmail] = useState('')
@@ -71,7 +71,7 @@ export default function SigninPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <div className="w-14 h-14 bg-mist-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <span className="text-white text-2xl font-bold">R</span>
         </div>
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Sign in</h1>
@@ -107,7 +107,7 @@ export default function SigninPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
+          className="w-full py-2.5 bg-mist-600 hover:bg-mist-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
         >
           {pwLoading ? 'Signing in…' : 'Sign in'}
         </button>
@@ -137,7 +137,7 @@ export default function SigninPage() {
 
       <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
         No account?{' '}
-        <Link href="/auth/signup" className="text-blue-600 dark:text-blue-400 font-medium">Sign up</Link>
+        <Link href="/auth/signup" className="text-mist-600 dark:text-mist-400 font-medium">Sign up</Link>
       </p>
     </div>
   )

@@ -7,6 +7,18 @@ export const fmtTime = (ts: number) =>
 export const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })
 
+export function relTime(ms: number): string {
+  const diff = Date.now() - ms
+  const m = Math.floor(diff / 60_000)
+  if (m < 1)  return 'now'
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h`
+  const d = Math.floor(h / 24)
+  if (d < 7)  return `${d}d`
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 const hasTime = (iso: string) => iso.includes('T')
 
 export function fmtIso(iso: string) {

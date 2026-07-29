@@ -61,12 +61,12 @@ export default function ThreadListPane({ threads, activeThreadId, onSelect }: Pr
     : withMeta
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-zinc-900">
+    <div className="flex flex-col h-full bg-white dark:bg-mist-950 md:dark:bg-mist-900">
       {/* Header */}
-      <div className="px-4 pt-[calc(1rem_+_env(safe-area-inset-top))] pb-3 flex-shrink-0">
+      <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-[22px] font-bold text-gray-900 dark:text-white">Chats</h2>
-          <button className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+          <button className="w-8 h-8 rounded-full bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-600 dark:text-mist-300 hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -83,7 +83,7 @@ export default function ThreadListPane({ threads, activeThreadId, onSelect }: Pr
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search Messenger"
-            className="w-full pl-8 pr-3 py-2 bg-gray-100 dark:bg-zinc-700 rounded-full text-[13px] text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 outline-none"
+            className="w-full pl-8 pr-3 py-2 bg-mist-100 dark:bg-mist-800 rounded-full text-[13px] text-gray-900 dark:text-mist-100 placeholder:text-mist-400 dark:placeholder:text-mist-500 outline-hidden"
           />
         </div>
       </div>
@@ -98,13 +98,13 @@ export default function ThreadListPane({ threads, activeThreadId, onSelect }: Pr
               onClick={() => onSelect(t.id)}
               className={`w-full px-2 py-1.5 flex items-center gap-3 transition-colors text-left rounded-xl mx-1 my-0.5 ${
                 active
-                  ? 'bg-blue-50 dark:bg-zinc-700'
-                  : 'hover:bg-gray-100 dark:hover:bg-zinc-700'
+                  ? 'bg-mist-100 dark:bg-mist-800'
+                  : 'hover:bg-mist-50 dark:hover:bg-mist-800'
               }`}
               style={{ width: 'calc(100% - 8px)' }}
             >
               {/* Avatar */}
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-xl select-none ${t.color}`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-xl select-none ${t.color}`}>
                 {t.initials}
               </div>
 
@@ -112,7 +112,7 @@ export default function ThreadListPane({ threads, activeThreadId, onSelect }: Pr
               <div className="flex-1 min-w-0">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{t.name}</span>
-                  {t.time && <span className="text-[11px] text-gray-400 dark:text-gray-500 flex-shrink-0">{t.time}</span>}
+                  {t.time && <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">{t.time}</span>}
                 </div>
                 <div className="text-[13px] text-gray-500 dark:text-gray-400 truncate mt-0.5">{t.preview}</div>
               </div>

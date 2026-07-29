@@ -48,7 +48,7 @@ function RegisterPasskeyInner() {
 
   return (
     <div className="w-full max-w-sm text-center">
-      <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <div className="w-14 h-14 bg-mist-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
         <span className="text-white text-2xl font-bold">J</span>
       </div>
       <h1 className="text-2xl font-semibold text-gray-900 mb-2">Set up passkey</h1>
@@ -63,7 +63,7 @@ function RegisterPasskeyInner() {
           <button
             onClick={handleRegister}
             disabled={status === 'loading'}
-            className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
+            className="w-full py-2.5 bg-mist-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
           >
             {status === 'loading' ? 'Waiting for passkey…' : 'Register passkey'}
           </button>
