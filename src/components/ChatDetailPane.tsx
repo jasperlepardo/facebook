@@ -114,18 +114,18 @@ export default function ChatDetailPane({
     setMessages(deduped)
   }, [])
 
-  function showToast(msg: string) {
+  const showToast = useCallback((msg: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast(msg)
     toastTimer.current = setTimeout(() => setToast(null), 2000)
-  }
+  }, [])
 
-  function copyLink(msgIds: string[]) {
+  const copyLink = useCallback((msgIds: string[]) => {
     const url = `${window.location.origin}${window.location.pathname}?msg=${msgIds[0]}`
     navigator.clipboard.writeText(url).then(() => showToast('Link copied'))
-  }
+  }, [showToast])
 
-  function copyText(msgIds: string[]) {
+  const copyText = useCallback((msgIds: string[]) => {
     const ids = new Set(msgIds)
     const msgs = messagesRef.current.filter(m => ids.has(m._id))
     if (!msgs.length) return
@@ -145,7 +145,7 @@ export default function ChatDetailPane({
       return parts
     })
     navigator.clipboard.writeText([header, ...lines].join('\n')).then(() => showToast('Text copied'))
-  }
+  }, [showToast])
 
   function scrollToMsg(msgId: string): boolean {
     const group =
@@ -613,10 +613,24 @@ export default function ChatDetailPane({
     <>
       {/* Selection bar */}
       {selectedMsgs.size > 0 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-4 py-2 flex items-center gap-3 text-[13px] whitespace-nowrap shadow-xl z-20">
-          <span>{selectedMsgs.size} message{selectedMsgs.size > 1 ? 's' : ''} selected</span>
-          <button onClick={openNoteFromSelection} className="bg-mist-600 px-3.5 py-1 rounded-full text-[13px] font-semibold"># Tag</button>
-          <button onClick={clearSelection} className="opacity-80 hover:opacity-100">✕</button>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-4 py-2 flex items-center gap-2.5 text-[13px] whitespace-nowrap shadow-xl z-20">
+          <span className="text-white/60 pr-0.5">{selectedMsgs.size} selected</span>
+          <button onClick={openNoteFromSelection} className="bg-white/15 hover:bg-white/25 px-3 py-1 rounded-full font-semibold transition-colors"># Tag</button>
+          <button
+            onClick={() => {
+              const firstId = [...selectedMsgs.keys()][0]
+              if (firstId) copyLink([firstId])
+              clearSelection()
+            }}
+            className="bg-white/15 hover:bg-white/25 px-3 py-1 rounded-full font-semibold transition-colors flex items-center gap-1.5"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            Share
+          </button>
+          <button onClick={clearSelection} className="opacity-50 hover:opacity-100 transition-opacity pl-0.5">✕</button>
         </div>
       )}
 

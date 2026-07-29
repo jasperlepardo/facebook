@@ -9,6 +9,13 @@ const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
 export const metadata: Metadata = {
   title: 'Resibo',
+  metadataBase: new URL(
+    process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000'
+  ),
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -45,7 +52,7 @@ export default async function ViewerLayout({ children }: { children: ReactNode }
       <body
         className={inter.className}
         suppressHydrationWarning
-        style={{ background: darkClass ? 'var(--color-mist-950)' : 'white' }}
+        style={darkClass ? { background: 'var(--color-mist-950)' } : undefined}
       >
         {children}
         <ServiceWorker />
