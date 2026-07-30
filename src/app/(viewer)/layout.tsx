@@ -44,15 +44,14 @@ export default async function ViewerLayout({ children }: { children: ReactNode }
   const darkClass = themeCookie === 'dark' ? 'dark' : undefined
 
   return (
-    <html lang="en" className={darkClass} suppressHydrationWarning>
+    <html lang="en" className={`h-full overflow-hidden overscroll-none bg-mist-50 dark:bg-mist-950${darkClass ? ' dark' : ''}`} suppressHydrationWarning>
       <head>
         {/* Fallback for system theme with OS dark preference — runs before first paint */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){var s=document.cookie.match(/(?:^|; )theme=([^;]*)/);var t=s?decodeURIComponent(s[1]):null;if(t)return;var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark')})()` }} />
       </head>
       <body
-        className={inter.className}
+        className={`${inter.className} h-full overflow-hidden overscroll-none bg-mist-50 dark:bg-mist-950`}
         suppressHydrationWarning
-        style={darkClass ? { background: 'var(--color-mist-950)' } : undefined}
       >
         {children}
         <ServiceWorker />

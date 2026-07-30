@@ -389,14 +389,14 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
                   onUnhideMessage={onUnhideMessage}
                   onHideUri={onHideUri}
                   onUnhideUri={onUnhideUri}
-                  renderBlockActions={block => (
+                  renderRowActions={msg => (
                     <>
                       <button
-                        onClick={() => onJumpToMessage(block.msgs[0].timestamp_ms, block.msgs[0]._id)}
+                        onClick={e => { e.stopPropagation(); onJumpToMessage(msg.timestamp_ms, msg._id) }}
                         className="text-[11px] bg-white dark:bg-mist-800 border border-gray-200 dark:border-mist-600 rounded-sm px-1.5 py-0.5 text-mist-600 dark:text-mist-400 shadow-xs hover:bg-mist-50 dark:hover:bg-mist-900/30"
                       >→ Jump</button>
                       <button
-                        onClick={() => removeGroup(block.msgs[0].blockId!)}
+                        onClick={e => { e.stopPropagation(); removeGroup(msg.blockId!) }}
                         className="text-[11px] bg-white dark:bg-mist-800 border border-gray-200 dark:border-mist-600 rounded-sm px-1.5 py-0.5 text-red-500 shadow-xs hover:bg-red-50 dark:hover:bg-red-900/30"
                       >× Remove</button>
                     </>

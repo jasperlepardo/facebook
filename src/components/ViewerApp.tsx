@@ -15,6 +15,9 @@ import AppLayout, { AppLayoutControls } from './AppLayout'
 import ListPane, { ListPaneItem } from './ListPane'
 import HashtagsPane from './HashtagsPane'
 import ChatDetailPane, { JumpFn } from './ChatDetailPane'
+import StoryPane from './StoryPane'
+import InAppBrowserBanner from './InAppBrowserBanner'
+import ThreadAvatar from './ThreadAvatar'
 
 const SettingsPane = dynamic(() => import('./SettingsPane'), { ssr: false })
 
@@ -34,7 +37,7 @@ function hashtagColor(name: string) {
 export default function ViewerApp() {
   // Navigation — default to 'chat' for SSR, then correct from URL after hydration
   const [section, setSection]         = useState<Section>('chat')
-  const [prevSection, setPrevSection] = useState<'chat' | 'hashtags'>('chat')
+  const [prevSection, setPrevSection] = useState<'chat' | 'hashtags' | 'story'>('chat')
   const [searchInput, setSearchInput] = useState('')
   const [hideImages, setHideImages] = useState(false)
   const [hiddenUris, setHiddenUris] = useState<Set<string>>(() => {
@@ -103,6 +106,10 @@ export default function ViewerApp() {
     await jumpFnRef.current?.(ts, msgId)
   }, [])
 
+  const jumpToDate = useCallback((ts: number) => {
+    jumpToMessage(ts, null)
+  }, [jumpToMessage])
+
   const reloadHashtags = useCallback(async () => {
     const d = await apiFetch<{ docs: Hashtag[] }>('/api/hashtags?limit=200&sort=firstMsgTs&depth=0')
     setHashtags(d.docs ?? [])
@@ -121,7 +128,7 @@ export default function ViewerApp() {
     if (!mountedRef.current) {
       mountedRef.current = true
       const s = params.get('s')
-      if (s === 'hashtags' || s === 'settings') setSection(s)
+      if (s === 'hashtags' || s === 'settings' || s === 'story') setSection(s)
       if (params.get('msg')) setChatDetailOpen(true)
       return
     }
@@ -254,7 +261,7 @@ export default function ViewerApp() {
     ? currentUser.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
     : ''
 
-  const sectionTitle = section === 'chat' ? 'Chat' : section === 'settings' ? 'Settings' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
+  const sectionTitle = section === 'chat' ? 'Chat' : section === 'settings' ? 'Settings' : section === 'story' ? 'Story' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
 
   const threadItems = useMemo<ListPaneItem[]>(() => THREADS.map(t => ({
     id: t.id, label: t.name, initials: t.initials, color: t.color,
@@ -284,9 +291,7 @@ export default function ViewerApp() {
     const title =
       section === 'chat' && thread ? (
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold select-none ${thread.color}`}>
-            {thread.initials}
-          </div>
+          <ThreadAvatar color={thread.color} initials={thread.initials} />
           <span className="text-sm font-bold truncate">{thread.name}</span>
         </div>
       ) : section === 'hashtags' && activeHashtagName ? (
@@ -450,6 +455,7 @@ export default function ViewerApp() {
               onRegisterJump={fn => { jumpFnRef.current = fn }}
               onStatsChange={(total, dateIndex) => { setChatTotal(total); setChatDateIndex(dateIndex) }}
               enabledTypes={enabledTypes}
+              senderColor={thread?.color}
             />
           </div>
 
@@ -492,6 +498,11 @@ export default function ViewerApp() {
             />
           </div>
 
+          {/* Story section */}
+          {section === 'story' && (
+            <StoryPane onJumpToMessages={jumpToDate} />
+          )}
+
           {/* Settings section */}
           {section === 'settings' && (
             <SettingsPane
@@ -520,11 +531,11 @@ export default function ViewerApp() {
 
   if (!initialized) {
     return (
-      <div className="md:p-3 font-sans bg-white dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: '100%' }}>
+      <div className="md:p-3 font-sans bg-mist-50 dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: '100%' }}>
         <div className="md:gap-3 flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
 
           {/* Nav skeleton */}
-          <div className="hidden md:flex flex-col items-center gap-2 py-3 w-16 shrink-0 bg-white dark:bg-mist-950 rounded-2xl">
+          <div className="hidden md:flex flex-col items-center gap-2 py-3 w-16 shrink-0 bg-mist-50 dark:bg-mist-950 rounded-2xl">
             <div className="w-9 h-9 rounded-full bg-mist-200 dark:bg-mist-700 animate-pulse mt-1" />
             <div className="flex-1" />
             {[0, 1].map(i => <div key={i} className="w-10 h-10 rounded-xl bg-mist-100 dark:bg-mist-800 animate-pulse" />)}
@@ -583,17 +594,20 @@ export default function ViewerApp() {
   }
 
   return (
-    <div className="md:p-3 font-sans bg-white dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: '100%' }}>
+    <div className="md:p-3 font-sans bg-mist-50 dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: '100%' }}>
+      <InAppBrowserBanner />
       <AppLayout
         section={section}
         onSectionChange={s => {
-          if (s === 'settings') setPrevSection(section === 'settings' ? prevSection : section as 'chat' | 'hashtags')
+          if (s === 'settings') setPrevSection(section === 'settings' ? prevSection : section as 'chat' | 'hashtags' | 'story')
           setSection(s)
         }}
         initials={initials}
+        name={currentUser ?? undefined}
         prevSection={prevSection}
-        detailGrow={section === 'settings' ? 4 : section === 'hashtags' || !showMediaPane ? 12 : 7}
+        detailGrow={section === 'settings' ? 4 : section === 'story' || section === 'hashtags' || !showMediaPane ? 12 : 7}
         listGrow={section === 'settings' ? 4 : 4}
+        hideListPane={section === 'story'}
         centeredDetail={section === 'settings'}
         listPane={controls => section === 'hashtags' ? (
           <ListPane

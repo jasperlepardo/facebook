@@ -102,16 +102,43 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (hideImages) return (
-    <div className="flex-1 flex items-center justify-center bg-white dark:bg-mist-900">
-      <p className="text-sm text-gray-400 dark:text-mist-500">Images are hidden</p>
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">
+      <div className="w-14 h-14 rounded-2xl bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-400 dark:text-mist-500">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </div>
+      <p className="text-sm text-mist-400 dark:text-mist-500">Images are hidden</p>
     </div>
   )
 
-  if (!loading && !hasMore && items.length === 0) return (
-    <div className="flex-1 flex items-center justify-center bg-white dark:bg-mist-900">
-      <p className="text-sm text-gray-400 dark:text-mist-500">Nothing here yet.</p>
-    </div>
-  )
+  if (!loading && !hasMore && items.length === 0) {
+    const meta: Record<string, { icon: React.ReactNode; label: string }> = {
+      photos: {
+        icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>,
+        label: 'No photos shared yet',
+      },
+      videos: {
+        icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="15" height="10" rx="2"/><path d="M17 9l5-3v12l-5-3V9z"/></svg>,
+        label: 'No videos shared yet',
+      },
+      gifs: {
+        icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/><path d="M8 12h4"/></svg>,
+        label: 'No GIFs shared yet',
+      },
+      stickers: {
+        icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c1.46 0 2.67-1.33 2.67-2.97V18c0-.55.45-1 1-1h1.38C19.73 17 22 14.66 22 12 22 6.48 17.52 2 12 2z"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><path d="M9 14s1 2 3 2 3-2 3-2"/></svg>,
+        label: 'No stickers shared yet',
+      },
+    }
+    const { icon, label } = meta[type] ?? meta.photos
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">
+        <div className="w-14 h-14 rounded-2xl bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-400 dark:text-mist-500">
+          {icon}
+        </div>
+        <p className="text-sm text-mist-400 dark:text-mist-500">{label}</p>
+      </div>
+    )
+  }
 
   return (
     <div ref={galleryRef} className="flex-1 overflow-y-auto p-3 bg-white dark:bg-mist-900" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>

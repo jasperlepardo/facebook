@@ -12,7 +12,14 @@ export default function LinksView() {
       .then(d => setItems(d.items ?? []))
   }, [])
 
-  if (!items.length) return <div className="p-5 text-gray-500 dark:text-mist-400 text-sm">No links found.</div>
+  if (!items.length) return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">
+      <div className="w-14 h-14 rounded-2xl bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-400 dark:text-mist-500">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      </div>
+      <p className="text-sm text-mist-400 dark:text-mist-500">No links shared yet</p>
+    </div>
+  )
 
   return (
     <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-mist-900">

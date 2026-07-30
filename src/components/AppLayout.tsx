@@ -12,7 +12,8 @@ interface AppLayoutProps {
   section: Section
   onSectionChange: (s: Section) => void
   initials: string
-  prevSection?: 'chat' | 'hashtags'
+  name?: string
+  prevSection?: 'chat' | 'hashtags' | 'story'
   listPane:   (controls: AppLayoutControls) => ReactNode
   detailPane: (controls: AppLayoutControls) => ReactNode
   mediaPane?: ReactNode
@@ -22,7 +23,7 @@ interface AppLayoutProps {
   centeredDetail?: boolean
 }
 
-export default function AppLayout({ section, onSectionChange, initials, prevSection, listPane, detailPane, mediaPane, listGrow = 4, detailGrow = 7, hideListPane = false, centeredDetail = false }: AppLayoutProps) {
+export default function AppLayout({ section, onSectionChange, initials, name, prevSection, listPane, detailPane, mediaPane, listGrow = 4, detailGrow = 7, hideListPane = false, centeredDetail = false }: AppLayoutProps) {
   const [mobileShowList, setMobileShowList] = useState(
     section === 'chat' || section === 'hashtags'
   )
@@ -65,7 +66,8 @@ export default function AppLayout({ section, onSectionChange, initials, prevSect
         section={section}
         prevSection={prevSection}
         initials={initials}
-        hiddenOnMobile={!mobileShowList}
+        name={name}
+        hiddenOnMobile={!mobileShowList && section !== 'story'}
         onSectionChange={handleSectionChange}
         isExpanded={navExpanded}
         onToggleExpanded={toggleNav}

@@ -29,7 +29,7 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
     : items
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-mist-950 md:dark:bg-mist-900">
+    <div className="flex flex-col h-full bg-white dark:bg-mist-950 md:dark:bg-mist-900 md:shadow-xl">
       {/* Header */}
       <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 shrink-0">
         <div className="flex items-center justify-between mb-3">

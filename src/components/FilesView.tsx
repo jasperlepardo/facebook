@@ -28,7 +28,17 @@ export default function FilesView({ type = 'all' }: { type?: 'files' | 'audio' |
     return '📎'
   }
 
-  if (!items.length) return <div className="p-5 text-gray-500 dark:text-mist-400 text-sm">No files found.</div>
+  if (!items.length) return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">
+      <div className="w-14 h-14 rounded-2xl bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-400 dark:text-mist-500">
+        {type === 'audio'
+          ? <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          : <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        }
+      </div>
+      <p className="text-sm text-mist-400 dark:text-mist-500">{type === 'audio' ? 'No audio shared yet' : 'No files shared yet'}</p>
+    </div>
+  )
 
   return (
     <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-mist-900">

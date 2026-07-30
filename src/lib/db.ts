@@ -53,6 +53,34 @@ export async function getHiddenItems() {
   return (await clientPromise).db().collection<HiddenItem>('hidden_items')
 }
 
+let arcsIndexed = false
+
+export async function getArcs() {
+  const col = (await clientPromise).db().collection('arcs')
+  if (!arcsIndexed) {
+    arcsIndexed = true
+    Promise.all([
+      col.createIndex({ startDate: 1 }),
+      col.createIndex({ endDate: 1 }),
+    ]).catch(() => {})
+  }
+  return col
+}
+
+let summariesIndexed = false
+
+export async function getDailySummaries() {
+  const col = (await clientPromise).db().collection('daily_summaries')
+  if (!summariesIndexed) {
+    summariesIndexed = true
+    Promise.all([
+      col.createIndex({ date: 1 }, { unique: true }),
+      col.createIndex({ year: 1, month: 1 }),
+    ]).catch(() => {})
+  }
+  return col
+}
+
 export interface HiddenItem {
   _id?: import('mongodb').ObjectId
   type: 'message' | 'uri'

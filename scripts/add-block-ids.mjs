@@ -1,7 +1,7 @@
 /**
- * One-time migration: adds blockId to every message in MongoDB.
+ * Re-migration: reassigns blockId to every message in MongoDB.
  * blockId = _id of the first message in the visual group
- * (same sender, same day, within 5 minutes of previous message).
+ * (same sender, same day, gap from previous message < 60 minutes).
  *
  * Usage: node scripts/add-block-ids.mjs
  */
@@ -12,6 +12,8 @@ import { readFileSync } from 'fs'
 const env = readFileSync('.env.local', 'utf8')
 const match = env.match(/MONGODB_URI="([^"]+)"/)
 if (!match) { console.error('MONGODB_URI not found in .env.local'); process.exit(1) }
+
+const SESSION_GAP_MS = 60 * 60_000
 
 const client = new MongoClient(match[1])
 await client.connect()
@@ -31,12 +33,13 @@ function day(ts) {
 }
 
 const ops = []
-let lastDay = null, lastSender = null, lastTs = 0, blockId = null
+let lastDay = null, lastSender = null, lastTs = null, blockId = null
 
 for (const m of all) {
   const d = day(m.timestamp_ms)
   const newDay = d !== lastDay
-  const grouped = !newDay && m.sender_name === lastSender
+  const withinSession = lastTs !== null && (m.timestamp_ms - lastTs) < SESSION_GAP_MS
+  const grouped = !newDay && m.sender_name === lastSender && withinSession
 
   if (!grouped) blockId = m._id
   lastDay = d

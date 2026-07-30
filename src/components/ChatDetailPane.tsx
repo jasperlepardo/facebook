@@ -49,6 +49,7 @@ interface Props {
   onRegisterJump: (fn: JumpFn | null) => void
   onStatsChange?: (total: number, dateIndex: DateIndex | null) => void
   enabledTypes?: Set<ContentTypeKey>
+  senderColor?: string
 }
 
 export default function ChatDetailPane({
@@ -58,7 +59,7 @@ export default function ChatDetailPane({
   hideImages, hiddenUris, hiddenMsgIds,
   onHideUri, onHideDbUri, onUnhideDbUri,
   onHideMessage, onUnhideMessage,
-  onLightbox, onRegisterJump, onStatsChange, enabledTypes,
+  onLightbox, onRegisterJump, onStatsChange, enabledTypes, senderColor,
 }: Props) {
   // ─── Messages ──────────────────────────────────────────────────────────────
   const [messages, setMessages]   = useState<Message[]>([])
@@ -702,6 +703,7 @@ export default function ChatDetailPane({
           onHideUri={onHideDbUri}
           onUnhideUri={onUnhideDbUri}
           enabledTypes={enabledTypes}
+          senderColor={senderColor}
         />
       </div>
 

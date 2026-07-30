@@ -2,24 +2,30 @@ export interface Message {
   _id: string
   timestamp_ms: number
   sender_name: string
+  blockId?: string
   content?: string
-  is_unsent?: boolean
-  photos?: { uri: string }[]
-  videos?: { uri: string }[]
-  audio_files?: { uri: string }[]
-  gifs?: { uri: string }[]
-  sticker?: { uri: string }
-  files?: { uri: string }[]
-  share?: { link: string; share_text?: string }
+  type?: 'link' | 'media' | 'text' | 'placeholder'
+  // Media attachments
+  photos?: { uri: string; creation_timestamp: number | null }[]
+  videos?: { uri: string; creation_timestamp?: number | null }[]
+  audio_files?: { uri: string; creation_timestamp?: number | null }[]
+  gifs?: { uri: string; creation_timestamp?: number | null }[]
+  sticker?: { uri: string; ai_stickers: unknown[] }
+  files?: { uri: string; creation_timestamp?: number | null }[]
+  share?: { link?: string; share_text?: string }
+  // Calls
   call_duration?: number
   missed?: boolean
-  reactions?: { reaction: string; actor: string }[]
-  blockId?: string
-  type?: string
+  // Reactions
+  reactions?: { reaction: string; actor: string; timestamp?: number }[]
+  // State flags
+  is_unsent?: boolean
+  is_unsent_image_by_messenger_kid_parent: boolean
   media_failed?: boolean
   content_unavailable?: boolean
+  // Facebook metadata
   ip?: string
-  is_unsent_image_by_messenger_kid_parent?: boolean
+  is_geoblocked_for_viewer: boolean
 }
 
 export interface MessageBlock {
@@ -53,7 +59,7 @@ export interface GalleryItem {
 export interface LightboxState {
   src: string
   uri?: string
-  type: 'photo' | 'video' | 'gif'
+  type: 'photo' | 'video' | 'gif' | 'file'
   mediaType?: 'photos' | 'videos' | 'gifs'
   caption: string
   msgId?: string
@@ -76,7 +82,41 @@ export interface ContextMenuState {
 }
 
 export type Tab = 'chat' | 'photos' | 'videos' | 'files'
-export type Section = 'chat' | 'hashtags' | 'settings'
+export type Section = 'chat' | 'hashtags' | 'settings' | 'story'
+
+export interface LinkedDate {
+  date: string
+  type: 'continues-from' | 'resolved-on' | 'echoes'
+  label: string
+}
+
+export interface DailySummary {
+  _id?: string
+  date: string
+  year: number
+  month: number
+  day: number
+  messageCount: number
+  summary: string
+  mood: string
+  themes: string[]
+  linkedDates: LinkedDate[]
+  generatedAt: string
+  model: string
+}
+export interface Arc {
+  _id?: string
+  title: string
+  startDate: string
+  endDate: string
+  description: string
+  themes: string[]
+  mood: string
+  dayCount: number
+  generatedAt: string
+  model: string
+}
+
 export type MediaTab = 'photos' | 'videos' | 'gifs' | 'audio' | 'files' | 'stickers' | 'links' | 'calls'
 
 export interface Hashtag {

@@ -8,17 +8,21 @@ function hasRenderableContent(m: Message): boolean {
   return !!(m.is_unsent || m.call_duration != null || m.content || hasMedia || m.reactions?.length)
 }
 
+const SESSION_GAP_MS = 60 * 60_000
+
 export function groupMessages(messages: Message[]): MessageBlock[] {
   const blocks: MessageBlock[] = []
-  let lastDate: string | null = null, lastSender: string | null = null
+  let lastDate: string | null = null, lastSender: string | null = null, lastTs: number | null = null
 
   for (const m of messages) {
     if (!hasRenderableContent(m)) continue
     const d = fmtDate(m.timestamp_ms)
     const newDate = d !== lastDate
-    const grouped = !newDate && m.sender_name === lastSender
+    const withinSession = lastTs !== null && (m.timestamp_ms - lastTs) < SESSION_GAP_MS
+    const grouped = !newDate && m.sender_name === lastSender && withinSession
     if (newDate) lastDate = d
     lastSender = m.sender_name
+    lastTs = m.timestamp_ms
     if (grouped && blocks.length) blocks[blocks.length - 1].msgs.push(m)
     else blocks.push({ date: d, newDate, sender: m.sender_name, mine: m.sender_name === ME, msgs: [m] })
   }

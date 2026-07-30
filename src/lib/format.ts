@@ -4,6 +4,12 @@ export const r2 = (uri: string) =>
 export const fmtTime = (ts: number) =>
   new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
+export const fmtTimeShort = (ts: number) => {
+  const d = new Date(ts)
+  const h = d.getHours(), m = d.getMinutes()
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')}`
+}
+
 export const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })
 

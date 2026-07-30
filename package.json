@@ -10,6 +10,7 @@
     "payload": "cross-env PAYLOAD_CONFIG_PATH=src/payload.config.ts payload"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
     "@payloadcms/db-mongodb": "^3.28.1",
     "@payloadcms/next": "3.28.1",
     "@payloadcms/richtext-lexical": "3.28.1",
@@ -18,6 +19,7 @@
     "cross-env": "^7.0.3",
     "graphql": "^16.8.1",
     "jose": "^6.2.4",
+    "jszip": "^3.10.1",
     "mongodb": "^6.12.0",
     "next": "15.1.11",
     "payload": "3.28.1",
