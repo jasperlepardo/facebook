@@ -75,7 +75,9 @@ export default function OgLinkCard({ url }: { url: string }) {
     </div>
   )
 
-  const host = meta?.host || (() => { try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' } })()
+  if (!meta) return null
+
+  const host = meta.host || (() => { try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' } })()
 
   return (
     <a href={url} target="_blank" rel="noopener"
