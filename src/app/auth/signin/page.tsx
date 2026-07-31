@@ -85,24 +85,28 @@ export default function SigninPage() {
 
       <form onSubmit={handlePasswordSignin} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+          <label htmlFor="signin-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
           <input
+            id="signin-email"
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
+            autoComplete="email"
             className={inputCls}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+          <label htmlFor="signin-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
           <input
+            id="signin-password"
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="••••••••"
             required
+            autoComplete="current-password"
             className={inputCls}
           />
         </div>

@@ -47,46 +47,54 @@ export default function SignupPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+          <label htmlFor="signup-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
           <input
+            id="signup-name"
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="Your name"
             required
+            autoComplete="name"
             className={inputCls}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+          <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
           <input
+            id="signup-email"
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
+            autoComplete="email"
             className={inputCls}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+          <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
           <input
+            id="signup-password"
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="••••••••"
             required
+            autoComplete="new-password"
             className={inputCls}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm password</label>
+          <label htmlFor="signup-confirm" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm password</label>
           <input
+            id="signup-confirm"
             type="password"
             value={confirm}
             onChange={e => setConfirm(e.target.value)}
             placeholder="••••••••"
             required
+            autoComplete="new-password"
             className={inputCls}
           />
         </div>
