@@ -1,13 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import type { OgMeta } from '@/app/api/og-meta/route'
-
-const card = 'rounded-xl border border-mist-100 dark:border-mist-700/50 bg-mist-50/50 dark:bg-mist-800/30'
-const pill = 'flex w-fit items-center gap-2 text-[11px] px-2.5 py-1.5 rounded-lg border border-mist-100 dark:border-mist-700/50 bg-mist-50 dark:bg-mist-800/60 select-none'
-const pillIcon = 'shrink-0 text-mist-300 dark:text-mist-600'
-const pillLabel = 'text-mist-500 dark:text-mist-400 font-medium'
-const pillSub = 'text-mist-300 dark:text-mist-600'
-const iconWell = 'w-7 h-7 rounded-lg bg-mist-100 dark:bg-mist-800 flex items-center justify-center shrink-0 text-mist-400 dark:text-mist-500'
+import { card, pill, pillIcon, pillLabel, pillSub, iconWell } from '@/components/message/MessageStyles'
 
 const FILE_EXTS = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'rar', 'ai', 'indd', 'xd', 'ics']
 const PREVIEWABLE = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']

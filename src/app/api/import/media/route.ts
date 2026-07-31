@@ -1,29 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { NodeHttpHandler } from '@smithy/node-http-handler'
+import { getS3, R2_BUCKET } from '@/lib/r2'
 import { getSession } from '@/lib/session'
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
-
-const BUCKET = process.env.R2_BUCKET ?? ''
-
-let _s3: S3Client | null = null
-function getS3() {
-  if (!_s3) _s3 = new S3Client({
-    region: 'auto',
-    endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID ?? ''}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId:     process.env.R2_ACCESS_KEY_ID     ?? '',
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
-    },
-    requestHandler: new NodeHttpHandler({
-      connectionTimeout: 10_000,
-      socketTimeout:     120_000,
-    }),
-  })
-  return _s3
-}
 
 function classifyFile(filename: string): { folder: string } {
   const ext = filename.split('.').pop()?.toLowerCase() ?? ''
@@ -59,7 +40,7 @@ export async function POST(req: NextRequest) {
     const key = r2Key(filename, threadFolder)
     const url = await getSignedUrl(
       getS3(),
-      new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }),
+      new PutObjectCommand({ Bucket: R2_BUCKET, Key: key, ContentType: contentType }),
       { expiresIn: 3600 },
     )
 

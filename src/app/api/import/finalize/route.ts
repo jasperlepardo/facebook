@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCollection } from '@/lib/db'
-import { getPayloadClient } from '@/lib/payload-access'
 import { getSession } from '@/lib/session'
 import { recomputeBlockIds } from '@/lib/blockIds'
+import { upsertThread } from '@/lib/threadUtils'
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
 
@@ -34,27 +34,7 @@ export async function POST(req: NextRequest) {
 
         // ── Upsert thread ───────────────────────────────────────────────────────
         const total = await (await getCollection(collectionName)).countDocuments()
-        try {
-          const payload = await getPayloadClient()
-          const existing = await payload.find({
-            collection: 'threads',
-            where: { collection: { equals: collectionName } },
-            limit: 1, depth: 0, overrideAccess: true,
-          })
-          const data = {
-            name: threadName, collection: collectionName,
-            initials: initials ?? threadName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase(),
-            color: (color ?? 'bg-rose-400') as any,
-            facebookThreadId: facebookThreadId ?? '',
-            participants: (participants ?? []).map((name: string) => ({ name })),
-            messageCount: total,
-          }
-          if (existing.totalDocs > 0) {
-            await payload.update({ collection: 'threads', id: existing.docs[0].id, data: { messageCount: total }, overrideAccess: true })
-          } else {
-            await payload.create({ collection: 'threads', data, overrideAccess: true })
-          }
-        } catch (e) { console.error('upsertThread error:', e) }
+        await upsertThread({ collectionName, threadName, participants: participants ?? [], facebookThreadId, initials, color, total })
 
         send({ type: 'done', total })
       } catch (e) {

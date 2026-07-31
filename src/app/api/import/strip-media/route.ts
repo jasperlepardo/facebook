@@ -1,26 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { S3Client, DeleteObjectsCommand } from '@aws-sdk/client-s3'
-import { NodeHttpHandler } from '@smithy/node-http-handler'
+import { DeleteObjectsCommand } from '@aws-sdk/client-s3'
 import { getCollection } from '@/lib/db'
 import { getSession } from '@/lib/session'
+import { getS3, R2_BUCKET } from '@/lib/r2'
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
-
-const BUCKET = process.env.R2_BUCKET ?? ''
-
-let _s3: S3Client | null = null
-function getS3() {
-  if (!_s3) _s3 = new S3Client({
-    region: 'auto',
-    endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID ?? ''}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId:     process.env.R2_ACCESS_KEY_ID     ?? '',
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
-    },
-    requestHandler: new NodeHttpHandler({ connectionTimeout: 10_000, socketTimeout: 30_000 }),
-  })
-  return _s3
-}
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
@@ -53,7 +37,7 @@ export async function POST(req: NextRequest) {
       const CHUNK = 1000
       for (let i = 0; i < r2Keys.length; i += CHUNK) {
         await getS3().send(new DeleteObjectsCommand({
-          Bucket: BUCKET,
+          Bucket: R2_BUCKET,
           Delete: { Objects: r2Keys.slice(i, i + CHUNK).map(Key => ({ Key })) },
         })).catch(() => {})
       }

@@ -1,26 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3'
-import { NodeHttpHandler } from '@smithy/node-http-handler'
+import { ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3'
 import { getCollection } from '@/lib/db'
 import { getPayloadClient } from '@/lib/payload-access'
 import { getSession } from '@/lib/session'
+import { getS3, R2_BUCKET } from '@/lib/r2'
 
-const CORS   = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'DELETE, OPTIONS' }
-const BUCKET = process.env.R2_BUCKET ?? ''
-
-let _s3: S3Client | null = null
-function getS3() {
-  if (!_s3) _s3 = new S3Client({
-    region: 'auto',
-    endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID ?? ''}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId:     process.env.R2_ACCESS_KEY_ID     ?? '',
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
-    },
-    requestHandler: new NodeHttpHandler({ connectionTimeout: 10_000, socketTimeout: 60_000 }),
-  })
-  return _s3
-}
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'DELETE, OPTIONS' }
 
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
@@ -75,7 +60,7 @@ export async function DELETE(req: NextRequest) {
     for (let i = 0; i < keys.length; i += CHUNK) {
       try {
         const res = await getS3().send(new DeleteObjectsCommand({
-          Bucket: BUCKET,
+          Bucket: R2_BUCKET,
           Delete: { Objects: keys.slice(i, i + CHUNK).map(Key => ({ Key })) },
         }))
         results.r2Deleted += res.Deleted?.length ?? 0
@@ -97,7 +82,7 @@ async function listR2Objects(prefix: string): Promise<string[]> {
 
   do {
     const res = await getS3().send(new ListObjectsV2Command({
-      Bucket:            BUCKET,
+      Bucket:            R2_BUCKET,
       Prefix:            prefix,
       MaxKeys:           1000,
       ContinuationToken: token,

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId, Long } from 'mongodb'
 import { getCollection } from '@/lib/db'
-import { getPayloadClient } from '@/lib/payload-access'
 import { getSession } from '@/lib/session'
+import { recomputeBlockIds } from '@/lib/blockIds'
+import { upsertThread } from '@/lib/threadUtils'
 
 export const maxDuration = 300
 export const dynamic     = 'force-dynamic'
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
           }
 
           // ── Recompute blockIds ──────────────────────────────────────────────
-          await recomputeBlockIds(col, (current, total) =>
+          await recomputeBlockIds(collectionName, (current, total) =>
             send({ type: 'blockids', current, total })
           )
 
@@ -187,73 +188,3 @@ function mapToDbSchema(m: Record<string, unknown>) {
   return base
 }
 
-function dayKey(ts: number) {
-  const d = new Date(ts)
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-}
-
-async function recomputeBlockIds(
-  col: Awaited<ReturnType<typeof getCollection>>,
-  onProgress?: (current: number, total: number) => void,
-) {
-  const all = await col
-    .find({}, { projection: { timestamp_ms: 1, sender_name: 1 } })
-    .sort({ timestamp_ms: 1 })
-    .toArray()
-
-  const ops: unknown[] = []
-  let lastDay: string | null = null, lastSender: string | null = null, blockId: ObjectId | null = null
-
-  for (const m of all) {
-    const d = dayKey(Number(m.timestamp_ms))
-    const grouped = d === lastDay && m.sender_name === lastSender
-    if (!grouped) blockId = m._id as ObjectId
-    lastDay = d; lastSender = m.sender_name as string
-    ops.push({ updateOne: { filter: { _id: m._id }, update: { $set: { blockId } } } })
-  }
-
-  for (let i = 0; i < ops.length; i += BATCH) {
-    await col.bulkWrite(ops.slice(i, i + BATCH) as Parameters<typeof col.bulkWrite>[0], { ordered: false })
-    onProgress?.(Math.min(i + BATCH, ops.length), ops.length)
-  }
-}
-
-async function upsertThread({
-  collectionName, threadName, participants, facebookThreadId, initials, color, total,
-}: {
-  collectionName: string, threadName: string, participants: string[],
-  facebookThreadId?: string, initials?: string, color?: string, total: number,
-}) {
-  try {
-    const payload = await getPayloadClient()
-
-    // Check if thread already exists
-    const existing = await payload.find({
-      collection: 'threads',
-      where: { collection: { equals: collectionName } },
-      limit: 1, depth: 0, overrideAccess: true,
-    })
-
-    const data = {
-      name:             threadName,
-      collection:       collectionName,
-      initials:         initials ?? threadName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
-      color:            (color ?? 'bg-rose-400') as 'bg-rose-400' | 'bg-violet-400' | 'bg-amber-400' | 'bg-sky-400' | 'bg-pink-400' | 'bg-indigo-400' | 'bg-emerald-400' | 'bg-orange-400',
-      facebookThreadId: facebookThreadId ?? '',
-      participants:     participants.map(name => ({ name })),
-      messageCount:     total,
-    }
-
-    if (existing.totalDocs > 0) {
-      // Update first, delete any duplicates
-      await payload.update({ collection: 'threads', id: existing.docs[0].id, data: { messageCount: total }, overrideAccess: true })
-      for (const dup of existing.docs.slice(1)) {
-        await payload.delete({ collection: 'threads', id: dup.id, overrideAccess: true }).catch(() => {})
-      }
-    } else {
-      await payload.create({ collection: 'threads', data, overrideAccess: true })
-    }
-  } catch (e) {
-    console.error('upsertThread error:', e)
-  }
-}
