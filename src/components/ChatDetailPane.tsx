@@ -451,7 +451,6 @@ export default function ChatDetailPane({
         <ContextMenu
           state={ctxMenu}
           onClose={() => setCtxMenu(null)}
-          onEditNote={() => setCtxMenu(null)}
           onJumpToMessage={(ts, msgId) => { jump.jumpToMessage(+ts, msgId); setCtxMenu(null) }}
           onHideUri={onHideUri}
           onTagMessages={msgIds => selection.setHashtagPicker({ msgIds })}

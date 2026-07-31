@@ -36,18 +36,6 @@ export interface MessageBlock {
   msgs: Message[]
 }
 
-export interface Note {
-  id: string
-  start: string
-  end?: string
-  title: string
-  body?: string
-  tags: string[]
-  msgIds?: string
-  createdBy?: { name?: string; email?: string }
-  updatedBy?: { name?: string; email?: string }
-}
-
 export interface GalleryItem {
   uri: string
   ts: number
@@ -71,8 +59,7 @@ export interface LightboxState {
 export interface ContextMenuState {
   x: number
   y: number
-  kind: 'note' | 'gallery' | 'media' | 'message'
-  note?: Note
+  kind: 'gallery' | 'media' | 'message'
   galTs?: string
   galMsgId?: string | null
   mediaUri?: string
@@ -81,7 +68,6 @@ export interface ContextMenuState {
   fromTouch?: boolean
 }
 
-export type Tab = 'chat' | 'photos' | 'videos' | 'files'
 export type Section = 'chat' | 'hashtags' | 'settings' | 'story'
 
 export interface LinkedDate {
@@ -129,13 +115,6 @@ export interface Hashtag {
   createdById?: string
   firstMsgTs?: number
   groupCount?: number
-}
-
-export interface HashtagGroup {
-  id: string
-  hashtagId: string
-  blockId: string
-  firstMsgTs?: number
 }
 
 export interface DateBoundary { iso: string; label: string; offset: number }

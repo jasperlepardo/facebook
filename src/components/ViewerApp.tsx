@@ -27,15 +27,6 @@ const SettingsPane = dynamic(() => import('./settings/SettingsPane'), { ssr: fal
 
 interface Thread { id: string; name: string; initials: string; color: string; collection: string; participants?: string[] }
 
-const HASHTAG_COLORS = [
-  'bg-mist-500', 'bg-rose-400', 'bg-violet-400', 'bg-amber-400',
-  'bg-mist-400', 'bg-sky-400', 'bg-pink-400', 'bg-indigo-400',
-]
-function hashtagColor(name: string) {
-  let n = 0; for (const c of name) n = (n * 31 + c.charCodeAt(0)) & 0xff
-  return HASHTAG_COLORS[n % HASHTAG_COLORS.length]
-}
-
 export default function ViewerApp() {
   // Navigation — default to 'chat' for SSR, then correct from URL after hydration
   const [section, setSection]         = useState<Section>(() => {
@@ -697,7 +688,6 @@ export default function ViewerApp() {
         <ContextMenu
           state={galleryCtxMenu}
           onClose={() => setGalleryCtxMenu(null)}
-          onEditNote={() => setGalleryCtxMenu(null)}
           onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setGalleryCtxMenu(null) }}
           onHideUri={hideUri}
           onCopyLink={() => {}}
