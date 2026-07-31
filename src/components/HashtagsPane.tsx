@@ -17,8 +17,9 @@ const MAX_VISIBLE = CHUNK * 2  // max message blocks kept in DOM at once
 
 interface HashtagsPaneProps {
   hashtags: Hashtag[]
+  thread?: string
   onReload: () => void
-  onJumpToMessage: (ts: number, msgId: string) => void
+  onJumpToMessage: (ts: number, msgId: string, thread?: string) => Promise<void> | void
   filter: string
   onFilterChange: (v: string) => void
   creating: boolean
@@ -41,7 +42,7 @@ interface HashtagsPaneProps {
   onMsgFilterChange: (v: string) => void
 }
 
-export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filter, onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange }: HashtagsPaneProps) {
+export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter, onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange }: HashtagsPaneProps) {
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [context, setContext] = useState('')
   const [allMsgs, setAllMsgs] = useState<Message[]>([])
@@ -51,6 +52,8 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
   const [newName, setNewName] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
   const [ctxMsgIds, setCtxMsgIds] = useState<string[] | null>(null)
+  const [jumpingMsgId, setJumpingMsgId] = useState<string | null>(null)
+  const [msgThread, setMsgThread] = useState<string>(thread)
   const [editingContext, setEditingContext] = useState(false)
   const ctxRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -192,13 +195,15 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
 
   async function loadMessages(h: Hashtag) {
     try {
-      const res = await apiFetch<{ groups: { blockId: string }[] }>(`/api/hashtag-groups?hashtagId=${h.id}`)
-      const blockIds = res.groups.map(g => g.blockId)
-      if (!blockIds.length) { winRef.current = { start: 0, end: CHUNK }; setWinStart(0); setWinEnd(CHUNK); setAllMsgs([]); return }
+      const res = await apiFetch<{ groups: { messageId: string }[] }>(`/api/hashtag-groups?hashtagId=${h.id}`)
+      const messageIds = res.groups.map(g => g.messageId).filter(Boolean)
+      if (!messageIds.length) { winRef.current = { start: 0, end: CHUNK }; setWinStart(0); setWinEnd(CHUNK); setAllMsgs([]); return }
+      const resolvedThread = h.thread ?? thread
+      setMsgThread(resolvedThread)
       const data = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ blockIds, showHidden: !!isSuperAdmin }),
+        body: JSON.stringify({ messageIds, thread: resolvedThread, showHidden: !!isSuperAdmin }),
       }).then(r => r.json())
       const sorted = (data.messages ?? []).sort((a: Message, b: Message) => a.timestamp_ms - b.timestamp_ms)
       const end = Math.min(CHUNK, sorted.length)
@@ -225,12 +230,12 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
     onReload()
   }
 
-  async function removeGroup(blockId: string) {
+  async function removeGroup(messageId: string) {
     if (!selected) return
     await fetch('/api/hashtag-groups', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hashtagId: selected.id, blockId }),
+      body: JSON.stringify({ hashtagId: selected.id, messageId, thread: msgThread }),
     })
     setSelected(prev => prev ? { ...prev, groupCount: Math.max(0, (prev.groupCount ?? 1) - 1) } : prev)
     await loadMessages(selected)
@@ -392,11 +397,22 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
                   renderRowActions={msg => (
                     <>
                       <button
-                        onClick={e => { e.stopPropagation(); onJumpToMessage(msg.timestamp_ms, msg._id) }}
-                        className="text-[11px] bg-white dark:bg-mist-800 border border-gray-200 dark:border-mist-600 rounded-sm px-1.5 py-0.5 text-mist-600 dark:text-mist-400 shadow-xs hover:bg-mist-50 dark:hover:bg-mist-900/30"
-                      >→ Jump</button>
+                        disabled={jumpingMsgId === msg._id}
+                        onClick={async e => {
+                          e.stopPropagation()
+                          setJumpingMsgId(msg._id)
+                          try { await onJumpToMessage(msg.timestamp_ms, msg._id, msgThread) }
+                          finally { setJumpingMsgId(null) }
+                        }}
+                        className="text-[11px] bg-white dark:bg-mist-800 border border-gray-200 dark:border-mist-600 rounded-sm px-1.5 py-0.5 text-mist-600 dark:text-mist-400 shadow-xs hover:bg-mist-50 dark:hover:bg-mist-900/30 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {jumpingMsgId === msg._id
+                          ? <><svg className="animate-spin w-2.5 h-2.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>…</>
+                          : '→ Jump'
+                        }
+                      </button>
                       <button
-                        onClick={e => { e.stopPropagation(); removeGroup(msg.blockId!) }}
+                        onClick={e => { e.stopPropagation(); removeGroup(msg._id) }}
                         className="text-[11px] bg-white dark:bg-mist-800 border border-gray-200 dark:border-mist-600 rounded-sm px-1.5 py-0.5 text-red-500 shadow-xs hover:bg-red-50 dark:hover:bg-red-900/30"
                       >× Remove</button>
                     </>
@@ -417,8 +433,8 @@ export default function HashtagsPane({ hashtags, onReload, onJumpToMessage, filt
         <ActionSheet
           onClose={() => setCtxMsgIds(null)}
           actions={[
-            { label: 'Go to message', onPress: () => { onJumpToMessage(msg.timestamp_ms, msg._id); setCtxMsgIds(null) } },
-            { label: 'Remove block', destructive: true, onPress: () => { removeGroup(msg.blockId!); setCtxMsgIds(null) } },
+            { label: 'Go to message', onPress: () => { onJumpToMessage(msg.timestamp_ms, msg._id, msgThread); setCtxMsgIds(null) } },
+            { label: 'Remove', destructive: true, onPress: () => { removeGroup(msg._id); setCtxMsgIds(null) } },
           ]}
         />
       )

@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { getPayloadClient } from '@/lib/payload-access'
-import { getMessages, getHiddenItems, getUserSettings } from '@/lib/db'
+import { getCollection, getHiddenItems, getUserSettings } from '@/lib/db'
 
 const SINGULAR_MATCH: Record<string, Record<string, unknown>> = {
   stickers: { sticker:        { $exists: true } },
@@ -15,12 +15,13 @@ const ARRAY_FIELD: Record<string, string> = {
 
 const MEDIA_TYPES = ['photos', 'videos', 'gifs', 'stickers', 'audio', 'files', 'links', 'calls']
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const thread = new URL(req.url).searchParams.get('thread') ?? 'messages'
 
   try {
-    const [msgs, payload] = await Promise.all([getMessages(), getPayloadClient()])
+    const [msgs, payload] = await Promise.all([getCollection(thread), getPayloadClient()])
 
     const user = await payload.findByID({ collection: 'users', id: session.userId, overrideAccess: true })
     const isSuperAdmin = !!(user as any)?.superAdmin

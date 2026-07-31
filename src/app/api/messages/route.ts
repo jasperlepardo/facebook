@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
-import { getMessages } from '@/lib/db'
+import { getCollection } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { getPayloadClient } from '@/lib/payload-access'
 import { getHiddenMessageFilter } from '@/lib/hidden-filter-cache'
@@ -37,16 +37,26 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
-// POST { blockIds: string[] } — fetch all messages for a set of blocks (no URL length limit)
+// POST { blockIds?: string[], messageIds?: string[] } — fetch messages by block or by specific IDs
+// messageIds: fetches those messages then expands to their full blocks for context
 export async function POST(req: NextRequest) {
   try {
-    const { blockIds: rawIds, showHidden } = await req.json()
-    if (!Array.isArray(rawIds) || !rawIds.length) return NextResponse.json({ messages: [] }, { headers: CORS })
-    const msgs = await getMessages()
-    // blockId in MongoDB is stored as ObjectId (same type as _id)
-    const blockIds = rawIds.map(id => { try { return new ObjectId(id) } catch { return id as unknown as ObjectId } })
+    const { blockIds: rawBlockIds, messageIds: rawMsgIds, showHidden, thread } = await req.json()
+    const col = await getCollection(thread ?? 'messages')
     const filter = await buildFilter(!!showHidden)
-    const docs = await msgs.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
+
+    if (Array.isArray(rawMsgIds) && rawMsgIds.length) {
+      const msgIds = rawMsgIds.map(id => { try { return new ObjectId(id) } catch { return null } }).filter((id): id is ObjectId => id !== null)
+      // Expand to full blocks so the pane shows context
+      const targeted = await col.find({ ...filter, _id: { $in: msgIds } }, { projection: { blockId: 1 } }).toArray()
+      const blockIds = [...new Set(targeted.map(m => m.blockId))]
+      const docs = await col.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
+      return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
+    }
+
+    if (!Array.isArray(rawBlockIds) || !rawBlockIds.length) return NextResponse.json({ messages: [] }, { headers: CORS })
+    const blockIds = rawBlockIds.map(id => { try { return new ObjectId(id) } catch { return id as unknown as ObjectId } })
+    const docs = await col.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
     return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
   } catch (e: unknown) {
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
@@ -64,9 +74,10 @@ export async function GET(req: NextRequest) {
   const q     = (searchParams.get('search') ?? '').trim()
   const asc   = searchParams.get('asc') === '1'
   const showHidden = searchParams.get('showHidden') === '1'
+  const thread = searchParams.get('thread') ?? 'messages'
 
   try {
-    const msgs = await getMessages()
+    const msgs = await getCollection(thread)
     const filter = await buildFilter(showHidden)
 
     const tsFrom = searchParams.get('tsFrom')

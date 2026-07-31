@@ -14,6 +14,7 @@ function VideoThumb({ src, onClick }: { src: string; onClick: () => void }) {
   useEffect(() => {
     let cancelled = false
     const video = document.createElement('video')
+    video.crossOrigin = 'anonymous'
     video.muted = true; video.playsInline = true; video.preload = 'metadata'; video.src = src
     video.onloadedmetadata = () => { video.currentTime = 0.5 }
     video.onseeked = () => {
@@ -61,7 +62,7 @@ const actionsCls = (sel: boolean) => `flex items-center gap-1 self-start pt-0.5 
 
 // ─── Shared components ───────────────────────────────────────────────────────
 
-function StatusPill({ icon, label, sublabel }: { icon: React.ReactNode; label: string; sublabel?: string }) {
+export function StatusPill({ icon, label, sublabel }: { icon: React.ReactNode; label: string; sublabel?: string }) {
   return (
     <span className={pill}>
       <span className={pillIcon}>{icon}</span>
@@ -73,13 +74,24 @@ function StatusPill({ icon, label, sublabel }: { icon: React.ReactNode; label: s
   )
 }
 
+export function renderCallPill(duration: number, missed: boolean, content?: string | null) {
+  const isVideo = (content ?? '').toLowerCase().includes('video')
+  const phoneIcon = isVideo
+    ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9l6-3v12l-6-3V9z"/></svg>
+    : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.71a16 16 0 0 0 5.38 5.38l1.81-1.81a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+  const callLabel = content ? mapFbEmoji(content.replace(/\.$/, '')) : (isVideo ? 'Video call' : 'Call')
+  if (missed) return <StatusPill icon={phoneIcon} label={callLabel} />
+  const mins = Math.floor(duration / 60), secs = duration % 60
+  return <StatusPill icon={phoneIcon} label={`${callLabel} · ${mins > 0 ? `${mins}m ${secs}s` : `${secs}s`}`} />
+}
+
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface MessageGroupProps {
   block: MessageBlock
   selectedMsgIds?: ReadonlyMap<string, unknown>
-  onToggle: (id: string, ts: number, tsEnd: number, allIds: string[], blockId: string, shiftKey?: boolean) => void
+  onToggle: (id: string, ts: number, tsEnd: number, allIds: string[], shiftKey?: boolean) => void
   onLightbox: (s: LightboxState) => void
   onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
   hideImages?: boolean
@@ -125,7 +137,9 @@ function isBlankMsg(m: Message): boolean {
   const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
   if (hasMedia || m.reactions?.length) return false
   if (m.ip && !m.content) return false
-  return !m.content
+  if (!m.content) return true
+  if (/sent (a link|a group)\.$/.test(m.content)) return true
+  return false
 }
 
 function isPhotoOnlyMsg(m: Message): boolean {
@@ -164,6 +178,14 @@ function renderContent(m: Message, isHidden: boolean, hasMedia: boolean, show: (
   if (/started a plan\.$/.test(m.content)) return (
     <StatusPill icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>} label="Sent a Messenger plan" sublabel="Event planning feature" />
   )
+  if (/started a (video )?call\.$/.test(m.content) || /^The (video )?call ended\.$/.test(m.content)) {
+    if (!show('calls')) return null
+    const isVideo = m.content.toLowerCase().includes('video')
+    const phoneIcon = isVideo
+      ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9l6-3v12l-6-3V9z"/></svg>
+      : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.71a16 16 0 0 0 5.38 5.38l1.81-1.81a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    return <StatusPill icon={phoneIcon} label={mapFbEmoji(m.content.replace(/\.$/, ''))} />
+  }
   if (m.content === '[Link]') return (
     <StatusPill icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/><line x1="2" y1="2" x2="22" y2="22"/></svg>} label="Link not saved" sublabel="URL was not captured in export" />
   )
@@ -312,17 +334,7 @@ function renderMedia(
         )
       })()}
 
-      {m.call_duration != null && (() => {
-        if (!show('calls')) return null
-        const isVideo = (m.content ?? '').toLowerCase().includes('video')
-        const phoneIcon = isVideo
-          ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9l6-3v12l-6-3V9z"/></svg>
-          : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.71a16 16 0 0 0 5.38 5.38l1.81-1.81a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-        const callLabel = m.content?.replace(/\.$/, '') ?? (isVideo ? 'Video call' : 'Call')
-        if (m.missed) return <StatusPill icon={phoneIcon} label={callLabel} />
-        const mins = Math.floor(m.call_duration / 60), secs = m.call_duration % 60
-        return <StatusPill icon={phoneIcon} label={`${callLabel} · ${mins > 0 ? `${mins}m ${secs}s` : `${secs}s`}`} />
-      })()}
+      {m.call_duration != null && show('calls') && renderCallPill(m.call_duration, !!m.missed, m.content)}
 
 
       {show('reactions') && !!m.reactions?.length && (
@@ -353,7 +365,7 @@ const MessageRow = memo(function MessageRow({
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('a,button,audio,video,img')) return
     if (e.shiftKey) e.preventDefault()
-    onToggle(m._id, m.timestamp_ms, m.timestamp_ms, [m._id], m.blockId ?? m._id, e.shiftKey)
+    onToggle(m._id, m.timestamp_ms, m.timestamp_ms, [m._id], e.shiftKey)
   }
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!onContextMenu || e.touches.length !== 1) return
@@ -399,7 +411,7 @@ const MessageRow = memo(function MessageRow({
               </button>
             )}
             <input type="checkbox" checked={isSel} onChange={() => {}}
-              onClick={e => { e.stopPropagation(); onToggle(m._id, m.timestamp_ms, m.timestamp_ms, [m._id], m.blockId ?? m._id, e.shiftKey) }}
+              onClick={e => { e.stopPropagation(); onToggle(m._id, m.timestamp_ms, m.timestamp_ms, [m._id], e.shiftKey) }}
               className="w-4 h-4 cursor-pointer accent-mist-600 shrink-0"
             />
           </>

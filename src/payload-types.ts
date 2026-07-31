@@ -69,6 +69,7 @@ export interface Config {
     users: User;
     hashtags: Hashtag;
     'hashtag-groups': HashtagGroup;
+    threads: Thread;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -78,6 +79,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     hashtags: HashtagsSelect<false> | HashtagsSelect<true>;
     'hashtag-groups': HashtagGroupsSelect<false> | HashtagGroupsSelect<true>;
+    threads: ThreadsSelect<false> | ThreadsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -158,6 +160,10 @@ export interface Hashtag {
    * Hyphenated, e.g. first-date
    */
   name: string;
+  /**
+   * Collection name of the thread this hashtag belongs to
+   */
+  thread?: string | null;
   context?: string | null;
   /**
    * If true, only visible to the author (createdById) and super admins
@@ -189,8 +195,56 @@ export interface Hashtag {
 export interface HashtagGroup {
   id: string;
   hashtagId: string;
-  blockId: string;
+  messageId: string;
+  thread: string;
   firstMsgTs?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "threads".
+ */
+export interface Thread {
+  id: string;
+  /**
+   * Display name shown in the app
+   */
+  name: string;
+  /**
+   * Avatar initials (1-2 chars)
+   */
+  initials?: string | null;
+  color?:
+    | (
+        | 'bg-rose-400'
+        | 'bg-violet-400'
+        | 'bg-amber-400'
+        | 'bg-sky-400'
+        | 'bg-pink-400'
+        | 'bg-indigo-400'
+        | 'bg-emerald-400'
+        | 'bg-orange-400'
+      )
+    | null;
+  /**
+   * MongoDB collection name — do not change after import
+   */
+  collection: string;
+  /**
+   * Facebook thread ID from export folder name
+   */
+  facebookThreadId?: string | null;
+  participants?:
+    | {
+        name?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Updated after each import
+   */
+  messageCount?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -212,6 +266,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'hashtag-groups';
         value: string | HashtagGroup;
+      } | null)
+    | ({
+        relationTo: 'threads';
+        value: string | Thread;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -293,6 +351,7 @@ export interface UsersSelect<T extends boolean = true> {
  */
 export interface HashtagsSelect<T extends boolean = true> {
   name?: T;
+  thread?: T;
   context?: T;
   isPrivate?: T;
   createdBy?: T;
@@ -308,8 +367,29 @@ export interface HashtagsSelect<T extends boolean = true> {
  */
 export interface HashtagGroupsSelect<T extends boolean = true> {
   hashtagId?: T;
-  blockId?: T;
+  messageId?: T;
+  thread?: T;
   firstMsgTs?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "threads_select".
+ */
+export interface ThreadsSelect<T extends boolean = true> {
+  name?: T;
+  initials?: T;
+  color?: T;
+  collection?: T;
+  facebookThreadId?: T;
+  participants?:
+    | T
+    | {
+        name?: T;
+        id?: T;
+      };
+  messageCount?: T;
   updatedAt?: T;
   createdAt?: T;
 }

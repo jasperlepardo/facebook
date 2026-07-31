@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { getMessages } from '@/lib/db'
+import { NextRequest, NextResponse } from 'next/server'
+import { getCollection } from '@/lib/db'
 import type { DateBoundary, DateIndex } from '@/types'
 
 const CORS = {
@@ -28,13 +28,15 @@ const fmtDay   = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateStrin
 const fmtWeek  = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 const fmtMonth = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 
-let cache: DateIndex | null = null
+const cache = new Map<string, DateIndex>()
 
-export async function GET() {
-  if (cache) return NextResponse.json(cache, { headers: CORS })
+export async function GET(req: NextRequest) {
+  const thread = new URL(req.url).searchParams.get('thread') ?? 'messages'
+  const cached = cache.get(thread)
+  if (cached) return NextResponse.json(cached, { headers: CORS })
 
   try {
-    const col = await getMessages()
+    const col = await getCollection(thread)
 
     // One aggregation: count of messages per calendar day + first timestamp
     const docs = await col.aggregate<{ _id: string; count: number; firstTs: number }>([
@@ -64,8 +66,9 @@ export async function GET() {
       offset += count
     }
 
-    cache = { days, weeks: [...weeks.values()], months: [...months.values()] }
-    return NextResponse.json(cache satisfies DateIndex, { headers: CORS })
+    const index: DateIndex = { days, weeks: [...weeks.values()], months: [...months.values()] }
+    cache.set(thread, index)
+    return NextResponse.json(index satisfies DateIndex, { headers: CORS })
   } catch (e: unknown) {
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }

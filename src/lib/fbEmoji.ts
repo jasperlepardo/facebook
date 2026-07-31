@@ -1,3 +1,12 @@
+// UTF-8 bytes stored as Latin-1 chars (Facebook export encoding bug) → correct Unicode
+function fixMojibake(s: string): string {
+  if (!s || !/[\x80-\xFF]/.test(s)) return s
+  try {
+    const bytes = new Uint8Array([...s].map(c => c.charCodeAt(0)))
+    return new TextDecoder('utf-8').decode(bytes)
+  } catch { return s }
+}
+
 // Facebook Messenger legacy emoji — private-use codepoints → standard Unicode emoji
 // Mapped from context analysis of actual message corpus
 const MAP: Record<number, string> = {
@@ -57,6 +66,7 @@ const PUA_SUPP_HI = 0xFFFFF
 
 export function mapFbEmoji(text: string): string {
   if (!text) return text
+  text = fixMojibake(text)
   const chars = [...text] // iterate by codepoint, not UTF-16 unit
   let out = ''
   for (const ch of chars) {

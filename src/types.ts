@@ -122,6 +122,7 @@ export type MediaTab = 'photos' | 'videos' | 'gifs' | 'audio' | 'files' | 'stick
 export interface Hashtag {
   id: string
   name: string
+  thread?: string
   context?: string
   isPrivate?: boolean
   createdBy?: string

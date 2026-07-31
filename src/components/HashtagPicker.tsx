@@ -5,13 +5,12 @@ import { toSlug } from '@/lib/utils'
 
 interface HashtagPickerProps {
   hashtags: Hashtag[]
-  blockIds: string[]
   initialSelected?: Set<string>
   onClose: () => void
   onApply: (hashtagIds: string[], newNames: string[]) => void
 }
 
-export default function HashtagPicker({ hashtags, blockIds, initialSelected, onClose, onApply }: HashtagPickerProps) {
+export default function HashtagPicker({ hashtags, initialSelected, onClose, onApply }: HashtagPickerProps) {
   const [input, setInput] = useState('')
   const [selected, setSelected] = useState<Set<string>>(initialSelected ?? new Set())
   const [newTags, setNewTags] = useState<string[]>([])

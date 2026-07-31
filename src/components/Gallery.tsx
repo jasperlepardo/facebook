@@ -7,6 +7,7 @@ import { GALLERY_LIMIT } from '@/lib/constants'
 
 interface GalleryProps {
   type: 'photos' | 'videos' | 'gifs' | 'stickers'
+  thread?: string
   onLightbox: (s: LightboxState) => void
   onContextMenu: (e: React.MouseEvent, item: GalleryItem) => void
   hideImages?: boolean
@@ -16,7 +17,7 @@ interface GalleryProps {
   onUnhideUri?: (uri: string) => void
 }
 
-export default function Gallery({ type, onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri }: GalleryProps) {
+export default function Gallery({ type, thread = 'messages', onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri }: GalleryProps) {
   const [items, setItems]     = useState<GalleryItem[]>([])
   const itemsRef    = useRef<GalleryItem[]>([])
   const [hasMore, setHasMore] = useState(true)
@@ -28,14 +29,15 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
   const sentinelRef = useRef<HTMLDivElement>(null)
   const saveTimer   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const deviceId    = useRef('')
+  const userNameRef = useRef('')
 
   async function load() {
     if (!hasMoreRef.current || loadingRef.current) return
     loadingRef.current = true
     setLoading(true)
-    const res = await fetch(`/api/attachments?type=${type}&offset=${offset.current}&limit=${GALLERY_LIMIT}`)
+    const res = await fetch(`/api/attachments?type=${type}&offset=${offset.current}&limit=${GALLERY_LIMIT}&thread=${thread}`)
     const data = await res.json()
-    setItems(prev => { const next = [...prev, ...data.items]; itemsRef.current = next; return next })
+    setItems(prev => { const next = [...prev, ...(data.items ?? [])]; itemsRef.current = next; return next })
     hasMoreRef.current = data.has_more
     setHasMore(data.has_more)
     offset.current += GALLERY_LIMIT
@@ -47,11 +49,12 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
     const id = deviceId.current
     if (!id) return
     clearTimeout(saveTimer.current)
+    const ns = `${userNameRef.current ? userNameRef.current + '-' : ''}gallery-${thread}-${type}`
     saveTimer.current = setTimeout(() => {
       fetch('/api/bookmark', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ msgId: String(offset.current), offset: scrollTop, deviceId: id, ns: `gallery-${type}` }),
+        body: JSON.stringify({ msgId: String(offset.current), offset: scrollTop, deviceId: id, ns }),
       }).catch(() => {})
     }, 300)
   }
@@ -63,9 +66,11 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
 
     async function init() {
       setItems([]); setHasMore(true); hasMoreRef.current = true; offset.current = 0; loadingRef.current = false
+      try { const d = await fetch('/api/auth/me').then(r => r.json()); if (d?.name) userNameRef.current = d.name } catch {}
+      const ns = `${userNameRef.current ? userNameRef.current + '-' : ''}gallery-${thread}-${type}`
       let startOffset = 0, scrollTop = 0
       try {
-        const bk = await fetch(`/api/bookmark?deviceId=${id}&ns=gallery-${type}`).then(r => r.json())
+        const bk = await fetch(`/api/bookmark?deviceId=${id}&ns=${encodeURIComponent(ns)}`).then(r => r.json())
         if (bk.msgId) { startOffset = parseInt(bk.msgId) || 0; scrollTop = bk.offset ?? 0 }
       } catch {}
 
@@ -77,9 +82,9 @@ export default function Gallery({ type, onLightbox, onContextMenu, hideImages, h
           chunks.push({ offset: o, limit: Math.min(CHUNK, startOffset - o) })
         }
         const results = await Promise.all(
-          chunks.map(c => fetch(`/api/attachments?type=${type}&offset=${c.offset}&limit=${c.limit}`).then(r => r.json()))
+          chunks.map(c => fetch(`/api/attachments?type=${type}&offset=${c.offset}&limit=${c.limit}&thread=${thread}`).then(r => r.json()))
         )
-        const loaded: GalleryItem[] = results.flatMap((r: any) => r.items as GalleryItem[])
+        const loaded: GalleryItem[] = results.flatMap((r: any) => r.items ?? [])
         const lastMore: boolean = results[results.length - 1]?.has_more ?? false
         itemsRef.current = loaded
         setItems(loaded)

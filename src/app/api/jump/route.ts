@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
-import { getMessages } from '@/lib/db'
+import { getCollection } from '@/lib/db'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -16,12 +16,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const msgId   = searchParams.get('msgId')
   const dateStr = searchParams.get('date') ?? ''
+  const thread  = searchParams.get('thread') ?? 'messages'
   try {
-    const msgs = await getMessages()
+    const msgs = await getCollection(thread)
     let targetTs: number
     if (msgId) {
       const doc = await msgs.findOne({ _id: new ObjectId(msgId) }, { projection: { timestamp_ms: 1 } })
-      if (!doc) return NextResponse.json({ error: 'not found' }, { status: 404, headers: CORS })
+      if (!doc) return NextResponse.json({ index: null }, { headers: CORS })
       targetTs = doc.timestamp_ms as number
     } else {
       const date = new Date(dateStr)

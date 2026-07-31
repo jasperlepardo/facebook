@@ -29,14 +29,16 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
-// GET ?limit=&sort=&depth=  — list hashtags (private ones filtered by caller identity)
+// GET ?limit=&sort=&depth=&thread=  — list hashtags (optionally scoped to a thread)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const limit = parseInt(searchParams.get('limit') ?? '200')
-    const sort  = searchParams.get('sort') ?? 'name'
-    const depth = parseInt(searchParams.get('depth') ?? '0')
+    const limit  = parseInt(searchParams.get('limit') ?? '200')
+    const sort   = searchParams.get('sort') ?? 'name'
+    const depth  = parseInt(searchParams.get('depth') ?? '0')
+    const thread = searchParams.get('thread')
     const payload = await getPayload({ config })
+
     const result = await payload.find({
       collection: 'hashtags',
       limit,

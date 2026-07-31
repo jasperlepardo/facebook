@@ -5,6 +5,7 @@ import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import { HashtagGroups } from './collections/HashtagGroups'
 import { Hashtags } from './collections/Hashtags'
+import { Threads } from './collections/Threads'
 import { Users } from './collections/Users'
 
 const filename = fileURLToPath(import.meta.url)
@@ -14,7 +15,7 @@ export default buildConfig({
   admin: {
     user: 'users',
   },
-  collections: [Users, Hashtags, HashtagGroups],
+  collections: [Users, Hashtags, HashtagGroups, Threads],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || 'resibo-secret-key',
   typescript: {

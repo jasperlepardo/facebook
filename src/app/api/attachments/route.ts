@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getMessages } from '@/lib/db'
+import { getCollection } from '@/lib/db'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -33,12 +33,13 @@ const ARRAY_FIELD: Record<string, string> = {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const atype = searchParams.get('type') ?? 'photos'
-  const off   = parseInt(searchParams.get('offset') ?? '0')
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '60'), 500)
+  const atype  = searchParams.get('type') ?? 'photos'
+  const off    = parseInt(searchParams.get('offset') ?? '0')
+  const limit  = Math.min(parseInt(searchParams.get('limit') ?? '60'), 500)
+  const thread = searchParams.get('thread') ?? 'messages'
 
   try {
-    const msgs = await getMessages()
+    const msgs = await getCollection(thread)
 
     // ── Singular types (stickers, links, calls) ──────────────────────────────
     if (atype in SINGULAR_TYPES) {
@@ -96,7 +97,9 @@ export async function GET(req: NextRequest) {
       { $project: { uri: `$${field}.uri`, ts: '$timestamp_ms', sender: '$sender_name', msgId: { $toString: '$_id' } } },
     ]).toArray()
 
-    const items = docs.map((d: any) => ({ uri: d.uri, ts: d.ts, sender: d.sender ?? '', msgId: d.msgId }))
+    const items = docs
+      .map((d: any) => ({ uri: d.uri, ts: d.ts, sender: d.sender ?? '', msgId: d.msgId }))
+      .filter((item: any) => item.uri)
     return NextResponse.json({ items, total, has_more: off + limit < total }, { headers: CORS })
   } catch (e: unknown) {
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })

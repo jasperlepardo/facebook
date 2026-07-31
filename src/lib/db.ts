@@ -17,17 +17,16 @@ const clientPromise: Promise<MongoClient> =
     ? (global._mongoClientPromise ??= makeClientPromise())
     : makeClientPromise()
 
-let messagesIndexed = false
+const indexedCollections = new Set<string>()
 
-export async function getMessages() {
-  const col = (await clientPromise).db().collection('messages')
-  if (!messagesIndexed) {
-    messagesIndexed = true
+export async function getCollection(collectionName: string) {
+  const col = (await clientPromise).db().collection(collectionName)
+  if (!indexedCollections.has(collectionName)) {
+    indexedCollections.add(collectionName)
     Promise.all([
       col.createIndex({ timestamp_ms: 1 }),
       col.createIndex({ blockId: 1, timestamp_ms: 1 }),
       col.createIndex({ content: 'text', sender_name: 'text' }),
-      // Partial indexes for fast attachment aggregation $match + $sort
       col.createIndex({ timestamp_ms: 1 }, { partialFilterExpression: { photos: { $exists: true } }, name: 'photos_ts' }),
       col.createIndex({ timestamp_ms: 1 }, { partialFilterExpression: { videos: { $exists: true } }, name: 'videos_ts' }),
       col.createIndex({ timestamp_ms: 1 }, { partialFilterExpression: { gifs: { $exists: true } }, name: 'gifs_ts' }),
@@ -40,6 +39,8 @@ export async function getMessages() {
   }
   return col
 }
+
+export const getMessages = () => getCollection('messages')
 
 export async function getSettings() {
   return (await clientPromise).db().collection('settings')

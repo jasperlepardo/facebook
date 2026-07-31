@@ -21,9 +21,7 @@ import ThreadAvatar from './ThreadAvatar'
 
 const SettingsPane = dynamic(() => import('./SettingsPane'), { ssr: false })
 
-const THREADS = [
-  { id: 'messages', name: 'Ciara', initials: 'C', color: 'bg-rose-400' },
-]
+interface Thread { id: string; name: string; initials: string; color: string; collection: string; participants?: string[] }
 
 const HASHTAG_COLORS = [
   'bg-mist-500', 'bg-rose-400', 'bg-violet-400', 'bg-amber-400',
@@ -36,7 +34,11 @@ function hashtagColor(name: string) {
 
 export default function ViewerApp() {
   // Navigation — default to 'chat' for SSR, then correct from URL after hydration
-  const [section, setSection]         = useState<Section>('chat')
+  const [section, setSection]         = useState<Section>(() => {
+    if (typeof window === 'undefined') return 'chat'
+    const s = new URLSearchParams(window.location.search).get('s')
+    return (s === 'hashtags' || s === 'settings' || s === 'story') ? s as Section : 'chat'
+  })
   const [prevSection, setPrevSection] = useState<'chat' | 'hashtags' | 'story'>('chat')
   const [searchInput, setSearchInput] = useState('')
   const [hideImages, setHideImages] = useState(false)
@@ -63,8 +65,15 @@ export default function ViewerApp() {
   const [mediaCounts, setMediaCounts] = useState<Record<string, number>>({})
 
   // Thread selection + list meta
-  const [activeThread, setActiveThread] = useState<string>('messages')
-  const [chatDetailOpen, setChatDetailOpen] = useState(false)
+  const [activeThread, setActiveThread] = useState<string>(() => {
+    if (typeof window === 'undefined') return 'messages'
+    return new URLSearchParams(window.location.search).get('thread') ?? 'messages'
+  })
+  const [chatDetailOpen, setChatDetailOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const p = new URLSearchParams(window.location.search)
+    return !!(p.get('msg') || p.get('thread'))
+  })
   const [threadFilter, setThreadFilter] = useState('')
   const [threadMeta, setThreadMeta] = useState<Record<string, { subtitle: string; badge: string }>>({})
 
@@ -87,6 +96,7 @@ export default function ViewerApp() {
   const [chatDateIndex, setChatDateIndex] = useState<DateIndex | null>(null)
 
   const [initialized, setInitialized] = useState(false)
+  const [threads, setThreads] = useState<Thread[]>([{ id: 'messages', name: 'Ciara', initials: 'C', color: 'bg-rose-400', collection: 'messages' }])
 
   // UI overlays
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -100,11 +110,12 @@ export default function ViewerApp() {
 
   // ─── Jump wrapper ───────────────────────────────────────────────────────────
 
-  const jumpToMessage = useCallback(async (ts: number, msgId: string | null) => {
+  const jumpToMessage = useCallback(async (ts: number, msgId: string | null, thread?: string): Promise<void> => {
+    if (thread && thread !== activeThread) setActiveThread(thread)
     setSection('chat')
     setChatDetailOpen(true)
     await jumpFnRef.current?.(ts, msgId)
-  }, [])
+  }, [activeThread])
 
   const jumpToDate = useCallback((ts: number) => {
     jumpToMessage(ts, null)
@@ -130,13 +141,25 @@ export default function ViewerApp() {
       const s = params.get('s')
       if (s === 'hashtags' || s === 'settings' || s === 'story') setSection(s)
       if (params.get('msg')) setChatDetailOpen(true)
+      const thread = params.get('thread')
+      if (thread) {
+        setActiveThread(thread)
+        if (!params.get('s')) setChatDetailOpen(true)
+      }
       return
     }
-    if (section === 'chat') { params.delete('s'); params.delete('t') }
-    else { params.set('s', section); params.delete('msg'); params.delete('t') }
+    if (section === 'chat') {
+      params.delete('s')
+    } else {
+      params.set('s', section)
+      params.delete('msg')
+    }
+    if (activeThread !== 'messages') params.set('thread', activeThread)
+    else params.delete('thread')
+    if (section !== 'chat') params.delete('msg')
     const qs = params.toString()
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-  }, [section])
+  }, [section, activeThread, chatDetailOpen])
 
   // ─── Init ───────────────────────────────────────────────────────────────────
 
@@ -160,11 +183,7 @@ export default function ViewerApp() {
           setDbHiddenItems(d.hiddenItems)
         }
 
-        if (d.hashtags?.length) {
-          setHashtags(d.hashtags)
-        } else {
-          reloadHashtags()
-        }
+        reloadHashtags()
 
         if (d.userSettings?.chatContentTypes) {
           setEnabledTypes(new Set<ContentTypeKey>(d.userSettings.chatContentTypes))
@@ -176,8 +195,36 @@ export default function ViewerApp() {
       } catch {}
       finally { setInitialized(true) }
     }
+    async function loadThreads() {
+      try {
+        const d = await apiFetch<{ threads: Thread[] }>('/api/threads')
+        if (d.threads?.length) {
+          setThreads(d.threads.map(t => ({ ...t, id: t.collection })))
+        }
+      } catch {}
+    }
     init()
+    loadThreads()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Reload thread-specific data when active thread changes ─────────────────
+
+  useEffect(() => {
+    async function loadThreadData() {
+      try {
+        const d = await fetch(`/api/init?thread=${activeThread}`).then(r => r.ok ? r.json() : null)
+        if (!d) return
+        if (d.threadLastMsg) {
+          setThreadMeta(prev => ({
+            ...prev,
+            [activeThread]: { subtitle: d.threadLastMsg.subtitle, badge: relTime(d.threadLastMsg.ts) },
+          }))
+        }
+        if (d.mediaCounts) setMediaCounts(d.mediaCounts)
+      } catch {}
+    }
+    loadThreadData()
+  }, [activeThread])
 
   // ─── Context menu (gallery only) ─────────────────────────────────────────────
 
@@ -263,7 +310,7 @@ export default function ViewerApp() {
 
   const sectionTitle = section === 'chat' ? 'Chat' : section === 'settings' ? 'Settings' : section === 'story' ? 'Story' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
 
-  const threadItems = useMemo<ListPaneItem[]>(() => THREADS.map(t => ({
+  const threadItems = useMemo<ListPaneItem[]>(() => threads.map(t => ({
     id: t.id, label: t.name, initials: t.initials, color: t.color,
     subtitle: threadMeta[t.id]?.subtitle, badge: threadMeta[t.id]?.badge,
   })), [threadMeta])
@@ -276,7 +323,7 @@ export default function ViewerApp() {
   })), [hashtags])
 
   function renderDetailPane(controls: AppLayoutControls) {
-    const thread = THREADS.find(t => t.id === activeThread)
+    const thread = threads.find(t => t.id === activeThread)
     const backFn = section === 'settings'
       ? () => { setSection(prevSection); controls.onShowList() }
       : section === 'hashtags' && activeHashtagName
@@ -435,6 +482,7 @@ export default function ViewerApp() {
           {/* Chat section */}
           <div className={`flex-1 flex flex-col min-h-0 relative${section !== 'chat' ? ' hidden' : !chatDetailOpen ? ' md:hidden' : ''}`}>
             <ChatDetailPane
+              key={activeThread}
               search={searchInput}
               onSearchChange={setSearchInput}
               scrollRef={chatScrollRef}
@@ -456,6 +504,7 @@ export default function ViewerApp() {
               onStatsChange={(total, dateIndex) => { setChatTotal(total); setChatDateIndex(dateIndex) }}
               enabledTypes={enabledTypes}
               senderColor={thread?.color}
+              thread={thread?.collection ?? activeThread}
             />
           </div>
 
@@ -473,6 +522,7 @@ export default function ViewerApp() {
           <div className={`flex-1 flex flex-col min-h-0${section !== 'hashtags' ? ' hidden' : (!activeHashtagName && !hashtagCreating) ? ' md:hidden' : ''}`}>
             <HashtagsPane
               hashtags={hashtags}
+              thread={activeThread}
               onReload={reloadHashtags}
               onJumpToMessage={jumpToMessage}
               filter={hashtagFilter}
@@ -635,6 +685,11 @@ export default function ViewerApp() {
         detailPane={renderDetailPane}
         mediaPane={section === 'chat' && showMediaPane ? (
           <MediaPane
+            key={activeThread}
+            thread={activeThread}
+            threadName={threads.find(t => t.id === activeThread)?.name}
+            threadCollection={activeThread}
+            participants={threads.find(t => t.id === activeThread)?.participants}
             counts={mediaCounts}
             onLightbox={setLightbox}
             onContextMenu={handleGalleryContextMenu}
@@ -643,6 +698,11 @@ export default function ViewerApp() {
             isSuperAdmin={isSuperAdmin}
             onHideUri={handleHideDbUri}
             onUnhideUri={handleUnhideDbUri}
+            onThreadDeleted={collection => {
+              setThreads(prev => prev.filter(t => t.collection !== collection))
+              setActiveThread(prev => prev === collection ? (threads.find(t => t.collection !== collection)?.id ?? 'messages') : prev)
+              setShowMediaPane(false)
+            }}
             onClose={() => setShowMediaPane(false)}
           />
         ) : undefined}

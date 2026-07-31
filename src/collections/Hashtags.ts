@@ -17,6 +17,7 @@ export const Hashtags: CollectionConfig = {
   },
   fields: [
     { name: 'name', type: 'text', required: true, admin: { description: 'Hyphenated, e.g. first-date' } },
+    { name: 'thread', type: 'text', admin: { description: 'Collection name of the thread this hashtag belongs to' } },
     { name: 'context', type: 'textarea' },
     { name: 'isPrivate', type: 'checkbox', defaultValue: false, admin: { description: 'If true, only visible to the author (createdById) and super admins' } },
     { name: 'createdBy', type: 'text', admin: { readOnly: true, description: 'Name of the user who created this hashtag' } },

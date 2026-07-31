@@ -3,14 +3,14 @@ import { useEffect, useState } from 'react'
 
 interface LinkItem { uri: string; text?: string; ts: number; sender: string; msgId: string }
 
-export default function LinksView() {
+export default function LinksView({ thread = 'messages' }: { thread?: string }) {
   const [items, setItems] = useState<LinkItem[]>([])
 
   useEffect(() => {
-    fetch('/api/attachments?type=links&offset=0&limit=500')
+    fetch(`/api/attachments?type=links&offset=0&limit=500&thread=${thread}`)
       .then(r => r.json())
       .then(d => setItems(d.items ?? []))
-  }, [])
+  }, [thread])
 
   if (!items.length) return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">

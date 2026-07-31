@@ -9,7 +9,7 @@ interface MessageListProps {
   blocks: MessageBlock[]
   onLightbox: (s: LightboxState) => void
   selectedMsgIds?: ReadonlyMap<string, unknown>
-  onToggle?: (id: string, ts: number, tsEnd: number, allIds: string[], blockId: string, shiftKey?: boolean) => void
+  onToggle?: (id: string, ts: number, tsEnd: number, allIds: string[], shiftKey?: boolean) => void
   onContextMenu?: (e: React.MouseEvent, msgIds: string[]) => void
   dateIndex?: DateIndex | null
   onJumpTo?: (target: string) => void

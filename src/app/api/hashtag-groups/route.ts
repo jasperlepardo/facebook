@@ -1,7 +1,8 @@
 import config from '@payload-config'
 import { NextRequest, NextResponse } from 'next/server'
+import { ObjectId } from 'mongodb'
 import { getPayload } from 'payload'
-import { getMessages } from '@/lib/db'
+import { getCollection } from '@/lib/db'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -12,36 +13,39 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
-// GET ?hashtagId=xxx           → groups for that hashtag
-// GET ?blockId=xxx             → hashtagIds for that block
-// GET ?blockIds=id1,id2,...    → union of hashtagIds across all blocks (batch pre-check)
+// GET ?hashtagId=xxx&thread=xxx     → groups for that hashtag in this thread
+// GET ?messageId=xxx&thread=xxx     → hashtagIds for that message in this thread
+// GET ?messageIds=id1,id2&thread=xx → union of hashtagIds across messages in this thread
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const hashtagId  = searchParams.get('hashtagId')
-  const blockId    = searchParams.get('blockId')
-  const blockIds   = searchParams.get('blockIds')
+  const messageId  = searchParams.get('messageId')
+  const messageIds = searchParams.get('messageIds')
+  const thread     = searchParams.get('thread') // null means no thread filter
 
   try {
     const payload = await getPayload({ config })
 
     if (hashtagId) {
+      // thread filter is optional — omit to return groups across all threads
+      const where = { hashtagId: { equals: hashtagId }, ...(thread ? { thread: { equals: thread } } : {}) }
       const result = await payload.find({
         collection: 'hashtag-groups',
-        where: { hashtagId: { equals: hashtagId } },
+        where,
         pagination: false,
         depth: 0,
         overrideAccess: true,
       })
       return NextResponse.json({
-        groups: result.docs.map(d => ({ id: d.id, hashtagId: d.hashtagId, blockId: d.blockId, firstMsgTs: d.firstMsgTs })),
+        groups: result.docs.map(d => ({ id: d.id, hashtagId: d.hashtagId, messageId: d.messageId, thread: d.thread, firstMsgTs: d.firstMsgTs })),
       }, { headers: CORS })
     }
 
-    if (blockIds) {
-      const ids = blockIds.split(',').filter(Boolean)
+    if (messageIds) {
+      const ids = messageIds.split(',').filter(Boolean)
       const result = await payload.find({
         collection: 'hashtag-groups',
-        where: { blockId: { in: ids } },
+        where: { messageId: { in: ids }, thread: { equals: thread } },
         pagination: false,
         depth: 0,
         overrideAccess: true,
@@ -50,73 +54,69 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ hashtagIds }, { headers: CORS })
     }
 
-    if (blockId) {
+    if (messageId) {
       const result = await payload.find({
         collection: 'hashtag-groups',
-        where: { blockId: { equals: blockId } },
+        where: { messageId: { equals: messageId }, thread: { equals: thread } },
         depth: 0,
         overrideAccess: true,
       })
       return NextResponse.json({
-        groups: result.docs.map(d => ({ id: d.id, hashtagId: d.hashtagId, blockId: d.blockId })),
+        groups: result.docs.map(d => ({ id: d.id, hashtagId: d.hashtagId, messageId: d.messageId, thread: d.thread })),
       }, { headers: CORS })
     }
 
-    return NextResponse.json({ error: 'hashtagId or blockId required' }, { status: 400, headers: CORS })
+    return NextResponse.json({ error: 'hashtagId, messageId, or messageIds required' }, { status: 400, headers: CORS })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }
 }
 
-// POST { hashtagId, blockIds: string[] } — idempotent batch tag
+// POST { hashtagId, messageIds: string[], thread: string } — idempotent batch tag
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const hashtagId: string = body.hashtagId
-    // Support both single blockId and batch blockIds
-    const blockIds: string[] = body.blockIds ?? (body.blockId ? [body.blockId] : [])
-    if (!hashtagId || !blockIds.length) return NextResponse.json({ error: 'hashtagId and blockIds required' }, { status: 400, headers: CORS })
+    const hashtagId: string  = body.hashtagId
+    const thread: string     = body.thread ?? 'messages'
+    const messageIds: string[] = body.messageIds ?? (body.messageId ? [body.messageId] : [])
+    if (!hashtagId || !messageIds.length)
+      return NextResponse.json({ error: 'hashtagId and messageIds required' }, { status: 400, headers: CORS })
 
     const payload = await getPayload({ config })
-    const model = (payload.db as any).collections['hashtag-groups']
+    const model   = (payload.db as any).collections['hashtag-groups']
 
-    // Find which blockIds already exist in one query
-    const existing = await model.find({ hashtagId, blockId: { $in: blockIds } }).lean()
-    const existingSet = new Set((existing as { blockId: string }[]).map(d => d.blockId))
-    const newBlockIds = blockIds.filter(bid => !existingSet.has(bid))
+    const existing = await model.find({ hashtagId, thread, messageId: { $in: messageIds } }).lean()
+    const existingSet = new Set((existing as { messageId: string }[]).map(d => d.messageId))
+    const newMessageIds = messageIds.filter((mid: string) => !existingSet.has(mid))
 
-    if (newBlockIds.length > 0) {
-      // Fetch firstMsgTs for all new blocks in one query
-      const msgs = await getMessages()
+    if (newMessageIds.length > 0) {
+      const msgs = await getCollection(thread)
       const msgDocs = await msgs.find(
-        { blockId: { $in: newBlockIds } },
-        { projection: { blockId: 1, timestamp_ms: 1 } }
-      ).sort({ timestamp_ms: 1 }).toArray()
+        { _id: { $in: newMessageIds.map((id: string) => new ObjectId(id)) } },
+        { projection: { _id: 1, timestamp_ms: 1 } }
+      ).toArray()
       const tsMap = new Map<string, number>()
-      for (const m of msgDocs) {
-        const bid = String(m.blockId)
-        if (!tsMap.has(bid)) tsMap.set(bid, m.timestamp_ms as number)
-      }
+      for (const m of msgDocs) tsMap.set(m._id.toHexString(), m.timestamp_ms as number)
 
-      // Bulk insert, bypassing per-doc hooks to avoid concurrent resyncs
       const now = new Date()
-      await model.insertMany(newBlockIds.map(blockId => ({
+      await model.insertMany(newMessageIds.map((messageId: string) => ({
         hashtagId,
-        blockId,
-        ...(tsMap.has(blockId) ? { firstMsgTs: tsMap.get(blockId) } : {}),
+        messageId,
+        thread,
+        ...(tsMap.has(messageId) ? { firstMsgTs: tsMap.get(messageId) } : {}),
         createdAt: now,
         updatedAt: now,
         __v: 0,
       })))
 
-      // Single resync after all inserts
-      const allGroups = await model.find({ hashtagId }).sort({ firstMsgTs: 1 }).lean() as { firstMsgTs?: number }[]
-      const groupCount = allGroups.length
-      const firstMsgTs = allGroups[0]?.firstMsgTs
+      const allGroups = await model.find({ hashtagId, thread }).sort({ firstMsgTs: 1 }).lean() as { firstMsgTs?: number }[]
       await payload.update({
         collection: 'hashtags',
         id: hashtagId,
-        data: { groupCount, ...(firstMsgTs != null ? { firstMsgTs } : {}) },
+        data: {
+          groupCount: allGroups.length,
+          ...(allGroups[0]?.firstMsgTs != null ? { firstMsgTs: allGroups[0].firstMsgTs } : {}),
+        },
         overrideAccess: true,
       })
     }
@@ -127,24 +127,24 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE { hashtagId, blockId } — untag
+// DELETE { hashtagId, messageId, thread } — untag
 export async function DELETE(req: NextRequest) {
   try {
-    const { hashtagId, blockId } = await req.json()
-    if (!hashtagId || !blockId) return NextResponse.json({ error: 'hashtagId and blockId required' }, { status: 400, headers: CORS })
+    const { hashtagId, messageId, thread = 'messages' } = await req.json()
+    if (!hashtagId || !messageId)
+      return NextResponse.json({ error: 'hashtagId and messageId required' }, { status: 400, headers: CORS })
 
     const payload = await getPayload({ config })
 
     const existing = await payload.find({
       collection: 'hashtag-groups',
-      where: { hashtagId: { equals: hashtagId }, blockId: { equals: blockId } },
+      where: { hashtagId: { equals: hashtagId }, messageId: { equals: messageId }, thread: { equals: thread } },
       limit: 1,
       depth: 0,
       overrideAccess: true,
     })
     if (existing.totalDocs === 0) return NextResponse.json({ ok: true }, { headers: CORS })
 
-    // afterDelete hook on HashtagGroups will resync groupCount + firstMsgTs on Hashtag
     await payload.delete({
       collection: 'hashtag-groups',
       id: existing.docs[0].id,

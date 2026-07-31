@@ -3,22 +3,23 @@ import { useEffect, useState } from 'react'
 import { GalleryItem } from '@/types'
 import { r2 } from '@/lib/format'
 
-export default function FilesView({ type = 'all' }: { type?: 'files' | 'audio' | 'all' }) {
+export default function FilesView({ type = 'all', thread = 'messages' }: { type?: 'files' | 'audio' | 'all'; thread?: string }) {
   const [items, setItems] = useState<(GalleryItem & { kind: string })[]>([])
 
   useEffect(() => {
+    const q = `&thread=${thread}`
     const fetches = type === 'files'
-      ? [fetch('/api/attachments?type=files&offset=0&limit=500').then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'file' })))]
+      ? [fetch(`/api/attachments?type=files&offset=0&limit=500${q}`).then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'file' })))]
       : type === 'audio'
-      ? [fetch('/api/attachments?type=audio&offset=0&limit=500').then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'audio' })))]
+      ? [fetch(`/api/attachments?type=audio&offset=0&limit=500${q}`).then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'audio' })))]
       : [
-          fetch('/api/attachments?type=files&offset=0&limit=500').then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'file' }))),
-          fetch('/api/attachments?type=audio&offset=0&limit=500').then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'audio' }))),
+          fetch(`/api/attachments?type=files&offset=0&limit=500${q}`).then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'file' }))),
+          fetch(`/api/attachments?type=audio&offset=0&limit=500${q}`).then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'audio' }))),
         ]
     Promise.all(fetches).then(results => {
       setItems(results.flat().sort((a, b) => a.ts - b.ts))
     })
-  }, [type])
+  }, [type, thread])
 
   const icon = (item: { uri: string; kind: string }) => {
     if (item.kind === 'audio') return '🎵'

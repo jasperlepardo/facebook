@@ -13,18 +13,6 @@ import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
 import DatePickerModal from './DatePickerModal'
 
-function toBlockIds(selected: Message[], allMsgs: Message[]): string[] {
-  const blocks = groupMessages(allMsgs)
-  const selectedIds = new Set(selected.map(m => m._id))
-  const blockIds = new Set<string>()
-  for (const block of blocks) {
-    if (block.msgs.some(m => selectedIds.has(m._id))) {
-      const bid = block.msgs[0].blockId
-      if (bid) blockIds.add(bid)
-    }
-  }
-  return [...blockIds]
-}
 
 export type JumpFn = (ts: number, msgId: string | null) => Promise<void>
 
@@ -50,6 +38,7 @@ interface Props {
   onStatsChange?: (total: number, dateIndex: DateIndex | null) => void
   enabledTypes?: Set<ContentTypeKey>
   senderColor?: string
+  thread?: string
 }
 
 export default function ChatDetailPane({
@@ -60,7 +49,9 @@ export default function ChatDetailPane({
   onHideUri, onHideDbUri, onUnhideDbUri,
   onHideMessage, onUnhideMessage,
   onLightbox, onRegisterJump, onStatsChange, enabledTypes, senderColor,
+  thread = 'messages',
 }: Props) {
+  const withThread = (url: string) => `${url}${url.includes('?') ? '&' : '?'}thread=${thread}`
   // ─── Messages ──────────────────────────────────────────────────────────────
   const [messages, setMessages]   = useState<Message[]>([])
   const messagesRef               = useRef<Message[]>([])
@@ -80,11 +71,11 @@ export default function ChatDetailPane({
   const [datePickerDefault, setDatePickerDefault] = useState('')
 
   // ─── Selection ────────────────────────────────────────────────────────────
-  const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[]; blockId: string }>())
+  const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[] }>())
   const lastSelectedAnchor = useRef<{ id: string; ts: number; tsEnd: number } | null>(null)
   const [preloadedHashtagIds, setPreloadedHashtagIds] = useState<Set<string> | null>(null)
   const preloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const [hashtagPicker, setHashtagPicker] = useState<{ msgIds: string[]; blockIds: string[] } | null>(null)
+  const [hashtagPicker, setHashtagPicker] = useState<{ msgIds: string[] } | null>(null)
 
   // ─── UI overlays ──────────────────────────────────────────────────────────
   const [ctxMenu, setCtxMenu]   = useState<ContextMenuState | null>(null)
@@ -122,9 +113,10 @@ export default function ChatDetailPane({
   }, [])
 
   const copyLink = useCallback((msgIds: string[]) => {
-    const url = `${window.location.origin}${window.location.pathname}?msg=${msgIds[0]}`
+    const threadParam = thread !== 'messages' ? `&thread=${thread}` : ''
+    const url = `${window.location.origin}${window.location.pathname}?msg=${msgIds[0]}${threadParam}`
     navigator.clipboard.writeText(url).then(() => showToast('Link copied'))
-  }, [showToast])
+  }, [showToast, thread])
 
   const copyText = useCallback((msgIds: string[]) => {
     const ids = new Set(msgIds)
@@ -149,28 +141,38 @@ export default function ChatDetailPane({
   }, [showToast])
 
   function scrollToMsg(msgId: string): boolean {
-    const group =
-      document.querySelector<HTMLElement>(`[data-id="${msgId}"]`) ??
-      document.querySelector<HTMLElement>(`[data-msg-id="${msgId}"]`)?.closest<HTMLElement>('.msg-group')
+    // id="msg-{id}" is on every row; data-id is only on block anchors (first message)
+    const row   = document.getElementById(`msg-${msgId}`)
+    const group = row?.closest<HTMLElement>('.msg-group') ??
+      document.querySelector<HTMLElement>(`[data-id="${msgId}"]`)
     if (!group) return false
-    group.scrollIntoView({ block: 'start' })
+    // offsetParent is null when element or ancestor has display:none — scrollIntoView would be a no-op
+    if (!group.offsetParent) return false
+    const target = row ?? group
+    target.scrollIntoView({ block: 'center' })
     const isDarkMode = document.documentElement.classList.contains('dark')
-    group.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
-    setTimeout(() => { group.style.transition = 'background 1s'; group.style.background = '' }, 800)
-    setTimeout(() => { group.style.transition = '' }, 1800)
+    target.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
+    setTimeout(() => { target.style.transition = 'background 1s'; target.style.background = '' }, 800)
+    setTimeout(() => { target.style.transition = '' }, 1800)
     return true
+  }
+
+  function scheduleScrollToMsg(msgId: string, attempts = 0) {
+    if (attempts > 40) return  // give up after ~670ms
+    if (scrollToMsg(msgId)) { pendingJump.current = null; return }
+    requestAnimationFrame(() => scheduleScrollToMsg(msgId, attempts + 1))
   }
 
   // ─── Load messages ─────────────────────────────────────────────────────────
 
-  const loadMessages = useCallback(async (mode: 'fresh' | 'append' | 'prepend') => {
+  const loadMessages = useCallback(async (mode: 'fresh' | 'append' | 'prepend', skipScrollReset = false) => {
     const offset = mode === 'prepend' ? lowerOffset.current : mode === 'append' ? upperOffset.current : lowerOffset.current
     const params = new URLSearchParams({ offset: String(offset), limit: String(LIMIT), asc: '1' })
     const q = searchRef.current
     if (q) { params.delete('asc'); params.set('offset', '0'); params.set('search', q) }
     if (showHiddenRef.current) params.set('showHidden', '1')
 
-    const data = await apiFetch<{ messages: Message[]; total: number; has_more: boolean }>('/api/messages?' + params)
+    const data = await apiFetch<{ messages: Message[]; total: number; has_more: boolean }>(withThread('/api/messages?' + params))
     setTotal(data.total)
     hasMoreRef.current = !!(data.has_more && !q)
     setHasMore(hasMoreRef.current)
@@ -226,7 +228,7 @@ export default function ChatDetailPane({
     } else {
       upperOffset.current = lowerOffset.current + count
       flushSync(() => applyMessages(data.messages))
-      if (scrollRef.current) scrollRef.current.scrollTop = 0
+      if (!skipScrollReset && scrollRef.current) scrollRef.current.scrollTop = 0
     }
   }, [applyMessages]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -249,7 +251,7 @@ export default function ChatDetailPane({
   const jumpToMessage = useCallback(async (ts: number, msgId: string | null) => {
     setJumping(true)
     try {
-      const url = msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`
+      const url = withThread(msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`)
       const d = await apiFetch<{ index: number | null }>(url)
       if (d.index == null) return
       lowerOffset.current = Math.max(0, d.index - (msgId ? Math.floor(LIMIT / 2) : 0))
@@ -257,8 +259,11 @@ export default function ChatDetailPane({
       searchRef.current = ''; onSearchChange('')
       if (msgId) setMsgParam(msgId)
       else pendingScrollReset.current = true
-      await loadMessages('fresh')
-      if (msgId && !scrollToMsg(msgId)) pendingJump.current = msgId
+      await loadMessages('fresh', !!msgId)
+      // After flushSync inside loadMessages, messages are in the DOM — try immediate scroll
+      if (msgId) {
+        if (!scrollToMsg(msgId)) { pendingJump.current = msgId; scheduleScrollToMsg(msgId) }
+      }
     } finally {
       setJumping(false)
     }
@@ -279,9 +284,9 @@ export default function ChatDetailPane({
     if (!state.ts) { onLightbox(state); return }
     const mtype = state.mediaType ?? 'photos'
     const uriParam = state.uri ? `&uri=${encodeURIComponent(state.uri)}` : ''
-    const { offset: photoOff } = await apiFetch<{ offset: number }>(`/api/attachments?type=${mtype}&offsetOf=${state.ts}${uriParam}`)
+    const { offset: photoOff } = await apiFetch<{ offset: number }>(withThread(`/api/attachments?type=${mtype}&offsetOf=${state.ts}${uriParam}`))
     const { items, total } = await apiFetch<{ items: { uri: string; ts: number; sender: string; msgId: string }[]; total: number }>(
-      `/api/attachments?type=${mtype}&offset=${Math.max(0, photoOff - 1)}&limit=3`
+      withThread(`/api/attachments?type=${mtype}&offset=${Math.max(0, photoOff - 1)}&limit=3`)
     )
     const baseOff = Math.max(0, photoOff - 1)
     const localIdx = items.findIndex(i => i.uri === state.uri || (i.msgId === state.msgId && i.ts === state.ts))
@@ -292,8 +297,8 @@ export default function ChatDetailPane({
       src: r2(item.uri), uri: item.uri, type: typeMap[mtype] ?? 'photo', mediaType: mtype,
       caption: `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
       msgId: item.msgId, ts: item.ts,
-      onPrev: absOff > 0 ? async () => { const { items: pi } = await apiFetch<{ items: PhotoItem[] }>(`/api/attachments?type=${mtype}&offset=${absOff - 1}&limit=1`); if (pi[0]) onLightbox(mkState(absOff - 1, pi[0])) } : undefined,
-      onNext: absOff < total - 1 ? async () => { const { items: ni } = await apiFetch<{ items: PhotoItem[] }>(`/api/attachments?type=${mtype}&offset=${absOff + 1}&limit=1`); if (ni[0]) onLightbox(mkState(absOff + 1, ni[0])) } : undefined,
+      onPrev: absOff > 0 ? async () => { const { items: pi } = await apiFetch<{ items: PhotoItem[] }>(withThread(`/api/attachments?type=${mtype}&offset=${absOff - 1}&limit=1`)); if (pi[0]) onLightbox(mkState(absOff - 1, pi[0])) } : undefined,
+      onNext: absOff < total - 1 ? async () => { const { items: ni } = await apiFetch<{ items: PhotoItem[] }>(withThread(`/api/attachments?type=${mtype}&offset=${absOff + 1}&limit=1`)); if (ni[0]) onLightbox(mkState(absOff + 1, ni[0])) } : undefined,
     })
     onLightbox(mkState(baseOff + target, items[target]))
   }, [onLightbox]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -313,7 +318,7 @@ export default function ChatDetailPane({
           const rect = g.getBoundingClientRect()
           if (rect.bottom > chatTop) {
             fetch('/api/bookmark', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ msgId: g.dataset.id, offset: Math.max(0, rect.top - chatTop), deviceId: id, ns: currentUserRef.current || undefined }) }).catch(() => {})
+              body: JSON.stringify({ msgId: g.dataset.id, offset: Math.max(0, rect.top - chatTop), deviceId: id, ns: `${currentUserRef.current ? currentUserRef.current + '-' : ''}${thread}` }) }).catch(() => {})
             break
           }
         }
@@ -354,7 +359,7 @@ export default function ChatDetailPane({
     if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id) }
     deviceId.current = id
 
-    apiFetch<DateIndex>('/api/date-index').then(setDateIndex).catch(() => {})
+    apiFetch<DateIndex>(withThread('/api/date-index')).then(setDateIndex).catch(() => {})
 
     async function init() {
       let userName = ''
@@ -367,14 +372,14 @@ export default function ChatDetailPane({
       const urlMsgId = new URLSearchParams(window.location.search).get('msg')
       if (urlMsgId) {
         anchorMsgId = urlMsgId
-        try { const jd = await apiFetch<{ index: number | null }>('/api/jump?msgId=' + urlMsgId); if (jd.index != null) startIdx = jd.index } catch {}
+        try { const jd = await apiFetch<{ index: number | null }>(withThread('/api/jump?msgId=' + urlMsgId)); if (jd.index != null) startIdx = jd.index } catch {}
       } else {
         try {
-          const nsParam = userName ? `&ns=${encodeURIComponent(userName)}` : ''
-          const bk = await apiFetch<{ msgId: string | null; offset: number }>(`/api/bookmark?deviceId=${id}${nsParam}`)
+          const ns = `${userName ? userName + '-' : ''}${thread}`
+          const bk = await apiFetch<{ msgId: string | null; offset: number }>(withThread(`/api/bookmark?deviceId=${id}&ns=${encodeURIComponent(ns)}`))
           if (bk.msgId) {
             anchorMsgId = bk.msgId; anchorOffset = bk.offset ?? 0
-            const jd = await apiFetch<{ index: number | null }>('/api/jump?msgId=' + bk.msgId)
+            const jd = await apiFetch<{ index: number | null }>(withThread('/api/jump?msgId=' + bk.msgId))
             if (jd.index != null) startIdx = jd.index
           }
         } catch {}
@@ -382,12 +387,13 @@ export default function ChatDetailPane({
 
       lowerOffset.current = Math.max(0, startIdx - Math.floor(LIMIT / 2))
       upperOffset.current = lowerOffset.current
-      if (urlMsgId) pendingJump.current = urlMsgId
       loadingRef.current = true
       try { await loadMessages('fresh') } catch {}
 
-      if (anchorMsgId && scrollRef.current) {
-        const anchor = document.querySelector<HTMLElement>(`[data-msg-id="${anchorMsgId}"]`)?.closest<HTMLElement>('.msg-group')
+      if (urlMsgId) scheduleScrollToMsg(urlMsgId)
+
+      if (anchorMsgId && !urlMsgId && scrollRef.current) {
+        const anchor = document.getElementById('msg-' + anchorMsgId)?.closest<HTMLElement>('.msg-group')
         if (anchor) {
           scrollRef.current.scrollTop = 0
           scrollRef.current.scrollTop = anchor.getBoundingClientRect().top - scrollRef.current.getBoundingClientRect().top - anchorOffset
@@ -417,10 +423,10 @@ export default function ChatDetailPane({
       const trimmed = search.trim()
       if (/^[0-9a-f]{24}$/i.test(trimmed)) {
         setSearching(true)
-        const byBlock = await apiFetch<{ messages: Message[] }>(`/api/messages?groupIds=${trimmed}`)
+        const byBlock = await apiFetch<{ messages: Message[] }>(withThread(`/api/messages?groupIds=${trimmed}`))
         const msgs = byBlock.messages.length
           ? byBlock.messages
-          : (await apiFetch<{ messages: Message[] }>(`/api/messages?ids=${trimmed}`)).messages
+          : (await apiFetch<{ messages: Message[] }>(withThread(`/api/messages?ids=${trimmed}`))).messages
         if (msgs.length) {
           searchRef.current = ''
           lowerOffset.current = 0; upperOffset.current = 0
@@ -452,7 +458,7 @@ export default function ChatDetailPane({
       return
     }
     const jumpId = pendingJump.current
-    if (jumpId && scrollToMsg(jumpId)) pendingJump.current = null
+    if (jumpId) scheduleScrollToMsg(jumpId)
     const scrollId = pendingLightboxScroll.current
     if (scrollId) {
       const anchor = document.getElementById('msg-' + scrollId)?.closest<HTMLElement>('.msg-group')
@@ -465,9 +471,9 @@ export default function ChatDetailPane({
   useEffect(() => {
     clearTimeout(preloadTimer.current)
     if (selectedMsgs.size === 0) { setPreloadedHashtagIds(null); return }
-    const blockIds = [...new Set([...selectedMsgs.values()].map(v => v.blockId).filter(Boolean))]
+    const msgIds = [...selectedMsgs.keys()]
     preloadTimer.current = setTimeout(() => {
-      fetch(`/api/hashtag-groups?blockIds=${blockIds.join(',')}`)
+      fetch(`/api/hashtag-groups?messageIds=${msgIds.join(',')}&thread=${thread}`)
         .then(r => r.json())
         .then(d => setPreloadedHashtagIds(new Set<string>(d.hashtagIds ?? [])))
         .catch(() => {})
@@ -480,7 +486,7 @@ export default function ChatDetailPane({
   const blocks = useMemo(() => groupMessages(messages), [messages])
   useEffect(() => { blocksRef.current = blocks }, [blocks])
 
-  const handleToggle = useCallback(async (id: string, ts: number, tsEnd: number, allIds: string[], blockId: string, shiftKey?: boolean) => {
+  const handleToggle = useCallback(async (id: string, ts: number, tsEnd: number, allIds: string[], shiftKey?: boolean) => {
     if (shiftKey && lastSelectedAnchor.current) {
       const anchor = lastSelectedAnchor.current
       const anchorIdx = blocksRef.current.findIndex(b => b.msgs[0]._id === anchor.id)
@@ -491,19 +497,19 @@ export default function ChatDetailPane({
           const next = new Map(prev)
           for (let i = start; i <= end; i++) {
             const b = blocksRef.current[i]; const f = b.msgs[0]; const l = b.msgs[b.msgs.length - 1]
-            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map((m: Message) => m._id), blockId: f.blockId ?? f._id })
+            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map((m: Message) => m._id) })
           }
           return next
         })
       } else {
         const minTs = Math.min(anchor.ts, ts); const maxTs = Math.max(anchor.tsEnd, tsEnd)
-        const data = await apiFetch<{ messages: Message[] }>(`/api/messages?tsFrom=${minTs}&tsTo=${maxTs}`)
+        const data = await apiFetch<{ messages: Message[] }>(withThread(`/api/messages?tsFrom=${minTs}&tsTo=${maxTs}`))
         const rangeBlocks = groupMessages(data.messages)
         setSelectedMsgs(prev => {
           const next = new Map(prev)
           for (const b of rangeBlocks) {
             const f = b.msgs[0]; const l = b.msgs[b.msgs.length - 1]
-            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map((m: Message) => m._id), blockId: f.blockId ?? f._id })
+            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map((m: Message) => m._id) })
           }
           return next
         })
@@ -511,30 +517,28 @@ export default function ChatDetailPane({
       return
     }
     lastSelectedAnchor.current = { id, ts, tsEnd }
-    setSelectedMsgs(prev => { const next = new Map(prev); next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd, allIds, blockId }); return next })
+    setSelectedMsgs(prev => { const next = new Map(prev); next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd, allIds }); return next })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function clearSelection() { setSelectedMsgs(new Map()); lastSelectedAnchor.current = null; setPreloadedHashtagIds(null) }
 
   function openNoteFromSelection() {
-    const values = [...selectedMsgs.values()]
-    const allIds = [...new Set(values.flatMap(v => v.allIds))]
-    const blockIds = [...new Set(values.map(v => v.blockId).filter(Boolean))]
-    setHashtagPicker({ msgIds: allIds, blockIds })
+    const msgIds = [...new Set([...selectedMsgs.values()].flatMap(v => v.allIds))]
+    setHashtagPicker({ msgIds })
   }
 
   function applyHashtags(hashtagIds: string[], newNames: string[]) {
-    const blockIds = hashtagPicker?.blockIds ?? []
+    const messageIds = hashtagPicker?.msgIds ?? []
     const snapHashtags = hashtags
     setHashtagPicker(null); clearSelection()
-    const tagBlocks = (hashtagId: string) =>
-      fetch('/api/hashtag-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hashtagId, blockIds }) })
+    const tagMessages = (hashtagId: string) =>
+      fetch('/api/hashtag-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hashtagId, messageIds, thread }) })
     Promise.all(newNames.map(name => {
       const existing = snapHashtags.find(h => h.name === name)
       if (existing) return Promise.resolve(existing.id as string | undefined)
-      return fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+      return fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, thread }) })
         .then(r => r.json()).then(d => d.doc?.id as string | undefined)
-    })).then(ids => Promise.all([...hashtagIds, ...ids.filter((id): id is string => !!id)].map(tagBlocks))).then(() => onReloadHashtags())
+    })).then(ids => Promise.all([...hashtagIds, ...ids.filter((id): id is string => !!id)].map(tagMessages))).then(() => onReloadHashtags())
   }
 
   // ─── Context menu ──────────────────────────────────────────────────────────
@@ -572,7 +576,7 @@ export default function ChatDetailPane({
         const ts = parseInt(date.slice(3))
         const t = new Date(ts)
         const midnight = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime()
-        const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(midnight).toISOString()}`)
+        const d = await apiFetch<{ index: number | null }>(withThread(`/api/jump?date=${new Date(midnight).toISOString()}`))
         offset = d.index
       } else {
         offset = dateIndexRef.current
@@ -583,7 +587,7 @@ export default function ChatDetailPane({
           const localTs = parts.length === 3 && parts[0] && parts[1] && parts[2]
             ? new Date(parts[0], parts[1] - 1, parts[2]).getTime()
             : new Date(date).getTime()
-          const d = await apiFetch<{ index: number | null }>(`/api/jump?date=${new Date(localTs).toISOString()}`)
+          const d = await apiFetch<{ index: number | null }>(withThread(`/api/jump?date=${new Date(localTs).toISOString()}`))
           offset = d.index
         }
       }
@@ -597,7 +601,7 @@ export default function ChatDetailPane({
 
   const handleChatJump = useCallback(async (target: string) => {
     if (target === 'recent') {
-      const d = await apiFetch<{ total: number }>('/api/messages?offset=0&limit=1&asc=1')
+      const d = await apiFetch<{ total: number }>(withThread('/api/messages?offset=0&limit=1&asc=1'))
       lowerOffset.current = Math.max(0, d.total - LIMIT); upperOffset.current = lowerOffset.current
       pendingJump.current = null; pendingScrollBottom.current = true
       await loadMessages('fresh')
@@ -714,8 +718,7 @@ export default function ChatDetailPane({
       {hashtagPicker && (
         <HashtagPicker
           hashtags={hashtags}
-          blockIds={hashtagPicker.blockIds}
-          initialSelected={preloadedHashtagIds ?? undefined}
+            initialSelected={preloadedHashtagIds ?? undefined}
           onClose={() => setHashtagPicker(null)}
           onApply={applyHashtags}
         />
@@ -730,7 +733,7 @@ export default function ChatDetailPane({
               { label: 'Copy text', onPress: () => { copyText(ctxMenu.msgIds!); setCtxMenu(null) } },
               { label: '# Tag', onPress: () => {
                 const data = messagesRef.current.filter(m => ctxMenu.msgIds!.includes(m._id))
-                setHashtagPicker({ msgIds: ctxMenu.msgIds!, blockIds: toBlockIds(data, messagesRef.current) }); setCtxMenu(null)
+                setHashtagPicker({ msgIds: ctxMenu.msgIds! }); setCtxMenu(null)
               }},
             ] : []),
             ...(isSuperAdmin && ctxMenu.msgIds?.length ? [hiddenMsgIds.has(ctxMenu.msgIds[0])
@@ -747,8 +750,7 @@ export default function ChatDetailPane({
           onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setCtxMenu(null) }}
           onHideUri={onHideUri}
           onTagMessages={msgIds => {
-            const data = messagesRef.current.filter(m => msgIds.includes(m._id))
-            setHashtagPicker({ msgIds, blockIds: toBlockIds(data, messagesRef.current) })
+            setHashtagPicker({ msgIds })
           }}
           onCopyLink={copyLink}
           onCopyText={copyText}
