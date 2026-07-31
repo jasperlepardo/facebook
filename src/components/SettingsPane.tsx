@@ -3,18 +3,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { startRegistration } from '@simplewebauthn/browser'
 import { DateIndex } from '@/types'
+import ProfileView from './settings/ProfileView'
+import PasswordView from './settings/PasswordView'
+import HiddenItemsView from './settings/HiddenItemsView'
 
-type Theme = 'light' | 'dark' | 'system'
-type View = 'main' | 'profile' | 'password' | 'hidden-items'
+type Theme    = 'light' | 'dark' | 'system'
+type View     = 'main' | 'profile' | 'password' | 'hidden-items'
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
-
-interface HiddenItem {
-  _id: string
-  type: 'message' | 'uri'
-  value: string
-  note?: string
-  createdAt: string
-}
 
 interface SettingsPaneProps {
   total: number
@@ -27,98 +22,52 @@ interface SettingsPaneProps {
   onClearHiddenUris?: () => void
 }
 
-function SunIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-}
-function MoonIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-}
-function SystemIcon() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-}
-function BackIcon() {
-  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-}
-function ChevronRight() {
-  return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M9 18l6-6-6-6"/></svg>
-}
+function SunIcon()    { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> }
+function MoonIcon()   { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> }
+function SystemIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> }
+function ChevronRight() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M9 18l6-6-6-6"/></svg> }
 
-const inputCls = 'w-full px-3 py-2.5 border border-gray-300 dark:border-mist-700 rounded-xl text-sm bg-white dark:bg-mist-900 text-gray-900 dark:text-mist-100 focus:outline-hidden focus:ring-2 focus:ring-mist-500'
 const sectionCls = 'bg-white dark:bg-mist-800 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700'
-const rowCls = 'flex items-center justify-between px-4 py-3'
-const labelCls = 'text-sm text-gray-500 dark:text-mist-400'
-const valueCls = 'text-sm font-medium text-gray-900 dark:text-mist-100'
+const rowCls     = 'flex items-center justify-between px-4 py-3'
+const labelCls   = 'text-sm text-gray-500 dark:text-mist-400'
+const valueCls   = 'text-sm font-medium text-gray-900 dark:text-mist-100'
 
 export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdmin, showHidden, onToggleShowHidden, hiddenUriCount, onClearHiddenUris }: SettingsPaneProps) {
   const router = useRouter()
   const [view, setView] = useState<View>('main')
 
-  // Profile
-  const [userId, setUserId] = useState('')
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [nameInput, setNameInput] = useState('')
+  // Profile state
+  const [userId, setUserId]         = useState('')
+  const [name, setName]             = useState('')
+  const [email, setEmail]           = useState('')
+  const [nameInput, setNameInput]   = useState('')
   const [emailInput, setEmailInput] = useState('')
   const [profileSave, setProfileSave] = useState<SaveState>('idle')
   const [profileError, setProfileError] = useState('')
 
-  // Password
-  const [newPw, setNewPw] = useState('')
+  // Password state
+  const [newPw, setNewPw]         = useState('')
   const [confirmPw, setConfirmPw] = useState('')
-  const [pwSave, setPwSave] = useState<SaveState>('idle')
-  const [pwError, setPwError] = useState('')
+  const [pwSave, setPwSave]       = useState<SaveState>('idle')
+  const [pwError, setPwError]     = useState('')
 
-  // Passkeys
+  // Passkey state
   const [passkeys, setPasskeys] = useState<{
     credentialID: string; deviceType: string; backedUp: boolean
     transports?: string; counter?: number; createdAt?: string; lastUsedAt?: string; nickname?: string
   }[]>([])
   const [editingNickname, setEditingNickname] = useState<string | null>(null)
-  const [nicknameInput, setNicknameInput] = useState('')
-  const [passkeyStatus, setPasskeyStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [passkeyError, setPasskeyError] = useState('')
+  const [nicknameInput, setNicknameInput]     = useState('')
+  const [passkeyStatus, setPasskeyStatus]     = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [passkeyError, setPasskeyError]       = useState('')
 
-  // Theme
+  // Theme state
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'system'
     return (localStorage.getItem('theme') as Theme | null) ?? 'system'
   })
 
   const [signingOut, setSigningOut] = useState(false)
-
-  // Hidden items (super admin)
-  const [hiddenItems, setHiddenItems] = useState<HiddenItem[]>([])
-  const [hiLoading, setHiLoading] = useState(false)
-  const [hiAddType, setHiAddType] = useState<'message' | 'uri'>('message')
-  const [hiAddValue, setHiAddValue] = useState('')
-  const [hiAddNote, setHiAddNote] = useState('')
-  const [hiAdding, setHiAdding] = useState(false)
-
-  async function loadHiddenItems() {
-    setHiLoading(true)
-    try {
-      const res = await fetch('/api/hidden-items')
-      if (res.ok) setHiddenItems((await res.json()).items ?? [])
-    } finally { setHiLoading(false) }
-  }
-
-  async function addHiddenItem() {
-    if (!hiAddValue.trim()) return
-    setHiAdding(true)
-    await fetch('/api/hidden-items', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: hiAddType, value: hiAddValue.trim(), note: hiAddNote.trim() }),
-    })
-    setHiAddValue(''); setHiAddNote('')
-    await loadHiddenItems()
-    setHiAdding(false)
-  }
-
-  async function removeHiddenItem(id: string) {
-    await fetch(`/api/hidden-items?id=${id}`, { method: 'DELETE' })
-    setHiddenItems(prev => prev.filter(i => i._id !== id))
-  }
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
@@ -130,22 +79,6 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
     })
   }, [])
 
-  function openProfile() {
-    setNameInput(name)
-    setEmailInput(email)
-    setProfileError('')
-    setProfileSave('idle')
-    setView('profile')
-  }
-
-  function openPassword() {
-    setNewPw('')
-    setConfirmPw('')
-    setPwError('')
-    setPwSave('idle')
-    setView('password')
-  }
-
   async function saveProfile() {
     if (!userId) return
     setProfileSave('saving'); setProfileError('')
@@ -156,8 +89,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
         body: JSON.stringify({ name: nameInput.trim(), email: emailInput.trim() }),
       })
       if (!res.ok) throw new Error((await res.json())?.errors?.[0]?.message ?? 'Failed to save')
-      setName(nameInput.trim())
-      setEmail(emailInput.trim())
+      setName(nameInput.trim()); setEmail(emailInput.trim())
       setProfileSave('saved')
       setTimeout(() => setView('main'), 800)
     } catch (e: unknown) {
@@ -233,148 +165,48 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
     }
   }
 
-  const fmt = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-  const fmtDate = (iso?: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null
+  const fmtDateLong = (iso: string) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+  const fmtDateShort = (iso?: string) => iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : null
   const firstDate = dateIndex?.days[0]?.iso
-  const lastDate = dateIndex?.days[dateIndex.days.length - 1]?.iso
+  const lastDate  = dateIndex?.days[dateIndex.days.length - 1]?.iso
 
-  const themeOptions: { value: Theme; label: string; icon: React.ReactNode }[] = [
-    { value: 'light', label: 'Light', icon: <SunIcon /> },
-    { value: 'dark',  label: 'Dark',  icon: <MoonIcon /> },
-    { value: 'system', label: 'System', icon: <SystemIcon /> },
-  ]
-
-  // ─── Sub-view: Edit Profile ─────────────────────────────────────────────────
+  // ─── Sub-views ───────────────────────────────────────────────────────────────
 
   if (view === 'profile') return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
-      <div className="px-4 py-6">
-        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
-          <BackIcon /> Back
-        </button>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-mist-100 mb-6">Edit profile</h1>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-1">Name</label>
-            <input type="text" value={nameInput} onChange={e => setNameInput(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-1">Email</label>
-            <input type="email" value={emailInput} onChange={e => setEmailInput(e.target.value)} className={inputCls} />
-          </div>
-          {profileError && <p className="text-sm text-red-600">{profileError}</p>}
-          <button
-            onClick={saveProfile}
-            disabled={profileSave === 'saving'}
-            className={`w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 transition-colors ${profileSave === 'saved' ? 'bg-green-600 text-white' : 'bg-mist-600 hover:bg-mist-700 text-white'}`}
-          >
-            {profileSave === 'saving' ? 'Saving…' : profileSave === 'saved' ? 'Saved!' : 'Save changes'}
-          </button>
-        </div>
-      </div>
-    </div>
+    <ProfileView
+      nameInput={nameInput}
+      emailInput={emailInput}
+      saveState={profileSave}
+      error={profileError}
+      onNameChange={setNameInput}
+      onEmailChange={setEmailInput}
+      onSave={saveProfile}
+      onBack={() => setView('main')}
+    />
   )
-
-  // ─── Sub-view: Change Password ───────────────────────────────────────────────
 
   if (view === 'password') return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
-      <div className="px-4 py-6">
-        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
-          <BackIcon /> Back
-        </button>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-mist-100 mb-6">Change password</h1>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-1">New password</label>
-            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="••••••••" className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-mist-300 mb-1">Confirm new password</label>
-            <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="••••••••"
-              onKeyDown={e => { if (e.key === 'Enter') changePassword() }} className={inputCls} />
-          </div>
-          {pwError && <p className="text-sm text-red-600">{pwError}</p>}
-          <button
-            onClick={changePassword}
-            disabled={pwSave === 'saving' || !newPw}
-            className={`w-full py-2.5 rounded-xl text-sm font-medium disabled:opacity-50 transition-colors ${pwSave === 'saved' ? 'bg-green-600 text-white' : 'bg-mist-600 hover:bg-mist-700 text-white'}`}
-          >
-            {pwSave === 'saving' ? 'Updating…' : pwSave === 'saved' ? 'Updated!' : 'Update password'}
-          </button>
-        </div>
-      </div>
-    </div>
+    <PasswordView
+      newPw={newPw}
+      confirmPw={confirmPw}
+      saveState={pwSave}
+      error={pwError}
+      onNewPwChange={setNewPw}
+      onConfirmPwChange={setConfirmPw}
+      onSave={changePassword}
+      onBack={() => setView('main')}
+    />
   )
 
-  // ─── Sub-view: Hidden Items ──────────────────────────────────────────────────
-
-  if (view === 'hidden-items') return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
-      <div className="px-4 py-6">
-        <button onClick={() => setView('main')} className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
-          <BackIcon /> Back
-        </button>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-mist-100 mb-6">Hidden items</h1>
-
-        {/* Add form */}
-        <div className="bg-white dark:bg-mist-800 rounded-xl p-4 mb-4 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500">Add hidden item</p>
-          <div className="flex gap-2">
-            {(['message', 'uri'] as const).map(t => (
-              <button key={t} onClick={() => setHiAddType(t)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${hiAddType === t ? 'border-mist-600 text-mist-600 bg-mist-50 dark:border-mist-400 dark:text-mist-400 dark:bg-mist-900/30' : 'border-gray-200 dark:border-mist-700 text-gray-500 dark:text-mist-400'}`}>
-                {t === 'message' ? 'Message ID' : 'Image URI'}
-              </button>
-            ))}
-          </div>
-          <input
-            value={hiAddValue}
-            onChange={e => setHiAddValue(e.target.value)}
-            placeholder={hiAddType === 'message' ? 'MongoDB ObjectId…' : 'media/photos/…'}
-            className={inputCls}
-          />
-          <input
-            value={hiAddNote}
-            onChange={e => setHiAddNote(e.target.value)}
-            placeholder="Note (optional)"
-            className={inputCls}
-          />
-          <button onClick={addHiddenItem} disabled={hiAdding || !hiAddValue.trim()}
-            className="w-full py-2.5 rounded-xl text-sm font-medium bg-mist-600 hover:bg-mist-700 text-white disabled:opacity-50 transition-colors">
-            {hiAdding ? 'Adding…' : 'Add'}
-          </button>
-        </div>
-
-        {/* List */}
-        {hiLoading ? (
-          <p className="text-sm text-gray-400 text-center py-4">Loading…</p>
-        ) : hiddenItems.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">No hidden items yet.</p>
-        ) : (
-          <div className={sectionCls}>
-            {hiddenItems.map(item => (
-              <div key={item._id} className={`${rowCls} gap-3`}>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-sm ${item.type === 'message' ? 'bg-mist-100 text-mist-700 dark:bg-mist-900/40 dark:text-mist-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'}`}>
-                      {item.type === 'message' ? 'MSG' : 'URI'}
-                    </span>
-                    <span className="text-xs font-mono text-gray-600 dark:text-mist-300 truncate">{item.value}</span>
-                  </div>
-                  {item.note && <p className="text-xs text-gray-400 dark:text-mist-500">{item.note}</p>}
-                  <p className="text-xs text-gray-400 dark:text-mist-500">{new Date(item.createdAt).toLocaleDateString()}</p>
-                </div>
-                <button onClick={() => removeHiddenItem(item._id)} className="text-xs text-red-400 hover:text-red-600 shrink-0">Remove</button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
+  if (view === 'hidden-items') return <HiddenItemsView onBack={() => setView('main')} />
 
   // ─── Main view ───────────────────────────────────────────────────────────────
+
+  const themeOptions: { value: Theme; label: string; icon: React.ReactNode }[] = [
+    { value: 'light',  label: 'Light',  icon: <SunIcon /> },
+    { value: 'dark',   label: 'Dark',   icon: <MoonIcon /> },
+    { value: 'system', label: 'System', icon: <SystemIcon /> },
+  ]
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
@@ -383,15 +215,10 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Profile</h2>
           <div className={sectionCls}>
-            <div className={rowCls}>
-              <span className={labelCls}>Name</span>
-              <span className={valueCls}>{name || '—'}</span>
-            </div>
-            <div className={rowCls}>
-              <span className={labelCls}>Email</span>
-              <span className={valueCls}>{email || '—'}</span>
-            </div>
-            <button onClick={openProfile} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+            <div className={rowCls}><span className={labelCls}>Name</span><span className={valueCls}>{name || '—'}</span></div>
+            <div className={rowCls}><span className={labelCls}>Email</span><span className={valueCls}>{email || '—'}</span></div>
+            <button onClick={() => { setNameInput(name); setEmailInput(email); setProfileError(''); setProfileSave('idle'); setView('profile') }}
+              className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
               <span className="text-sm text-mist-600 dark:text-mist-400 font-medium">Edit profile</span>
               <ChevronRight />
             </button>
@@ -401,11 +228,9 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Security</h2>
           <div className={sectionCls}>
-            <div className={rowCls}>
-              <span className={labelCls}>Password</span>
-              <span className="text-sm text-gray-400 dark:text-mist-500 tracking-widest">••••••••</span>
-            </div>
-            <button onClick={openPassword} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+            <div className={rowCls}><span className={labelCls}>Password</span><span className="text-sm text-gray-400 dark:text-mist-500 tracking-widest">••••••••</span></div>
+            <button onClick={() => { setNewPw(''); setConfirmPw(''); setPwError(''); setPwSave('idle'); setView('password') }}
+              className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
               <span className="text-sm text-mist-600 dark:text-mist-400 font-medium">Change password</span>
               <ChevronRight />
             </button>
@@ -418,12 +243,12 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
             {passkeys.length === 0 && (
               <div className={rowCls}><span className={labelCls}>No passkeys registered</span></div>
             )}
-            {passkeys.map((pk) => {
+            {passkeys.map(pk => {
               const transports: string[] = pk.transports ? JSON.parse(pk.transports) : []
               const isInternal = transports.includes('internal')
-              const isHybrid = transports.includes('hybrid')
+              const isHybrid   = transports.includes('hybrid')
               const transportLabel = isInternal ? 'Face ID / Touch ID' : isHybrid ? 'Phone or tablet' : transports.includes('usb') ? 'Security key' : pk.deviceType === 'multiDevice' ? 'Synced passkey' : 'Passkey'
-              const isEditing = editingNickname === pk.credentialID
+              const isEditing  = editingNickname === pk.credentialID
 
               async function saveNickname(val: string) {
                 await fetch('/api/auth/passkey/update', {
@@ -462,10 +287,10 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
                     )}
                     <p className="text-xs text-gray-400 dark:text-mist-500 mt-0.5 flex flex-wrap gap-x-1.5">
                       <span>{transportLabel}</span>
-                      {pk.createdAt && <><span>·</span><span>Added {fmtDate(pk.createdAt)}</span></>}
-                      {pk.lastUsedAt && <><span>·</span><span>Used {fmtDate(pk.lastUsedAt)}</span></>}
+                      {pk.createdAt  && <><span>·</span><span>Added {fmtDateShort(pk.createdAt)}</span></>}
+                      {pk.lastUsedAt && <><span>·</span><span>Used {fmtDateShort(pk.lastUsedAt)}</span></>}
                       {typeof pk.counter === 'number' && <><span>·</span><span>{pk.counter}×</span></>}
-                      {pk.backedUp && <><span>·</span><span>Backed up</span></>}
+                      {pk.backedUp   && <><span>·</span><span>Backed up</span></>}
                     </p>
                   </div>
                   <button
@@ -525,7 +350,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${showHidden ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
               </button>
-              <button onClick={() => { loadHiddenItems(); setView('hidden-items') }} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+              <button onClick={() => setView('hidden-items')} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
                 <span className="text-sm text-gray-900 dark:text-mist-100">Hidden items</span>
                 <ChevronRight />
               </button>
@@ -542,18 +367,15 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
           <div className={sectionCls}>
             {currentUser && <div className={rowCls}><span className={labelCls}>Viewing as</span><span className={valueCls}>{currentUser}</span></div>}
             {total > 0 && <div className={rowCls}><span className={labelCls}>Messages</span><span className={valueCls}>{total.toLocaleString()}</span></div>}
-            {firstDate && <div className={rowCls}><span className={labelCls}>First message</span><span className={valueCls}>{fmt(firstDate)}</span></div>}
-            {lastDate && <div className={rowCls}><span className={labelCls}>Last message</span><span className={valueCls}>{fmt(lastDate)}</span></div>}
+            {firstDate && <div className={rowCls}><span className={labelCls}>First message</span><span className={valueCls}>{fmtDateLong(firstDate)}</span></div>}
+            {lastDate  && <div className={rowCls}><span className={labelCls}>Last message</span><span className={valueCls}>{fmtDateLong(lastDate)}</span></div>}
           </div>
         </section>
 
         <section>
           <div className={sectionCls}>
-            <button onClick={signOut} disabled={signingOut}
-              className={`${rowCls} w-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors`}>
-              <span className="text-sm font-medium text-red-500 dark:text-red-400">
-                {signingOut ? 'Signing out…' : 'Sign out'}
-              </span>
+            <button onClick={signOut} disabled={signingOut} className={`${rowCls} w-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors`}>
+              <span className="text-sm font-medium text-red-500 dark:text-red-400">{signingOut ? 'Signing out…' : 'Sign out'}</span>
             </button>
           </div>
         </section>

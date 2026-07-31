@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ ok: true }, { headers: CORS })
+    return NextResponse.json({ ok: true, created: newMessageIds.length }, { headers: CORS })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }
@@ -143,7 +143,7 @@ export async function DELETE(req: NextRequest) {
       depth: 0,
       overrideAccess: true,
     })
-    if (existing.totalDocs === 0) return NextResponse.json({ ok: true }, { headers: CORS })
+    if (existing.totalDocs === 0) return NextResponse.json({ ok: true, created: 0 }, { headers: CORS })
 
     await payload.delete({
       collection: 'hashtag-groups',

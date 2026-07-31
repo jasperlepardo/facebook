@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import { Message, MessageBlock, LightboxState, ContextMenuState, Hashtag, DateIndex } from '@/types'
 import { ContentTypeKey } from '@/lib/contentTypes'
-import { LIMIT, MAX_DOM, LOAD_THRESHOLD } from '@/lib/constants'
+import { LIMIT, MAX_DOM_BLOCKS, LOAD_THRESHOLD } from '@/lib/constants'
 import { apiFetch } from '@/lib/utils'
 import { r2, fmtDate, fmtTime } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
@@ -190,15 +190,15 @@ export default function ChatDetailPane({
       flushSync(() => applyMessages(combined))
       if (el) el.scrollTop = prevTop + el.scrollHeight - prevH
 
-      if (combined.length > MAX_DOM && el) {
-        const excess = combined.length - MAX_DOM
+      if (combined.length > MAX_DOM_BLOCKS && el) {
+        const excess = combined.length - MAX_DOM_BLOCKS
         const currentH = el.scrollHeight
         const currentTop = el.scrollTop
         const clientH = el.clientHeight
         const estCullH = Math.round(currentH * excess / combined.length)
         if (currentTop <= currentH - estCullH - clientH) {
           upperOffset.current -= excess
-          flushSync(() => applyMessages(combined.slice(0, MAX_DOM)))
+          flushSync(() => applyMessages(combined.slice(0, MAX_DOM_BLOCKS)))
         }
       }
       el?.style.removeProperty('overflow-anchor')
@@ -208,9 +208,9 @@ export default function ChatDetailPane({
       const next = [...prev, ...data.messages]
       const seen = new Set<string>()
       const deduped = next.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
-      if (deduped.length > MAX_DOM) {
-        const excess = deduped.length - MAX_DOM
-        const culled = deduped.slice(-MAX_DOM)
+      if (deduped.length > MAX_DOM_BLOCKS) {
+        const excess = deduped.length - MAX_DOM_BLOCKS
+        const culled = deduped.slice(-MAX_DOM_BLOCKS)
         flushSync(() => applyMessages(deduped))
         const el = scrollRef.current
         const prevH2 = el?.scrollHeight ?? 0
