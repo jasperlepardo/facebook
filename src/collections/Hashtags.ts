@@ -1,16 +1,22 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
+import { authenticated, hashtagMutate, hashtagRead } from '@/lib/payload-access-control'
 
 async function deleteGroups(hashtagId: string, req: PayloadRequest) {
   // Delete directly via the Mongoose model to bypass per-doc afterDelete hooks
   // (each hook would try to resync the already-deleted hashtag and fail)
-  const model = (req.payload.db as any).collections['hashtag-groups']
+  const model = (req.payload.db as { collections: Record<string, { deleteMany: (q: object) => Promise<unknown> }> }).collections['hashtag-groups']
   await model.deleteMany({ hashtagId })
 }
 
 export const Hashtags: CollectionConfig = {
   slug: 'hashtags',
   versions: { maxPerDoc: 100 },
-  access: { read: () => true, create: ({ req }) => !!req.user, update: ({ req }) => !!req.user, delete: ({ req }) => !!req.user },
+  access: {
+    read:   hashtagRead,
+    create: authenticated,
+    update: hashtagMutate,
+    delete: hashtagMutate,
+  },
   admin: { useAsTitle: 'name', defaultColumns: ['name', 'context', 'groupCount'] },
   hooks: {
     afterDelete: [({ doc, req }) => deleteGroups(doc.id, req)],

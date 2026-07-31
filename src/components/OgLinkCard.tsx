@@ -43,10 +43,7 @@ function FilePill({ url }: { url: string }) {
   )
 }
 
-export default function OgLinkCard({ url }: { url: string }) {
-  const ext = getExt(url)
-  if (FILE_EXTS.includes(ext)) return <FilePill url={url} />
-
+function OgPreview({ url }: { url: string }) {
   const [meta, setMeta] = useState<OgMeta | null>(null)
   const [done, setDone] = useState(false)
 
@@ -80,13 +77,15 @@ export default function OgLinkCard({ url }: { url: string }) {
     >
       {meta.image && (
         <div className="w-full overflow-hidden rounded-t-xl bg-mist-100 dark:bg-mist-800" style={{ aspectRatio: '1.91' }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={meta.image} alt="" className="w-full h-full object-cover"
             onError={e => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none' }} />
         </div>
       )}
       <div className={`px-3 pb-2.5 ${meta.image ? 'pt-2' : 'pt-2.5'}`}>
         <div className="flex items-center gap-1.5 mb-1.5">
-          <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=32`} className="w-4 h-4 rounded-sm shrink-0"
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=32`} alt="" className="w-4 h-4 rounded-sm shrink-0"
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
           <span className="text-[10px] font-medium text-mist-400 dark:text-mist-500 uppercase tracking-wide truncate">{host}</span>
         </div>
@@ -100,4 +99,10 @@ export default function OgLinkCard({ url }: { url: string }) {
       </div>
     </a>
   )
+}
+
+export default function OgLinkCard({ url }: { url: string }) {
+  const ext = getExt(url)
+  if (FILE_EXTS.includes(ext)) return <FilePill url={url} />
+  return <OgPreview url={url} />
 }

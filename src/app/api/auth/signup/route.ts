@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       // First user on an empty install becomes superAdmin
       ...(isBootstrap ? { superAdmin: true } : {}),
     },
+    overrideAccess: true,
   })
 
   await createSession(String(user.id), isBootstrap)

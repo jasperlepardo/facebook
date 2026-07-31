@@ -1,5 +1,6 @@
 'use client'
 import { useState, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import JSZip from 'jszip'
 import { fixMojibake } from '@/lib/mojibake'
 
@@ -910,9 +911,9 @@ export default function UploadPage() {
               ))}
             </div>
             <div className="flex gap-3">
-              <a href="/" className="flex-1 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold rounded-xl text-center hover:opacity-90 transition-opacity">
+              <Link href="/" className="flex-1 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold rounded-xl text-center hover:opacity-90 transition-opacity">
                 View App
-              </a>
+              </Link>
               <button
                 onClick={reset}
                 className="flex-1 py-2.5 bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-200 text-sm font-semibold rounded-xl hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors"

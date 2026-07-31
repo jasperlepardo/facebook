@@ -67,7 +67,12 @@ export function useMessageSelection({ thread, withThread, hashtags, onReloadHash
       return
     }
     lastSelectedAnchor.current = { id, ts, tsEnd }
-    setSelectedMsgs(prev => { const next = new Map(prev); next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd, allIds }); return next })
+    setSelectedMsgs(prev => {
+      const next = new Map(prev)
+      if (next.has(id)) next.delete(id)
+      else next.set(id, { ts, tsEnd, allIds })
+      return next
+    })
   }, [withThread]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function clearSelection() {

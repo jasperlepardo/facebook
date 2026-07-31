@@ -1,12 +1,13 @@
 import type { CollectionConfig } from 'payload'
+import { authenticated, superAdminOnly } from '@/lib/payload-access-control'
 
 export const Threads: CollectionConfig = {
   slug: 'threads',
   access: {
-    read:   () => true,
-    create: ({ req }) => !!req.user,
-    update: ({ req }) => !!req.user,
-    delete: ({ req }) => !!req.user,
+    read:   authenticated,
+    create: superAdminOnly,
+    update: superAdminOnly,
+    delete: superAdminOnly,
   },
   admin: {
     useAsTitle: 'name',

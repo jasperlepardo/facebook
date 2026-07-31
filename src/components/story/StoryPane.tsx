@@ -141,7 +141,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
             </div>
             <div className="bg-mist-100 dark:bg-mist-800 rounded-xl px-4 py-3 text-left w-full max-w-sm">
               <p className="text-[10px] font-semibold text-mist-400 dark:text-mist-500 mb-1.5 uppercase tracking-wide">Add to .env.local or Vercel:</p>
-              <code className="text-xs text-mist-700 dark:text-mist-200 block mb-3">ANTHROPIC_API_KEY="sk-ant-..."</code>
+              <code className="text-xs text-mist-700 dark:text-mist-200 block mb-3">ANTHROPIC_API_KEY=&quot;sk-ant-...&quot;</code>
               <p className="text-[10px] font-semibold text-mist-400 dark:text-mist-500 mb-1.5 uppercase tracking-wide">Then run:</p>
               <code className="text-xs text-mist-700 dark:text-mist-200 block">node scripts/generate-summaries.mjs</code>
             </div>

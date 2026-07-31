@@ -252,7 +252,8 @@ export default function ViewerApp() {
   const handleContentTypeChange = useCallback((key: ContentTypeKey, enabled: boolean) => {
     setEnabledTypes(prev => {
       const next = new Set(prev)
-      enabled ? next.add(key) : next.delete(key)
+      if (enabled) next.add(key)
+      else next.delete(key)
       fetch('/api/user-settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

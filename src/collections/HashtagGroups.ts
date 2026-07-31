@@ -1,4 +1,5 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
+import { authenticated } from '@/lib/payload-access-control'
 
 async function resyncHashtag(hashtagId: string, thread: string, req: PayloadRequest) {
   if (!hashtagId || !thread) return
@@ -26,7 +27,12 @@ async function resyncHashtag(hashtagId: string, thread: string, req: PayloadRequ
 export const HashtagGroups: CollectionConfig = {
   slug: 'hashtag-groups',
   versions: { maxPerDoc: 100 },
-  access: { read: () => true, create: ({ req }) => !!req.user, update: ({ req }) => !!req.user, delete: ({ req }) => !!req.user },
+  access: {
+    read:   authenticated,
+    create: authenticated,
+    update: authenticated,
+    delete: authenticated,
+  },
   admin: { useAsTitle: 'messageId', defaultColumns: ['hashtagId', 'messageId'] },
   hooks: {
     afterChange: [({ doc, req }) => resyncHashtag(doc.hashtagId, doc.thread, req)],

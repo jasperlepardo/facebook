@@ -10,6 +10,11 @@ cp .env.example .env.local   # fill in secrets
 npm run dev                  # http://localhost:3001
 ```
 
+```bash
+npm run typecheck
+npm run lint
+```
+
 ## Required env vars
 
 | Variable | Purpose |

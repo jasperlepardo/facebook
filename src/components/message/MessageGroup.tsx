@@ -134,7 +134,11 @@ const MessageRow = memo(function MessageRow({
           <>
             {isSuperAdmin && m._id && (
               <button
-                onClick={e => { e.stopPropagation(); isHidden ? onUnhideMessage?.(m._id) : onHideMessage?.(m._id) }}
+                onClick={e => {
+                  e.stopPropagation()
+                  if (isHidden) onUnhideMessage?.(m._id)
+                  else onHideMessage?.(m._id)
+                }}
                 className={`text-[11px] font-medium px-1.5 py-0.5 rounded ${isHidden ? 'text-mist-400 hover:text-mist-600' : 'text-red-400 hover:text-red-600'}`}
               >
                 {isHidden ? 'Unhide' : 'Hide'}

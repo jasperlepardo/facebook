@@ -39,7 +39,12 @@ export default function HashtagPicker({ hashtags, initialSelected, onClose, onAp
       const slug = input.trim()
       const existing = hashtags.find(h => h.name === slug)
       if (existing) {
-        setSelected(prev => { const n = new Set(prev); n.has(existing.id) ? n.delete(existing.id) : n.add(existing.id); return n })
+        setSelected(prev => {
+          const n = new Set(prev)
+          if (n.has(existing.id)) n.delete(existing.id)
+          else n.add(existing.id)
+          return n
+        })
       } else if (!newTags.includes(slug)) {
         setNewTags(prev => [...prev, slug])
       }
@@ -48,7 +53,12 @@ export default function HashtagPicker({ hashtags, initialSelected, onClose, onAp
   }
 
   function toggleExisting(id: string) {
-    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelected(prev => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
   }
 
   function removeNew(tag: string) {
