@@ -5,6 +5,7 @@ import { fmtTime } from '@/lib/format'
 import ThreadAvatar from '@/components/ThreadAvatar'
 import { renderCallPill } from '@/components/message/MessageCallPill'
 import { MessageListSkeleton } from '@/components/skeletons'
+import { pbSafe } from '@/lib/ui'
 
 interface CallItem { duration: number; missed: boolean; content?: string; ts: number; sender: string; msgId: string }
 
@@ -60,7 +61,7 @@ export default function CallsView({ thread = 'messages' }: { thread?: string }) 
     .filter(g => g.items.length > 0)
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
+    <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900 ${pbSafe} md:pb-0`}>
       {groups.map(group => (
         <div key={group.type}>
           <div className="flex items-center gap-3 px-4 pt-5 pb-3">

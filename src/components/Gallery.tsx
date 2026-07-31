@@ -5,6 +5,7 @@ import { GalleryItem, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
 import { GALLERY_LIMIT } from '@/lib/constants'
 import { GallerySkeleton } from '@/components/skeletons'
+import { pbSafe } from '@/lib/ui'
 
 interface GalleryProps {
   type: 'photos' | 'videos' | 'gifs' | 'stickers'
@@ -153,7 +154,7 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
   }
 
   return (
-    <div ref={galleryRef} className="flex-1 overflow-y-auto p-3 bg-white dark:bg-mist-900" onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
+    <div ref={galleryRef} className={`flex-1 overflow-y-auto p-3 bg-white dark:bg-mist-900 ${pbSafe} md:pb-3`} onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
       <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
         {items.map((item, i) => {
           const isHidden = hiddenUris?.has(item.uri)

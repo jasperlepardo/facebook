@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { MediaListSkeleton } from '@/components/skeletons'
+import { pbSafe } from '@/lib/ui'
 
 interface LinkItem { uri: string; text?: string; ts: number; sender: string; msgId: string }
 
@@ -28,7 +29,7 @@ export default function LinksView({ thread = 'messages' }: { thread?: string }) 
   )
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-mist-900">
+    <div className={`flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-mist-900 ${pbSafe} md:pb-3`}>
       {items.map((item, i) => {
         let host = ''
         try { host = new URL(item.uri).hostname.replace(/^www\./, '') } catch {}

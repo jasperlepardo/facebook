@@ -26,6 +26,17 @@
   font-family: var(--font-display), ui-serif, Georgia, 'Times New Roman', serif;
 }
 
+/* ── Mobile safe-area / floating nav clearance ─────────────────────────────── */
+:root {
+  /* Capsule = py-2 + h-10 icon row */
+  --resibo-nav-pill: 3.5rem;
+  --resibo-nav-gap: 0.5rem;
+  --resibo-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --resibo-safe-top: env(safe-area-inset-top, 0px);
+  /* Use when the floating bottom nav is visible */
+  --resibo-nav-clearance: calc(var(--resibo-nav-pill) + var(--resibo-nav-gap) + var(--resibo-safe-bottom));
+}
+
 /* ── Liquid Glass (iOS 26 style) ─────────────────────────────────────────── */
 @layer components {
   .liquid-glass {

@@ -248,7 +248,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
         prevSection={prevSection}
         initials={initials}
         name={name}
-        hiddenOnMobile={!mobileShowList && section !== 'story'}
+        hiddenOnMobile={!mobileShowList && (section === 'chat' || section === 'hashtags')}
         onSectionChange={handleSectionChange}
         isExpanded={navExpanded}
         onToggleExpanded={toggleNav}

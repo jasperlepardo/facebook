@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from '@/lib/toast'
 import { SettingsRowsSkeleton } from '@/components/skeletons'
-import { field, btnPrimary, labelUpper, sectionCard } from '@/lib/ui'
+import { field, btnPrimary, labelUpper, sectionCard, pbNav } from '@/lib/ui'
 
 interface HiddenItem {
   _id: string
@@ -66,7 +66,7 @@ export default function HiddenItemsView({ onBack }: Props) {
   useEffect(() => { load() }, [])
 
   return (
-    <div className="flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900">
+    <div className={`flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900 ${pbNav} md:pb-0`}>
       <div className="px-4 py-6">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-mist-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
           <BackIcon /> Back

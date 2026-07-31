@@ -6,6 +6,7 @@ import FilesView from './FilesView'
 import LinksView from './LinksView'
 import CallsView from './CallsView'
 import Tabs from './Tabs'
+import { pbSafe } from '@/lib/ui'
 
 interface Props {
   initialTab?: MediaTab
@@ -130,7 +131,7 @@ export default function MediaPane({
       </div>
 
       {mode === 'settings' ? (
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        <div className={`flex-1 overflow-y-auto p-4 space-y-6 ${pbSafe} md:pb-4`}>
 
           {/* Thread info */}
           <div className="space-y-3">

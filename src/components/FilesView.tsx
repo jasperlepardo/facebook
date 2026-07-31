@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { GalleryItem } from '@/types'
 import { r2 } from '@/lib/format'
 import { MediaListSkeleton } from '@/components/skeletons'
+import { pbSafe } from '@/lib/ui'
 
 export default function FilesView({ type = 'all', thread = 'messages' }: { type?: 'files' | 'audio' | 'all'; thread?: string }) {
   const [items, setItems] = useState<(GalleryItem & { kind: string })[]>([])
@@ -47,7 +48,7 @@ export default function FilesView({ type = 'all', thread = 'messages' }: { type?
   )
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-mist-900">
+    <div className={`flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-mist-900 ${pbSafe} md:pb-3`}>
       {items.map((item, i) => {
         const name = item.uri.split('/').pop() ?? ''
         return (

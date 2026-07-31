@@ -8,6 +8,7 @@ import ActionSheet from './ActionSheet'
 import HashtagCreateForm from './HashtagCreateForm'
 import Tabs from './Tabs'
 import { useHashtagMessages } from '@/hooks/useHashtagMessages'
+import { pbSafe } from '@/lib/ui'
 
 interface HashtagsPaneProps {
   hashtags: Hashtag[]
@@ -222,7 +223,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
 
           {/* Context tab */}
           {activeTab === 'context' && (
-            <div className="absolute inset-0 overflow-y-auto">
+            <div className={`absolute inset-0 overflow-y-auto ${pbSafe} md:pb-0`}>
               {editingContext ? (
                 <textarea
                   ref={ctxRef}
@@ -265,7 +266,8 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
           {/* Messages tab */}
           {activeTab === 'messages' && (
             <div className="absolute inset-0 flex flex-col">
-              <div ref={msgsScrollRef} className="flex-1 overflow-y-auto">
+              <div ref={msgsScrollRef} className={`flex-1 overflow-y-auto ${pbSafe} md:pb-0`}>
+                <div className="min-h-full flex flex-col justify-end">
                 {allMsgs.length === 0 && (
                   <p className="text-xs text-gray-400 dark:text-mist-500 text-center py-8">No messages tagged yet.</p>
                 )}
@@ -311,6 +313,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   )}
                 />
                 {hasMore && <div ref={botSentinelRef} className="h-8" />}
+                </div>
               </div>
             </div>
           )}

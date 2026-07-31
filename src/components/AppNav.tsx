@@ -55,9 +55,9 @@ export default function AppNav({ section, prevSection = 'chat', initials, name, 
   return (
     <div className={hiddenOnMobile
       ? 'hidden md:contents'
-      : 'flex fixed inset-x-0 bottom-0 z-20 justify-center pointer-events-none pb-[env(safe-area-inset-bottom)] md:contents'
+      : 'flex fixed inset-x-0 bottom-0 z-20 justify-center pointer-events-none pb-[max(0.25rem,var(--resibo-safe-bottom))] md:contents'
     }>
-    <nav className={`pointer-events-auto liquid-glass shrink-0 flex flex-col rounded-full my-2 md:static md:rounded-none md:my-0 md:pb-0 md:overflow-hidden md:transition-all md:duration-200 md:ease-in-out md:bg-mist-50 md:dark:bg-mist-950 md:backdrop-filter-none md:[border:none] md:shadow-none md:before:hidden ${isExpanded ? 'md:w-60' : 'md:w-fit'}`}>
+    <nav className={`pointer-events-auto liquid-glass shrink-0 flex flex-col rounded-full mb-0 mt-1 md:static md:rounded-none md:my-0 md:pb-0 md:overflow-hidden md:transition-all md:duration-200 md:ease-in-out md:bg-mist-50 md:dark:bg-mist-950 md:backdrop-filter-none md:[border:none] md:shadow-none md:before:hidden ${isExpanded ? 'md:w-60' : 'md:w-fit'}`}>
 
       {/* Mobile: horizontal capsule row */}
       <div className="flex md:hidden flex-row items-center px-2 py-2 gap-1">

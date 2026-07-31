@@ -7,6 +7,7 @@ import { StoryCalendar } from './StoryCalendar'
 import { ArcTimeline, ArcDetail } from './ArcTimeline'
 import { DaySummaryView } from './DaySummaryView'
 import { StoryPaneSkeleton } from '@/components/skeletons'
+import { pbNav } from '@/lib/ui'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -230,7 +231,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
           </div>
 
           {leftTab === 'calendar' && (
-            <div className="flex-1 overflow-y-auto px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-3">
+            <div className={`flex-1 overflow-y-auto px-4 ${pbNav} md:pb-3`}>
               {selectedYear && selectedMonth && (
                 <p className="text-[10px] font-semibold text-mist-400 dark:text-mist-500 uppercase tracking-wide mb-2">
                   {['January','February','March','April','May','June','July','August','September','October','November','December'][selectedMonth - 1]} {selectedYear}
@@ -255,7 +256,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
           )}
 
           {leftTab === 'arcs' && (
-            <div className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-3">
+            <div className={`flex-1 overflow-y-auto ${pbNav} md:pb-3`}>
               <ArcTimeline
                 arcs={arcs}
                 selectedArc={selectedArc}
@@ -269,7 +270,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
         </div>
 
         {/* Right panel */}
-        <div className="flex-1 min-w-0 overflow-y-auto px-5 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-4">
+        <div className={`flex-1 min-w-0 overflow-y-auto px-5 py-4 ${pbNav} md:pb-4`}>
           {selected ? (
             <DaySummaryView
               summary={selected}

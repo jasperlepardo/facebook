@@ -308,7 +308,7 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
       </div>
 
       {/* Bottom chrome */}
-      <div className="shrink-0 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-black/80 via-black/50 to-transparent relative z-20">
+      <div className="shrink-0 px-4 pt-3 pb-[calc(0.75rem+var(--resibo-safe-bottom))] bg-gradient-to-t from-black/80 via-black/50 to-transparent relative z-20">
         <div className="flex items-end gap-3 max-w-3xl mx-auto">
           <div className="flex-1 min-w-0">
             {state.caption && (

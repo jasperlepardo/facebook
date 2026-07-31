@@ -1,6 +1,6 @@
 'use client'
 
-import { field, btnPrimary, label } from '@/lib/ui'
+import { field, btnPrimary, label, pbNav } from '@/lib/ui'
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -21,7 +21,7 @@ interface Props {
 
 export default function ProfileView({ nameInput, emailInput, saveState, error, onNameChange, onEmailChange, onSave, onBack }: Props) {
   return (
-    <div className="flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900">
+    <div className={`flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900 ${pbNav} md:pb-0`}>
       <div className="px-4 py-6">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-mist-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
           <BackIcon /> Back

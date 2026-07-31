@@ -15,6 +15,7 @@ import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
 import DatePickerModal from './DatePickerModal'
 import { MessageListSkeleton } from '@/components/skeletons'
+import { pbSafe } from '@/lib/ui'
 
 export type JumpFn = (ts: number, msgId: string | null) => Promise<void>
 
@@ -218,29 +219,32 @@ export default function ChatDetailPane({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto flex flex-col min-h-0 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-0${selection.selectedMsgs.size > 0 ? ' select-none' : ''}`}
+        className={`flex-1 overflow-y-auto min-h-0 ${pbSafe} md:pb-0${selection.selectedMsgs.size > 0 ? ' select-none' : ''}`}
         style={{ visibility: chatVisible && !jump.jumping && !loader.searching ? 'visible' : 'hidden' }}
       >
-        <MessageList
-          blocks={blocks}
-          onLightbox={jump.handleMsgLightbox}
-          selectedMsgIds={selection.selectedMsgs}
-          onToggle={selection.handleToggle}
-          onContextMenu={handleMsgContextMenu}
-          dateIndex={dateIndex}
-          onJumpTo={jump.handleChatJump}
-          onOpenDatePicker={openDatePicker}
-          hideImages={hideImages}
-          hiddenUris={hiddenUris}
-          isSuperAdmin={isSuperAdmin}
-          hiddenMsgIds={hiddenMsgIds}
-          onHideMessage={onHideMessage}
-          onUnhideMessage={onUnhideMessage}
-          onHideUri={onHideDbUri}
-          onUnhideUri={onUnhideDbUri}
-          enabledTypes={enabledTypes}
-          senderColor={senderColor}
-        />
+        {/* Bottom-anchor when the thread is shorter than the viewport (avoids a dead gap below). */}
+        <div className="min-h-full flex flex-col justify-end">
+          <MessageList
+            blocks={blocks}
+            onLightbox={jump.handleMsgLightbox}
+            selectedMsgIds={selection.selectedMsgs}
+            onToggle={selection.handleToggle}
+            onContextMenu={handleMsgContextMenu}
+            dateIndex={dateIndex}
+            onJumpTo={jump.handleChatJump}
+            onOpenDatePicker={openDatePicker}
+            hideImages={hideImages}
+            hiddenUris={hiddenUris}
+            isSuperAdmin={isSuperAdmin}
+            hiddenMsgIds={hiddenMsgIds}
+            onHideMessage={onHideMessage}
+            onUnhideMessage={onUnhideMessage}
+            onHideUri={onHideDbUri}
+            onUnhideUri={onUnhideDbUri}
+            enabledTypes={enabledTypes}
+            senderColor={senderColor}
+          />
+        </div>
       </div>
 
       {showDatePicker && (

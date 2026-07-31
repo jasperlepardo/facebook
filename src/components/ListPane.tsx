@@ -1,6 +1,7 @@
 'use client'
 
 import { LockIcon } from '@/components/icons'
+import { pbNav } from '@/lib/ui'
 import { fieldSearch } from '@/lib/ui'
 
 export interface ListPaneItem {
@@ -63,8 +64,8 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
         </div>
       </div>
 
-      {/* List — leave room for floating mobile nav */}
-      <div className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+      {/* List — clear floating mobile nav */}
+      <div className={`flex-1 overflow-y-auto ${pbNav} md:pb-0`}>
         {filtered.length === 0 && (
           <p className="text-xs text-mist-400 dark:text-mist-500 text-center py-8">
             {emptyMessage ?? (filter ? 'No matches.' : 'Nothing here yet.')}

@@ -23,7 +23,7 @@ export default function ActionSheet({ title, actions, onClose }: ActionSheetProp
   return (
     <div className="fixed inset-0 z-300 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col gap-2">
+      <div className="relative z-10 px-3 pb-[max(0.75rem,var(--resibo-safe-bottom))] flex flex-col gap-2">
         <div className="liquid-glass rounded-2xl overflow-hidden">
           {title && (
             <div className="px-6 pt-3.5 pb-2.5 text-center text-[13px] text-mist-500 dark:text-mist-400 border-b border-mist-100 dark:border-white/8">

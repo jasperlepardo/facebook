@@ -6,7 +6,7 @@ import ProfileView from './ProfileView'
 import PasswordView from './PasswordView'
 import HiddenItemsView from './HiddenItemsView'
 import PasskeysSection, { type Passkey } from './PasskeysSection'
-import { sectionCard, toggleOn, toggleOff } from '@/lib/ui'
+import { sectionCard, toggleOn, toggleOff, pbNav } from '@/lib/ui'
 
 type Theme    = 'light' | 'dark' | 'system'
 type View     = 'main' | 'profile' | 'password' | 'hidden-items'
@@ -180,7 +180,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
   ]
 
   return (
-    <div className="flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+    <div className={`flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900 ${pbNav} md:pb-0`}>
       <div className="px-4 py-6 space-y-6">
 
         <section>

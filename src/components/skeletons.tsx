@@ -2,6 +2,8 @@ import type { CSSProperties } from 'react'
 
 /** Panel-level loading skeletons matched to real UI layouts. */
 
+import { pbNav } from '@/lib/ui'
+
 function Bone({ className = '', style }: { className?: string; style?: CSSProperties }) {
   return <div className={`animate-pulse rounded-md bg-mist-200 dark:bg-mist-700/70 ${className}`} style={style} />
 }
@@ -14,7 +16,7 @@ export function ListPaneSkeleton({ titleWidth = 'w-16' }: { titleWidth?: string 
         <Bone className={`h-[22px] ${titleWidth} mb-3 rounded-lg`} />
         <Bone className="h-9 w-full rounded-full bg-mist-100 dark:bg-mist-800" />
       </div>
-      <div className="flex-1 overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+      <div className={`flex-1 overflow-hidden ${pbNav} md:pb-0`}>
         {[72, 58, 64, 48, 70, 52, 60].map((w, i) => (
           <div key={i} className="px-2 py-1.5 flex items-center gap-3 mx-1 my-0.5">
             <Bone className="w-14 h-14 rounded-full shrink-0" />

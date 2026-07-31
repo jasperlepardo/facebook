@@ -50,3 +50,11 @@ export const toggleOff = 'bg-mist-300 dark:bg-mist-600'
 
 export const sectionCard =
   'bg-white dark:bg-mist-800 rounded-xl overflow-hidden divide-y divide-mist-100 dark:divide-mist-700'
+
+/**
+ * Bottom padding tokens (PWA / iOS home indicator). Pair with `md:pb-*` at the call site.
+ * - pbNav: floating capsule is visible (list, story)
+ * - pbSafe: nav hidden (chat/hashtag detail, settings, media overlay)
+ */
+export const pbNav  = 'pb-[var(--resibo-nav-clearance)]'
+export const pbSafe = 'pb-[var(--resibo-safe-bottom)]'
