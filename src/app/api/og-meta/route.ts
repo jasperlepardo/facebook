@@ -8,7 +8,8 @@ export interface OgMeta {
 }
 
 const cache = new Map<string, { data: OgMeta; ts: number }>()
-const TTL = 1000 * 60 * 60
+const TTL       = 1000 * 60 * 60
+const MAX_CACHE = 500
 
 function parseHost(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' }
@@ -51,6 +52,14 @@ function extractOg(html: string, url: string): OgMeta {
   return { host, title, description, image }
 }
 
+function cacheSet(url: string, data: OgMeta) {
+  if (cache.size >= MAX_CACHE) {
+    const oldest = cache.keys().next().value
+    if (oldest) cache.delete(oldest)
+  }
+  cacheSet(url, data)
+}
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('url')
   if (!url) return NextResponse.json({ error: 'missing url' }, { status: 400 })
@@ -69,7 +78,7 @@ export async function GET(req: NextRequest) {
 
     if (!res.ok || !(res.headers.get('content-type') ?? '').includes('text/html')) {
       const data: OgMeta = { host }
-      cache.set(url, { data, ts: Date.now() })
+      cacheSet(url, data)
       return NextResponse.json(data)
     }
 
@@ -87,7 +96,7 @@ export async function GET(req: NextRequest) {
     }
 
     const data = extractOg(html, url)
-    cache.set(url, { data, ts: Date.now() })
+    cacheSet(url, data)
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'public, max-age=3600' },
     })

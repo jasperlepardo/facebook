@@ -1,28 +1,11 @@
 import config from '@payload-config'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPayload } from 'payload'
-import { getSession } from '@/lib/session'
-import { getPayloadClient } from '@/lib/payload-access'
+import { getCallerInfo } from '@/lib/auth'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
-
-async function getCallerInfo(): Promise<{ userId: string | null; isSuperAdmin: boolean; name: string | undefined }> {
-  const session = await getSession()
-  if (!session) return { userId: null, isSuperAdmin: false, name: undefined }
-  try {
-    const payload = await getPayloadClient()
-    const user = await payload.findByID({ collection: 'users', id: session.userId, overrideAccess: true })
-    return {
-      userId: session.userId,
-      isSuperAdmin: !!(user as any)?.superAdmin,
-      name: (user as { name?: string }).name ?? undefined,
-    }
-  } catch {
-    return { userId: session.userId, isSuperAdmin: false, name: undefined }
-  }
 }
 
 export async function OPTIONS() {
@@ -57,6 +40,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ...result, docs: visible }, { headers: CORS })
   } catch (e) {
+    console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }
 }
@@ -81,6 +65,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json({ doc }, { headers: CORS })
   } catch (e) {
+    console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }
 }

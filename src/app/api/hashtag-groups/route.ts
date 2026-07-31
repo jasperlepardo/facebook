@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ error: 'hashtagId, messageId, or messageIds required' }, { status: 400, headers: CORS })
   } catch (e) {
+    console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }
 }
@@ -123,6 +124,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, created: newMessageIds.length }, { headers: CORS })
   } catch (e) {
+    console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }
 }
@@ -153,6 +155,7 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ ok: true }, { headers: CORS })
   } catch (e) {
+    console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }
 }

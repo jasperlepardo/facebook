@@ -70,6 +70,7 @@ export async function GET(req: NextRequest) {
       mediaCounts: Object.fromEntries(MEDIA_TYPES.map((t, i) => [t, mediaCountValues[i]])),
     })
   } catch (e) {
+    console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }

@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     const docs = await col.find(filter).sort({ startDate: 1 }).toArray()
     return NextResponse.json({ arcs: docs.map(clean) })
   } catch (e) {
+    console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
 }

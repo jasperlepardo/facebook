@@ -41,6 +41,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // Auth API routes must be reachable before the user has a session (they ARE the login flow)
+  if (pathname.startsWith('/api/auth/')) {
+    return NextResponse.next()
+  }
+
+  if (pathname.startsWith('/api/')) {
+    if (!authed) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.next()
+  }
+
   if (!authed) {
     const next = encodeURIComponent(req.nextUrl.pathname + req.nextUrl.search)
     return NextResponse.redirect(new URL(`/auth/signin?next=${next}`, req.url))
@@ -50,5 +60,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/admin/:path*', '/auth/:path*', '/api/messages', '/api/attachments', '/api/jump', '/api/bookmark', '/api/hidden-items'],
+  matcher: ['/', '/admin/:path*', '/auth/:path*', '/api/:path*'],
 }

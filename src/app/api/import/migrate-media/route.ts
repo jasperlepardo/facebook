@@ -3,9 +3,9 @@ import { getCollection } from '@/lib/db'
 import { getSession } from '@/lib/session'
 
 const CORS       = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
-const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? '793d45ff21c7d79b82f3fdfe10971466'
-const BUCKET     = process.env.R2_BUCKET             ?? 'jasper-ciara-media'
-const R2_PUBLIC  = process.env.R2_PUBLIC_URL         ?? 'https://pub-bcf374add91945839b65e3ee37ef410d.r2.dev'
+const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? ''
+const BUCKET     = process.env.R2_BUCKET             ?? ''
+const R2_PUBLIC  = process.env.R2_PUBLIC_URL         ?? ''
 
 // Any URI still carrying a media/ prefix is old format
 const OLD_URI_RE = /^media\//
