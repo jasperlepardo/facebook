@@ -1,13 +1,14 @@
 import type { CollectionConfig } from 'payload'
-import { selfOrSuperAdmin, superAdminField, isSuperAdminUser } from '@/lib/payload-access-control'
+import { selfOrSuperAdmin, superAdminField, isSuperAdminUser, superAdminOnly } from '@/lib/payload-access-control'
 
 export const Users: CollectionConfig = {
   slug: 'users',
   admin: { useAsTitle: 'name' },
   auth: true,
   access: {
-    // Creates go through /api/auth/signup with overrideAccess — not open REST
-    create: () => false,
+    // Only superAdmins (Payload admin UI or trusted callers). Public signup uses
+    // /api/auth/signup with overrideAccess for bootstrap / ALLOW_SIGNUP.
+    create: superAdminOnly,
     read:   selfOrSuperAdmin,
     update: selfOrSuperAdmin,
     delete: ({ req: { user } }) => isSuperAdminUser(user),
