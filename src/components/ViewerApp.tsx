@@ -22,8 +22,8 @@ import ThreadAvatar from './ThreadAvatar'
 import Toaster from './Toaster'
 
 const HashtagsPane = dynamic(() => import('./HashtagsPane'), { ssr: false })
-const StoryPane    = dynamic(() => import('./StoryPane'),    { ssr: false })
-const SettingsPane = dynamic(() => import('./SettingsPane'), { ssr: false })
+const StoryPane    = dynamic(() => import('./story/StoryPane'),    { ssr: false })
+const SettingsPane = dynamic(() => import('./settings/SettingsPane'), { ssr: false })
 
 interface Thread { id: string; name: string; initials: string; color: string; collection: string; participants?: string[] }
 

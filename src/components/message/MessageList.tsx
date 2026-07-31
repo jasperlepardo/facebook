@@ -3,7 +3,7 @@ import { memo, useId } from 'react'
 import { Message, MessageBlock, LightboxState, DateIndex } from '@/types'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import MessageGroup from './MessageGroup'
-import DateMenu from './DateMenu'
+import DateMenu from '@/components/DateMenu'
 
 interface MessageListProps {
   blocks: MessageBlock[]

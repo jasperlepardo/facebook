@@ -3,7 +3,7 @@ import { Message, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import OgLinkCard from '@/components/OgLinkCard'
-import { pill, pillIcon, pillLabel, pillSub, iconWell, card } from './MessageTokens'
+import { pill, pillIcon, pillLabel, pillSub, iconWell, card } from './MessageStyles'
 import { renderCallPill } from './MessageCallPill'
 
 export function imgCtx(e: React.MouseEvent, uri: string) {

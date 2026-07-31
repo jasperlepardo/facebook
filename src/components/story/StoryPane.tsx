@@ -3,9 +3,9 @@ import { useState, useEffect, useCallback } from 'react'
 import { toast } from '@/lib/toast'
 import { DailySummary, Arc } from '@/types'
 import { PREVIEW_BY_MONTH, PREVIEW_META, PREVIEW_ARCS } from '@/fixtures/storyPreviewData'
-import { StoryCalendar } from './story/StoryCalendar'
-import { ArcTimeline, ArcDetail } from './story/ArcTimeline'
-import { DaySummaryView } from './story/DaySummaryView'
+import { StoryCalendar } from './StoryCalendar'
+import { ArcTimeline, ArcDetail } from './ArcTimeline'
+import { DaySummaryView } from './DaySummaryView'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 

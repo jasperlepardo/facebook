@@ -4,11 +4,11 @@ import { Message, MessageBlock, LightboxState } from '@/types'
 import { fmtTime, fmtTimeShort } from '@/lib/format'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import ThreadAvatar from '@/components/ThreadAvatar'
-import { rowBase, rowSel, rowUnsel, timeCls, actionsCls } from './MessageTokens'
+import { rowBase, rowSel, rowUnsel, timeCls, actionsCls } from './MessageStyles'
 import { renderContent } from './MessageContent'
 import { renderMedia } from './MessageMedia'
 
-export { StatusPill } from './MessageTokens'
+export { StatusPill } from './MessageStyles'
 export { renderCallPill } from './MessageCallPill'
 
 // ─── Types ───────────────────────────────────────────────────────────────────

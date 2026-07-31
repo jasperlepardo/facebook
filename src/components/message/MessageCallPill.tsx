@@ -1,5 +1,5 @@
 import { mapFbEmoji } from '@/lib/fbEmoji'
-import { StatusPill } from './MessageTokens'
+import { StatusPill } from './MessageStyles'
 
 export function renderCallPill(duration: number, missed: boolean, content?: string | null) {
   const isVideo = (content ?? '').toLowerCase().includes('video')

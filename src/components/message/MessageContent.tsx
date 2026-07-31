@@ -2,7 +2,7 @@ import { Message } from '@/types'
 import { mapFbEmoji } from '@/lib/fbEmoji'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import OgLinkCard from '@/components/OgLinkCard'
-import { StatusPill } from './MessageTokens'
+import { StatusPill } from './MessageStyles'
 import { renderCallPill } from './MessageCallPill'
 
 export function renderContent(

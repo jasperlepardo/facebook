@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Message, MessageBlock, LightboxState } from '@/types'
-import MessageGroup from '@/components/MessageGroup'
+import MessageGroup from '@/components/message/MessageGroup'
 import Lightbox from '@/components/Lightbox'
 import { ME } from '@/lib/constants'
 
