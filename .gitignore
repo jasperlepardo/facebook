@@ -40,3 +40,9 @@ ciara_conversation/
 FIGHTS.md
 TIMELINE.md
 scripts/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

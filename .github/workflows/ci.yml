@@ -25,3 +25,39 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke tests
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          CI: true
+        run: |
+          if [ -z "$PLAYWRIGHT_BASE_URL" ]; then
+            echo "Skipping e2e — add repository secret E2E_BASE_URL to enable against a deployed app."
+            exit 0
+          fi
+          npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

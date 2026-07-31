@@ -13,7 +13,25 @@ npm run dev                  # http://localhost:3001
 ```bash
 npm run typecheck
 npm run lint
+npm run test:e2e          # starts dev server unless PLAYWRIGHT_BASE_URL is set
 ```
+
+### E2E smoke
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+Optional authenticated smoke (against local or deployed):
+
+```bash
+E2E_EMAIL=you@example.com E2E_PASSWORD=secret npm run test:e2e
+# or hit a deployed instance:
+PLAYWRIGHT_BASE_URL=https://your-app.vercel.app E2E_EMAIL=… E2E_PASSWORD=… npm run test:e2e
+```
+
+CI runs the e2e job when the `E2E_BASE_URL` repository secret is set (optional `E2E_EMAIL` / `E2E_PASSWORD` for the authenticated smoke). Without that secret, CI skips e2e cleanly.
 
 ## Required env vars
 
