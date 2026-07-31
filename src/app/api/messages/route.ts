@@ -2,21 +2,11 @@ import { ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCollection } from '@/lib/db'
 import { getSession } from '@/lib/session'
-import { getPayloadClient } from '@/lib/payload-access'
 import { getHiddenMessageFilter } from '@/lib/hidden-filter-cache'
 
-async function isSuperAdmin(): Promise<boolean> {
-  try {
-    const session = await getSession()
-    if (!session) return false
-    const payload = await getPayloadClient()
-    const user = await payload.findByID({ collection: 'users', id: session.userId })
-    return !!(user as any)?.superAdmin
-  } catch { return false }
-}
-
-async function buildFilter(showHidden: boolean): Promise<Record<string, unknown>> {
-  if (showHidden && await isSuperAdmin()) return {}
+// superAdmin comes straight from the JWT claim — no extra DB round trip needed
+async function buildFilter(superAdmin: boolean, showHidden: boolean): Promise<Record<string, unknown>> {
+  if (showHidden && superAdmin) return {}
   return getHiddenMessageFilter()
 }
 
@@ -37,48 +27,47 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
-// POST { blockIds?: string[], messageIds?: string[] } — fetch messages by block or by specific IDs
-// messageIds: fetches those messages then expands to their full blocks for context
+// POST { blockIds?, messageIds?, showHidden?, thread } — fetch messages by block or by specific IDs
 export async function POST(req: NextRequest) {
   try {
+    const session = await getSession()
     const { blockIds: rawBlockIds, messageIds: rawMsgIds, showHidden, thread } = await req.json()
-    const col = await getCollection(thread ?? 'messages')
-    const filter = await buildFilter(!!showHidden)
+    const col    = await getCollection(thread ?? 'messages')
+    const filter = await buildFilter(!!session?.superAdmin, !!showHidden)
 
     if (Array.isArray(rawMsgIds) && rawMsgIds.length) {
-      const msgIds = rawMsgIds.map(id => { try { return new ObjectId(id) } catch { return null } }).filter((id): id is ObjectId => id !== null)
-      // Expand to full blocks so the pane shows context
+      const msgIds   = rawMsgIds.map(id => { try { return new ObjectId(id) } catch { return null } }).filter((id): id is ObjectId => id !== null)
       const targeted = await col.find({ ...filter, _id: { $in: msgIds } }, { projection: { blockId: 1 } }).toArray()
       const blockIds = [...new Set(targeted.map(m => m.blockId))]
-      const docs = await col.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
+      const docs     = await col.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
       return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
     }
 
     if (!Array.isArray(rawBlockIds) || !rawBlockIds.length) return NextResponse.json({ messages: [] }, { headers: CORS })
     const blockIds = rawBlockIds.map(id => { try { return new ObjectId(id) } catch { return id as unknown as ObjectId } })
-    const docs = await col.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
+    const docs     = await col.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
     return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
   } catch (e: unknown) {
+    console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }
 }
-
-const GROUP_GAP = 5 * 60_000
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const idsParam      = searchParams.get('ids')
   const groupIdsParam = searchParams.get('groupIds')
-  const off   = parseInt(searchParams.get('offset') ?? '0')
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '80'), 200)
-  const q     = (searchParams.get('search') ?? '').trim()
-  const asc   = searchParams.get('asc') === '1'
+  const off        = parseInt(searchParams.get('offset') ?? '0')
+  const limit      = Math.min(parseInt(searchParams.get('limit') ?? '80'), 200)
+  const q          = (searchParams.get('search') ?? '').trim()
+  const asc        = searchParams.get('asc') === '1'
   const showHidden = searchParams.get('showHidden') === '1'
-  const thread = searchParams.get('thread') ?? 'messages'
+  const thread     = searchParams.get('thread') ?? 'messages'
 
   try {
-    const msgs = await getCollection(thread)
-    const filter = await buildFilter(showHidden)
+    const session = await getSession()
+    const msgs    = await getCollection(thread)
+    const filter  = await buildFilter(!!session?.superAdmin, showHidden)
 
     const tsFrom = searchParams.get('tsFrom')
     const tsTo   = searchParams.get('tsTo')
@@ -88,36 +77,47 @@ export async function GET(req: NextRequest) {
     }
 
     if (groupIdsParam) {
-      const rawIds = groupIdsParam.split(',').filter(Boolean)
+      const rawIds   = groupIdsParam.split(',').filter(Boolean)
       const blockIds = rawIds.map(id => { try { return new ObjectId(id) } catch { return id as unknown as ObjectId } })
-      const docs = await msgs.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
+      const docs     = await msgs.find({ ...filter, blockId: { $in: blockIds } }).sort({ timestamp_ms: 1 }).toArray()
       return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
     }
 
     if (idsParam) {
-      const ids = idsParam.split(',').filter(Boolean).map(id => { try { return new ObjectId(id) } catch { return null } }).filter((id): id is ObjectId => id !== null)
+      const ids  = idsParam.split(',').filter(Boolean).map(id => { try { return new ObjectId(id) } catch { return null } }).filter((id): id is ObjectId => id !== null)
       const docs = await msgs.find({ ...filter, _id: { $in: ids } }).sort({ timestamp_ms: 1 }).toArray()
       return NextResponse.json({ messages: docs.map(clean) }, { headers: CORS })
     }
 
     if (q) {
       const filt = { ...filter, $text: { $search: q } }
-      const total = await msgs.countDocuments(filt)
-      const page  = await msgs.find(filt, { projection: { score: { $meta: 'textScore' } } })
-        .sort({ score: { $meta: 'textScore' }, timestamp_ms: 1 })
-        .skip(off).limit(limit).toArray()
+      // count + data in parallel for search
+      const [total, page] = await Promise.all([
+        msgs.countDocuments(filt),
+        msgs.find(filt, { projection: { score: { $meta: 'textScore' } } })
+          .sort({ score: { $meta: 'textScore' }, timestamp_ms: 1 })
+          .skip(off).limit(limit).toArray(),
+      ])
       return NextResponse.json({ messages: page.map(clean), total, has_more: off + limit < total }, { headers: CORS })
-    } else if (asc) {
-      const total = await msgs.countDocuments(filter)
-      const page  = await msgs.find(filter).sort({ timestamp_ms: 1 }).skip(off).limit(limit).toArray()
-      return NextResponse.json({ messages: page.map(clean), total, has_more: off + limit < total }, { headers: CORS })
-    } else {
-      const total = await msgs.countDocuments(filter)
-      const skip  = Math.max(0, total - off - limit)
-      const page  = await msgs.find(filter).sort({ timestamp_ms: 1 }).skip(skip).limit(limit).toArray()
-      return NextResponse.json({ messages: page.map(clean), total, has_more: skip > 0 }, { headers: CORS })
     }
+
+    if (asc) {
+      // count + data in parallel — eliminates one sequential round trip
+      const [total, page] = await Promise.all([
+        msgs.countDocuments(filter),
+        msgs.find(filter).sort({ timestamp_ms: 1 }).skip(off).limit(limit).toArray(),
+      ])
+      return NextResponse.json({ messages: page.map(clean), total, has_more: off + limit < total }, { headers: CORS })
+    }
+
+    // Descending (most-recent-first): use desc sort + reverse to avoid needing count before skip
+    const [total, page] = await Promise.all([
+      msgs.countDocuments(filter),
+      msgs.find(filter).sort({ timestamp_ms: -1 }).skip(off).limit(limit).toArray(),
+    ])
+    return NextResponse.json({ messages: page.reverse().map(clean), total, has_more: off + limit < total }, { headers: CORS })
   } catch (e: unknown) {
+    console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
   }
 }

@@ -18,15 +18,17 @@ const MEDIA_TYPES = ['photos', 'videos', 'gifs', 'stickers', 'audio', 'files', '
 export async function GET(req: NextRequest) {
   const session = await getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const thread = new URL(req.url).searchParams.get('thread') ?? 'messages'
+
+  // superAdmin comes from JWT — no DB round trip required
+  const isSuperAdmin = session.superAdmin
+  const userId       = session.userId
+  const thread       = new URL(req.url).searchParams.get('thread') ?? 'messages'
 
   try {
     const [msgs, payload] = await Promise.all([getCollection(thread), getPayloadClient()])
 
-    const user = await payload.findByID({ collection: 'users', id: session.userId, overrideAccess: true })
-    const isSuperAdmin = !!(user as any)?.superAdmin
-    const userId = session.userId
-
+    // User fetch (for name) now runs in parallel with all other queries
+    const userP      = payload.findByID({ collection: 'users', id: userId, overrideAccess: true })
     const lastMsgP   = msgs.find({}).sort({ timestamp_ms: -1 }).limit(1).toArray()
     const hiddenP    = isSuperAdmin
       ? getHiddenItems().then(col => col.find().sort({ createdAt: -1 }).toArray())
@@ -36,15 +38,15 @@ export async function GET(req: NextRequest) {
     const mediaPs    = MEDIA_TYPES.map(async type => {
       if (type in SINGULAR_MATCH) return msgs.countDocuments(SINGULAR_MATCH[type])
       const field = ARRAY_FIELD[type] ?? type
-      const filt = { [field]: { $exists: true, $not: { $size: 0 } } }
-      const res = await msgs.aggregate([
+      const filt  = { [field]: { $exists: true, $not: { $size: 0 } } }
+      const res   = await msgs.aggregate([
         { $match: filt }, { $unwind: `$${field}` }, { $count: 'total' },
       ]).toArray()
       return (res[0] as any)?.total ?? 0
     })
 
-    const [[lastMsgs, hiddenItems, hashtagResult, settingsDoc], mediaCountValues] = await Promise.all([
-      Promise.all([lastMsgP, hiddenP, hashtagsP, settingsP]),
+    const [[user, lastMsgs, hiddenItems, hashtagResult, settingsDoc], mediaCountValues] = await Promise.all([
+      Promise.all([userP, lastMsgP, hiddenP, hashtagsP, settingsP]),
       Promise.all(mediaPs),
     ])
 
