@@ -68,6 +68,18 @@ export async function getHiddenItems() {
   return (await clientPromise).db().collection<HiddenItem>('hidden_items')
 }
 
+let dateIndexIndexed = false
+
+export async function getDateIndexCollection() {
+  const col = (await clientPromise).db().collection('date_indexes')
+  if (!dateIndexIndexed) {
+    dateIndexIndexed = true
+    col.createIndex({ thread: 1 }, { unique: true })
+      .catch(err => console.error('[db] date_indexes index failed:', err))
+  }
+  return col
+}
+
 let arcsIndexed = false
 
 export async function getArcs() {

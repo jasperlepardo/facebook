@@ -5,6 +5,7 @@ import { requireSuperAdmin } from '@/lib/auth'
 import { recomputeBlockIds } from '@/lib/blockIds'
 import { upsertThread } from '@/lib/threadUtils'
 import { invalidateThreadMessageCount } from '@/lib/threadCount'
+import { invalidateDateIndex } from '@/lib/dateIndex'
 
 export const maxDuration = 300
 export const dynamic     = 'force-dynamic'
@@ -113,6 +114,7 @@ export async function POST(req: NextRequest) {
           const total = await col.countDocuments()
           await upsertThread({ collectionName, threadName, participants, facebookThreadId, initials, color, total })
           invalidateThreadMessageCount(collectionName)
+          await invalidateDateIndex(collectionName)
 
           send({ type: 'done', inserted, total })
         } catch (e) {

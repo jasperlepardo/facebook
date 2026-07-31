@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
 import { getCollection, isSafeCollectionName } from '@/lib/db'
+import { indexBeforeTimestamp } from '@/lib/dateIndex'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -21,9 +22,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid thread' }, { status: 400, headers: CORS })
   }
   try {
-    const msgs = await getCollection(thread)
     let targetTs: number
     if (msgId) {
+      const msgs = await getCollection(thread)
       const doc = await msgs.findOne({ _id: new ObjectId(msgId) }, { projection: { timestamp_ms: 1 } })
       if (!doc) return NextResponse.json({ index: null }, { headers: CORS })
       targetTs = doc.timestamp_ms as number
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
       if (isNaN(date.getTime())) throw new Error('Invalid date')
       targetTs = date.getTime()
     }
-    const idx = await msgs.countDocuments({ timestamp_ms: { $lt: targetTs } })
+    const idx = await indexBeforeTimestamp(thread, targetTs)
     return NextResponse.json({ index: idx }, { headers: CORS })
   } catch (e: unknown) {
     return NextResponse.json({ error: String(e) }, { status: 400, headers: CORS })
