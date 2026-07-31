@@ -1,19 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET || 'jc-session-secret-change-in-production'
-)
+function getSessionSecret(): Uint8Array {
+  const secret = process.env.SESSION_SECRET
+  if (!secret) {
+    throw new Error('SESSION_SECRET environment variable is not set')
+  }
+  return new TextEncoder().encode(secret)
+}
 
 async function getSessionClaims(req: NextRequest): Promise<{ authed: boolean; superAdmin: boolean }> {
   const token = req.cookies.get('jc-session')?.value
   if (!token) return { authed: false, superAdmin: false }
   try {
-    const { payload } = await jwtVerify(token, SECRET)
+    const { payload } = await jwtVerify(token, getSessionSecret())
     return { authed: true, superAdmin: !!(payload.superAdmin) }
   } catch {
     return { authed: false, superAdmin: false }
   }
+}
+
+const CRAWLER_RE = /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|TelegramBot|Discordbot/i
+
+/** Routes crawlers may hit without a session (OG previews only). */
+function isCrawlerAllowedPath(pathname: string): boolean {
+  return pathname === '/' || pathname === '/api/og'
 }
 
 export async function middleware(req: NextRequest) {
@@ -21,13 +32,14 @@ export async function middleware(req: NextRequest) {
     return new NextResponse(null, { status: 404 })
   }
 
-  // Allow social-preview crawlers through so OG meta tags are visible
+  const { pathname } = req.nextUrl
   const ua = req.headers.get('user-agent') ?? ''
-  if (/facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|TelegramBot|Discordbot/i.test(ua)) {
+
+  // Social crawlers: only OG HTML + image — never private APIs
+  if (CRAWLER_RE.test(ua) && isCrawlerAllowedPath(pathname)) {
     return NextResponse.next()
   }
 
-  const { pathname } = req.nextUrl
   const { authed, superAdmin } = await getSessionClaims(req)
 
   if (pathname.startsWith('/admin')) {
@@ -60,5 +72,12 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/admin/:path*', '/auth/:path*', '/api/:path*'],
+  matcher: [
+    '/',
+    '/admin/:path*',
+    '/auth/:path*',
+    '/api/:path*',
+    '/upload/:path*',
+    '/dev/:path*',
+  ],
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { getPayloadClient } from '@/lib/payload-access'
-import { getCollection, getHiddenItems, getUserSettings } from '@/lib/db'
+import { getCollection, getHiddenItems, getUserSettings, isSafeCollectionName } from '@/lib/db'
 
 const SINGULAR_MATCH: Record<string, Record<string, unknown>> = {
   stickers: { sticker:        { $exists: true } },
@@ -23,6 +23,10 @@ export async function GET(req: NextRequest) {
   const isSuperAdmin = session.superAdmin
   const userId       = session.userId
   const thread       = new URL(req.url).searchParams.get('thread') ?? 'messages'
+
+  if (!isSafeCollectionName(thread)) {
+    return NextResponse.json({ error: 'Invalid thread' }, { status: 400 })
+  }
 
   try {
     const [msgs, payload] = await Promise.all([getCollection(thread), getPayloadClient()])

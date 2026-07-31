@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
-import { getCollection } from '@/lib/db'
+import { getCollection, isSafeCollectionName } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { getHiddenMessageFilter } from '@/lib/hidden-filter-cache'
 
@@ -13,7 +13,7 @@ async function buildFilter(superAdmin: boolean, showHidden: boolean): Promise<Re
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
+  'Cache-Control': 'private, no-store',
 }
 
 function clean(doc: Record<string, unknown>) {
@@ -32,7 +32,11 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getSession()
     const { blockIds: rawBlockIds, messageIds: rawMsgIds, showHidden, thread } = await req.json()
-    const col    = await getCollection(thread ?? 'messages')
+    const threadName = thread ?? 'messages'
+    if (!isSafeCollectionName(threadName)) {
+      return NextResponse.json({ error: 'Invalid thread' }, { status: 400, headers: CORS })
+    }
+    const col    = await getCollection(threadName)
     const filter = await buildFilter(!!session?.superAdmin, !!showHidden)
 
     if (Array.isArray(rawMsgIds) && rawMsgIds.length) {
@@ -63,6 +67,10 @@ export async function GET(req: NextRequest) {
   const asc        = searchParams.get('asc') === '1'
   const showHidden = searchParams.get('showHidden') === '1'
   const thread     = searchParams.get('thread') ?? 'messages'
+
+  if (!isSafeCollectionName(thread)) {
+    return NextResponse.json({ error: 'Invalid thread' }, { status: 400, headers: CORS })
+  }
 
   try {
     const session = await getSession()

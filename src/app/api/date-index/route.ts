@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCollection } from '@/lib/db'
+import { getCollection, isSafeCollectionName } from '@/lib/db'
 import type { DateBoundary, DateIndex } from '@/types'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Cache-Control': 'public, s-maxage=604800, stale-while-revalidate=2592000',
+  'Cache-Control': 'private, no-store',
 }
 
 export async function OPTIONS() {
@@ -32,6 +32,9 @@ const cache = new Map<string, DateIndex>()
 
 export async function GET(req: NextRequest) {
   const thread = new URL(req.url).searchParams.get('thread') ?? 'messages'
+  if (!isSafeCollectionName(thread)) {
+    return NextResponse.json({ error: 'Invalid thread' }, { status: 400, headers: CORS })
+  }
   const cached = cache.get(thread)
   if (cached) return NextResponse.json(cached, { headers: CORS })
 

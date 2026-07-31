@@ -8,9 +8,6 @@ import { rowBase, rowSel, rowUnsel, timeCls, actionsCls } from './MessageStyles'
 import { renderContent } from './MessageContent'
 import { renderMedia } from './MessageMedia'
 
-export { StatusPill } from './MessageStyles'
-export { renderCallPill } from './MessageCallPill'
-
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface MessageGroupProps {

@@ -67,14 +67,14 @@ interface DateMenuProps {
 }
 
 export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, onJumpTo, onOpenDatePicker }: DateMenuProps) {
-  const [open, setOpen]   = useState(false)
-  const [above, setAbove] = useState(false)
+  const [isOpen, setIsOpen]   = useState(false)
+  const [isAbove, setIsAbove] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!open) return
-    const close = () => { setSticky(''); setOpen(false) }
+    if (!isOpen) return
+    const close = () => { setSticky(''); setIsOpen(false) }
     const clickHandler = (e: MouseEvent) => {
       if (!btnRef.current?.contains(e.target as Node) && !dropRef.current?.contains(e.target as Node)) close()
     }
@@ -84,7 +84,7 @@ export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, on
       document.removeEventListener('mousedown', clickHandler)
       document.removeEventListener('scroll', close, true)
     }
-  }, [open])
+  }, [isOpen])
 
   const setSticky = (z: string) => {
     const el = btnRef.current?.closest<HTMLElement>('.dsep')
@@ -92,11 +92,11 @@ export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, on
   }
 
   const openMenu = () => {
-    if (btnRef.current) setAbove(btnRef.current.getBoundingClientRect().bottom > window.innerHeight * 0.6)
-    setOpen(o => { if (!o) setSticky('50'); return !o })
+    if (btnRef.current) setIsAbove(btnRef.current.getBoundingClientRect().bottom > window.innerHeight * 0.6)
+    setIsOpen(o => { if (!o) setSticky('50'); return !o })
   }
 
-  const select = (target: string) => { setSticky(''); setOpen(false); onJumpTo(target) }
+  const select = (target: string) => { setSticky(''); setIsOpen(false); onJumpTo(target) }
 
   const dynamicOptions = ts ? computeDynamicOptions(ts, dateIndex, prevDayTs, nextDayTs) : []
 
@@ -108,9 +108,9 @@ export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, on
         {date} <span className="text-[10px] opacity-60">▾</span>
       </button>
 
-      {open && (
+      {isOpen && (
         <div ref={dropRef}
-          className={`absolute left-1/2 -translate-x-1/2 bg-white dark:bg-mist-800 border border-mist-200 dark:border-mist-700 rounded-xl shadow-xl z-50 w-64 py-2 text-left text-[13px] text-gray-900 dark:text-mist-100 ${above ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
+          className={`absolute left-1/2 -translate-x-1/2 bg-white dark:bg-mist-800 border border-mist-200 dark:border-mist-700 rounded-xl shadow-xl z-50 w-64 py-2 text-left text-[13px] text-gray-900 dark:text-mist-100 ${isAbove ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
           <button onClick={() => select('beginning')} className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
             Start from the beginning
           </button>
@@ -132,7 +132,7 @@ export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, on
               Most recent
             </button>
             {onOpenDatePicker && (
-              <button onClick={() => { setSticky(''); setOpen(false); onOpenDatePicker() }}
+              <button onClick={() => { setSticky(''); setIsOpen(false); onOpenDatePicker() }}
                 className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
                 Jump to a specific date
               </button>

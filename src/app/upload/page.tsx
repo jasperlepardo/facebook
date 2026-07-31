@@ -1,6 +1,7 @@
 'use client'
 import { useState, useCallback, useRef } from 'react'
 import JSZip from 'jszip'
+import { fixMojibake } from '@/lib/mojibake'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,14 +38,6 @@ type StoredSource =
   | { kind: 'folder'; paths: string[]; resolve: (path: string) => Promise<File> }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
-
-function fixMojibake(s: string): string {
-  if (!s || !/[-ÿ]/.test(s)) return s
-  try {
-    const bytes = new Uint8Array([...s].map(c => c.charCodeAt(0)))
-    return new TextDecoder('utf-8').decode(bytes)
-  } catch { return s }
-}
 
 function normalizeName(name: string): string {
   return fixMojibake(name).toLowerCase().replace(/[^a-z0-9]/g, '')

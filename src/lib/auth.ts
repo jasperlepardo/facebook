@@ -26,3 +26,14 @@ export async function getCallerInfo(): Promise<CallerInfo> {
 export async function isSuperAdmin(): Promise<boolean> {
   return (await getCallerInfo()).isSuperAdmin
 }
+
+/** Session must exist and carry superAdmin (JWT claim). */
+export async function requireSuperAdmin(): Promise<
+  | { ok: true; session: { userId: string; superAdmin: boolean } }
+  | { ok: false; status: 401 | 403; error: string }
+> {
+  const session = await getSession()
+  if (!session) return { ok: false, status: 401, error: 'Unauthorized' }
+  if (!session.superAdmin) return { ok: false, status: 403, error: 'Forbidden' }
+  return { ok: true, session }
+}

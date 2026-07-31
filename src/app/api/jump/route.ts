@@ -1,11 +1,11 @@
 import { ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
-import { getCollection } from '@/lib/db'
+import { getCollection, isSafeCollectionName } from '@/lib/db'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
+  'Cache-Control': 'private, no-store',
 }
 
 export async function OPTIONS() {
@@ -17,6 +17,9 @@ export async function GET(req: NextRequest) {
   const msgId   = searchParams.get('msgId')
   const dateStr = searchParams.get('date') ?? ''
   const thread  = searchParams.get('thread') ?? 'messages'
+  if (!isSafeCollectionName(thread)) {
+    return NextResponse.json({ error: 'Invalid thread' }, { status: 400, headers: CORS })
+  }
   try {
     const msgs = await getCollection(thread)
     let targetTs: number

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { mapFbEmoji } from '@/lib/fbEmoji'
 import { fmtTime } from '@/lib/format'
 import ThreadAvatar from '@/components/ThreadAvatar'
-import { renderCallPill } from '@/components/message/MessageGroup'
+import { renderCallPill } from '@/components/message/MessageCallPill'
 
 interface CallItem { duration: number; missed: boolean; content?: string; ts: number; sender: string; msgId: string }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCollection } from '@/lib/db'
-import { getSession } from '@/lib/session'
+import { requireSuperAdmin } from '@/lib/auth'
 
 const CORS       = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
 const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? ''
@@ -17,8 +17,8 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS })
+  const auth = await requireSuperAdmin()
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status, headers: CORS })
 
   const { collection = 'messages' } = await req.json().catch(() => ({}))
   const token = process.env.CLOUDFLARE_API_TOKEN

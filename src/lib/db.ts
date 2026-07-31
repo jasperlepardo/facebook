@@ -2,6 +2,19 @@ import { MongoClient } from 'mongodb'
 
 const OPTIONS = { maxPoolSize: 10, serverSelectionTimeoutMS: 10000 }
 
+/** Allowed message-archive collection names: legacy `messages` or `thread_<hex>`. */
+const SAFE_COLLECTION = /^(messages|thread_[0-9a-f]+)$/
+
+export function isSafeCollectionName(name: string): boolean {
+  return SAFE_COLLECTION.test(name)
+}
+
+export function assertSafeCollectionName(name: string): asserts name is string {
+  if (!name || !SAFE_COLLECTION.test(name)) {
+    throw new Error(`Invalid collection name: ${name}`)
+  }
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var _mongoClientPromise: Promise<MongoClient> | undefined
@@ -20,6 +33,7 @@ const clientPromise: Promise<MongoClient> =
 const indexedCollections = new Set<string>()
 
 export async function getCollection(collectionName: string) {
+  assertSafeCollectionName(collectionName)
   const col = (await clientPromise).db().collection(collectionName)
   if (!indexedCollections.has(collectionName)) {
     indexedCollections.add(collectionName)
@@ -35,7 +49,7 @@ export async function getCollection(collectionName: string) {
       col.createIndex({ timestamp_ms: 1 }, { partialFilterExpression: { sticker: { $exists: true } }, name: 'sticker_ts' }),
       col.createIndex({ timestamp_ms: 1 }, { partialFilterExpression: { 'share.link': { $exists: true } }, name: 'share_ts' }),
       col.createIndex({ timestamp_ms: 1 }, { partialFilterExpression: { call_duration: { $exists: true } }, name: 'calls_ts' }),
-    ]).catch(() => {})
+    ]).catch(err => console.error(`[db] index creation failed for ${collectionName}:`, err))
   }
   return col
 }

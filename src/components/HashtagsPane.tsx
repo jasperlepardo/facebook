@@ -83,7 +83,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
   }
 
-  // Open hashtag selected from HashtagListPane
+  // Open hashtag from list selection
   useEffect(() => {
     if (pendingSelect) openDetail(pendingSelect)
   }, [pendingSelect]) // eslint-disable-line react-hooks/exhaustive-deps

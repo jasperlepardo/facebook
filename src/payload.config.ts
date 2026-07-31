@@ -11,13 +11,17 @@ import { Users } from './collections/Users'
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
+if (!process.env.PAYLOAD_SECRET) {
+  throw new Error('PAYLOAD_SECRET environment variable is not set')
+}
+
 export default buildConfig({
   admin: {
     user: 'users',
   },
   collections: [Users, Hashtags, HashtagGroups, Threads],
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET || 'resibo-secret-key',
+  secret: process.env.PAYLOAD_SECRET,
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },

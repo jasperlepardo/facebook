@@ -26,12 +26,14 @@ interface Props {
 }
 
 const MEDIA_TABS: { key: MediaTab; label: string }[] = [
-  { key: 'photos', label: 'Photos' },
-  { key: 'videos', label: 'Videos' },
-  { key: 'gifs',   label: 'GIFs'   },
-  { key: 'audio',  label: 'Audio'  },
-  { key: 'files',  label: 'Files'  },
-  { key: 'links',  label: 'Links'  },
+  { key: 'photos',   label: 'Photos' },
+  { key: 'videos',   label: 'Videos' },
+  { key: 'gifs',     label: 'GIFs' },
+  { key: 'stickers', label: 'Stickers' },
+  { key: 'audio',    label: 'Audio' },
+  { key: 'files',    label: 'Files' },
+  { key: 'links',    label: 'Links' },
+  { key: 'calls',    label: 'Calls' },
 ]
 
 export default function MediaPane({
@@ -47,6 +49,11 @@ export default function MediaPane({
   const [migrating,    setMigrating]    = useState(false)
   const [migrateResult, setMigrateResult] = useState<{ copied: number; deleted: number; skipped: number } | null>(null)
   const [migrateError, setMigrateError] = useState<string | null>(null)
+
+  const tabsWithCounts = MEDIA_TABS.map(t => {
+    const n = counts?.[t.key]
+    return n != null && n > 0 ? { ...t, label: `${t.label} (${n.toLocaleString()})` } : t
+  })
 
   const canDelete = !!threadCollection && threadCollection !== 'messages' && !!onThreadDeleted
 
@@ -232,14 +239,15 @@ export default function MediaPane({
         </div>
       ) : (
         <>
-          <Tabs tabs={MEDIA_TABS} active={tab} onChange={k => setTab(k)} scrollable />
-          {tab === 'photos' && <Gallery type="photos" thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} />}
-          {tab === 'videos' && <Gallery type="videos" thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} />}
-          {tab === 'gifs'   && <Gallery type="gifs"   thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} />}
-          {tab === 'audio'  && <FilesView type="audio" thread={thread} />}
-          {tab === 'files'  && <FilesView type="files" thread={thread} />}
-          {tab === 'links'  && <LinksView thread={thread} />}
-          {tab === 'calls'  && <CallsView thread={thread} />}
+          <Tabs tabs={tabsWithCounts} active={tab} onChange={k => setTab(k)} scrollable />
+          {tab === 'photos'   && <Gallery type="photos"   thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} />}
+          {tab === 'videos'   && <Gallery type="videos"   thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} />}
+          {tab === 'gifs'     && <Gallery type="gifs"     thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} />}
+          {tab === 'stickers' && <Gallery type="stickers" thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} />}
+          {tab === 'audio'    && <FilesView type="audio" thread={thread} />}
+          {tab === 'files'    && <FilesView type="files" thread={thread} />}
+          {tab === 'links'    && <LinksView thread={thread} />}
+          {tab === 'calls'    && <CallsView thread={thread} />}
         </>
       )}
     </div>

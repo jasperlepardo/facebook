@@ -2,7 +2,7 @@ import config from '@payload-config'
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { getPayload } from 'payload'
-import { getCollection } from '@/lib/db'
+import { getCollection, isSafeCollectionName } from '@/lib/db'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -82,6 +82,8 @@ export async function POST(req: NextRequest) {
     const messageIds: string[] = body.messageIds ?? (body.messageId ? [body.messageId] : [])
     if (!hashtagId || !messageIds.length)
       return NextResponse.json({ error: 'hashtagId and messageIds required' }, { status: 400, headers: CORS })
+    if (!isSafeCollectionName(thread))
+      return NextResponse.json({ error: 'Invalid thread' }, { status: 400, headers: CORS })
 
     const payload = await getPayload({ config })
     const model   = (payload.db as any).collections['hashtag-groups']
