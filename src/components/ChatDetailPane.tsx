@@ -120,7 +120,7 @@ export default function ChatDetailPane({
   // ─── Refs for scroll handler ───────────────────────────────────────────────────
   const deviceId         = useRef('')
   const currentUserRef   = useRef('')
-  const lastBookmarkTime = useRef(0)
+  const bookmarkTimer    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const queuedLoad       = useRef<'older' | 'newer' | null>(null)
 
   const handleScroll = useCallback(() => {
@@ -129,9 +129,8 @@ export default function ChatDetailPane({
     const chatTop = el.getBoundingClientRect().top
     const id = deviceId.current
     if (id && !searchRef.current) {
-      const now = Date.now()
-      if (now - lastBookmarkTime.current >= 300) {
-        lastBookmarkTime.current = now
+      clearTimeout(bookmarkTimer.current)
+      bookmarkTimer.current = setTimeout(() => {
         for (const g of el.querySelectorAll<HTMLElement>('.msg-group')) {
           const rect = g.getBoundingClientRect()
           if (rect.bottom > chatTop) {
@@ -140,7 +139,7 @@ export default function ChatDetailPane({
             break
           }
         }
-      }
+      }, 1500)
     }
     const nearTop    = el.scrollTop < LOAD_THRESHOLD && loader.lowerOffset.current > 0
     const nearBottom = el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && loader.hasMoreRef.current

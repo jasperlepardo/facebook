@@ -3,6 +3,7 @@ import { getCollection } from '@/lib/db'
 import { requireSuperAdmin } from '@/lib/auth'
 import { recomputeBlockIds } from '@/lib/blockIds'
 import { upsertThread } from '@/lib/threadUtils'
+import { invalidateThreadMessageCount } from '@/lib/threadCount'
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
 
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
         // ── Upsert thread ───────────────────────────────────────────────────────
         const total = await (await getCollection(collectionName)).countDocuments()
         await upsertThread({ collectionName, threadName, participants: participants ?? [], facebookThreadId, initials, color, total })
+        invalidateThreadMessageCount(collectionName)
 
         send({ type: 'done', total })
       } catch (e) {

@@ -41,8 +41,8 @@ export function useMessageLoader({ thread, searchRef, showHiddenRef, scrollRef }
     if (q) { params.delete('asc'); params.set('offset', '0'); params.set('search', q) }
     if (showHiddenRef.current) params.set('showHidden', '1')
 
-    const data = await apiFetch<{ messages: Message[]; total: number; has_more: boolean }>(withThread('/api/messages?' + params))
-    setTotal(data.total)
+    const data = await apiFetch<{ messages: Message[]; total?: number; has_more: boolean }>(withThread('/api/messages?' + params))
+    if (typeof data.total === 'number') setTotal(data.total)
     hasMoreRef.current = !!(data.has_more && !q)
     setHasMore(hasMoreRef.current)
 

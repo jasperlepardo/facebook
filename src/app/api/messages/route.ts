@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCollection, isSafeCollectionName } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { getHiddenMessageFilter } from '@/lib/hidden-filter-cache'
+import { getThreadMessageCount } from '@/lib/threadCount'
 
 // superAdmin comes straight from the JWT claim — no extra DB round trip needed
 async function buildFilter(superAdmin: boolean, showHidden: boolean): Promise<Record<string, unknown>> {
@@ -21,6 +22,10 @@ function clean(doc: Record<string, unknown>) {
   if (d._id) d._id = String(d._id)
   if (d.blockId) d.blockId = String(d.blockId)
   return d
+}
+
+function isEmptyFilter(filter: Record<string, unknown>) {
+  return Object.keys(filter).length === 0
 }
 
 export async function OPTIONS() {
@@ -67,6 +72,7 @@ export async function GET(req: NextRequest) {
   const asc        = searchParams.get('asc') === '1'
   const showHidden = searchParams.get('showHidden') === '1'
   const thread     = searchParams.get('thread') ?? 'messages'
+  const wantTotal  = searchParams.get('total') === '1'
 
   if (!isSafeCollectionName(thread)) {
     return NextResponse.json({ error: 'Invalid thread' }, { status: 400, headers: CORS })
@@ -99,31 +105,54 @@ export async function GET(req: NextRequest) {
 
     if (q) {
       const filt = { ...filter, $text: { $search: q } }
-      // count + data in parallel for search
-      const [total, page] = await Promise.all([
-        msgs.countDocuments(filt),
+      // Search: limit+1 for has_more; count only when needed (first page or explicit)
+      const [pagePlus, total] = await Promise.all([
         msgs.find(filt, { projection: { score: { $meta: 'textScore' } } })
           .sort({ score: { $meta: 'textScore' }, timestamp_ms: 1 })
-          .skip(off).limit(limit).toArray(),
+          .skip(off).limit(limit + 1).toArray(),
+        (off === 0 || wantTotal) ? msgs.countDocuments(filt) : Promise.resolve(undefined as number | undefined),
       ])
-      return NextResponse.json({ messages: page.map(clean), total, has_more: off + limit < total }, { headers: CORS })
+      const has_more = pagePlus.length > limit
+      const page = has_more ? pagePlus.slice(0, limit) : pagePlus
+      return NextResponse.json({
+        messages: page.map(clean),
+        ...(total != null ? { total } : {}),
+        has_more,
+      }, { headers: CORS })
+    }
+
+    // Browse: limit+1 → has_more without countDocuments. Total from Threads metadata when unfiltered.
+    async function resolveTotal(): Promise<number | undefined> {
+      if (isEmptyFilter(filter)) return getThreadMessageCount(thread) // always cheap
+      if (!wantTotal && off > 0) return undefined
+      return msgs.countDocuments(filter)
     }
 
     if (asc) {
-      // count + data in parallel — eliminates one sequential round trip
-      const [total, page] = await Promise.all([
-        msgs.countDocuments(filter),
-        msgs.find(filter).sort({ timestamp_ms: 1 }).skip(off).limit(limit).toArray(),
+      const [pagePlus, total] = await Promise.all([
+        msgs.find(filter).sort({ timestamp_ms: 1 }).skip(off).limit(limit + 1).toArray(),
+        resolveTotal(),
       ])
-      return NextResponse.json({ messages: page.map(clean), total, has_more: off + limit < total }, { headers: CORS })
+      const has_more = pagePlus.length > limit
+      const page = has_more ? pagePlus.slice(0, limit) : pagePlus
+      return NextResponse.json({
+        messages: page.map(clean),
+        ...(total != null ? { total } : {}),
+        has_more,
+      }, { headers: CORS })
     }
 
-    // Descending (most-recent-first): use desc sort + reverse to avoid needing count before skip
-    const [total, page] = await Promise.all([
-      msgs.countDocuments(filter),
-      msgs.find(filter).sort({ timestamp_ms: -1 }).skip(off).limit(limit).toArray(),
+    const [pagePlus, total] = await Promise.all([
+      msgs.find(filter).sort({ timestamp_ms: -1 }).skip(off).limit(limit + 1).toArray(),
+      resolveTotal(),
     ])
-    return NextResponse.json({ messages: page.reverse().map(clean), total, has_more: off + limit < total }, { headers: CORS })
+    const has_more = pagePlus.length > limit
+    const page = (has_more ? pagePlus.slice(0, limit) : pagePlus).reverse()
+    return NextResponse.json({
+      messages: page.map(clean),
+      ...(total != null ? { total } : {}),
+      has_more,
+    }, { headers: CORS })
   } catch (e: unknown) {
     console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })

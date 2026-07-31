@@ -56,7 +56,7 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ msgId: String(offset.current), offset: scrollTop, deviceId: id, ns }),
       }).catch(() => {})
-    }, 300)
+    }, 1500)
   }
 
   useEffect(() => {

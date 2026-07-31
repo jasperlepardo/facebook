@@ -9,8 +9,6 @@ import { ContentTypeKey, ALL_CONTENT_TYPE_KEYS, DEFAULT_ENABLED } from '@/lib/co
 import { useHashtagPaneState } from '@/hooks/useHashtagPaneState'
 import { useHiddenState } from '@/hooks/useHiddenState'
 import ChatViewSettingsModal from './ChatViewSettingsModal'
-import MediaPane from './MediaPane'
-import Lightbox from './Lightbox'
 import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
 import AppHeader from './AppHeader'
@@ -24,6 +22,8 @@ import Toaster from './Toaster'
 const HashtagsPane = dynamic(() => import('./HashtagsPane'), { ssr: false })
 const StoryPane    = dynamic(() => import('./story/StoryPane'),    { ssr: false })
 const SettingsPane = dynamic(() => import('./settings/SettingsPane'), { ssr: false })
+const MediaPane    = dynamic(() => import('./MediaPane'), { ssr: false })
+const Lightbox     = dynamic(() => import('./Lightbox'), { ssr: false })
 
 interface Thread { id: string; name: string; initials: string; color: string; collection: string; participants?: string[] }
 
@@ -56,6 +56,7 @@ export default function ViewerApp() {
     hashtagTitleInput, setHashtagTitleInput,
     hashtagActionsRef, hashtagTitleInputRef,
     reloadHashtags, selectActiveHashtag,
+    setHashtags,
   } = useHashtagPaneState()
 
   // ─── Chat / thread state ──────────────────────────────────────────────────────
@@ -162,14 +163,22 @@ export default function ViewerApp() {
           setDbHiddenItems(d.hiddenItems)
         }
 
-        reloadHashtags()
+        if (Array.isArray(d.hashtags)) {
+          setHashtags(d.hashtags.map((h: { id: string; name: string; thread?: string; context?: string; isPrivate?: boolean; createdBy?: string; createdById?: string; firstMsgTs?: number; groupCount?: number }) => ({
+            id: h.id,
+            name: h.name,
+            thread: h.thread,
+            context: h.context,
+            isPrivate: h.isPrivate,
+            createdBy: h.createdBy,
+            createdById: h.createdById,
+            firstMsgTs: h.firstMsgTs,
+            groupCount: h.groupCount,
+          })))
+        }
 
         if (d.userSettings?.chatContentTypes) {
           setEnabledTypes(new Set<ContentTypeKey>(d.userSettings.chatContentTypes))
-        }
-
-        if (d.mediaCounts) {
-          setMediaCounts(d.mediaCounts)
         }
       } catch { toast('Failed to load app data') }
       finally { setInitialized(true) }
@@ -192,6 +201,7 @@ export default function ViewerApp() {
   // ─── Reload thread-specific data when active thread changes ─────────────────
 
   useEffect(() => {
+    if (!activeThread) return
     async function loadThreadData() {
       try {
         const d = await fetch(`/api/init?thread=${activeThread}`).then(r => r.ok ? r.json() : null)
@@ -202,11 +212,24 @@ export default function ViewerApp() {
             [activeThread]: { subtitle: d.threadLastMsg.subtitle, badge: relTime(d.threadLastMsg.ts) },
           }))
         }
-        if (d.mediaCounts) setMediaCounts(d.mediaCounts)
-      } catch {}
+      } catch { toast('Failed to load conversation') }
     }
     loadThreadData()
+    setMediaCounts({}) // reset until MediaPane asks for counts
   }, [activeThread])
+
+  // Lazy media counts — only when MediaPane is open
+  useEffect(() => {
+    if (!showMediaPane || !activeThread) return
+    let cancelled = false
+    fetch(`/api/init?thread=${activeThread}&mediaOnly=1`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!cancelled && d?.mediaCounts) setMediaCounts(d.mediaCounts)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [showMediaPane, activeThread])
 
   // ─── Context menu (gallery only) ─────────────────────────────────────────────
 

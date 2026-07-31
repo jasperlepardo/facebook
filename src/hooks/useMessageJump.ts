@@ -106,7 +106,7 @@ export function useMessageJump({
   const handleChatJump = useCallback(async (target: string) => {
     if (target === 'recent') {
       try {
-        const d = await apiFetch<{ total: number }>(withThread('/api/messages?offset=0&limit=1&asc=1'))
+        const d = await apiFetch<{ total: number }>(withThread('/api/messages?offset=0&limit=1&asc=1&total=1'))
         lowerOffset.current = Math.max(0, d.total - LIMIT); upperOffset.current = lowerOffset.current
         pendingJump.current = null; pendingScrollBottom.current = true
         await loadMessages('fresh')
