@@ -1,10 +1,12 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
-import { Section, LightboxState, ContextMenuState, GalleryItem, Hashtag, DateIndex } from '@/types'
+import { Section, LightboxState, ContextMenuState, GalleryItem, DateIndex } from '@/types'
 import { apiFetch } from '@/lib/utils'
 import { relTime } from '@/lib/format'
 import { ContentTypeKey, ALL_CONTENT_TYPE_KEYS, DEFAULT_ENABLED } from '@/lib/contentTypes'
+import { useHashtagPaneState } from '@/hooks/useHashtagPaneState'
+import { useHiddenState } from '@/hooks/useHiddenState'
 import ChatViewSettingsModal from './ChatViewSettingsModal'
 import MediaPane from './MediaPane'
 import Lightbox from './Lightbox'
@@ -13,12 +15,12 @@ import ActionSheet from './ActionSheet'
 import AppHeader from './AppHeader'
 import AppLayout, { AppLayoutControls } from './AppLayout'
 import ListPane, { ListPaneItem } from './ListPane'
-import HashtagsPane from './HashtagsPane'
 import ChatDetailPane, { JumpFn } from './ChatDetailPane'
-import StoryPane from './StoryPane'
 import InAppBrowserBanner from './InAppBrowserBanner'
 import ThreadAvatar from './ThreadAvatar'
 
+const HashtagsPane = dynamic(() => import('./HashtagsPane'), { ssr: false })
+const StoryPane    = dynamic(() => import('./StoryPane'),    { ssr: false })
 const SettingsPane = dynamic(() => import('./SettingsPane'), { ssr: false })
 
 interface Thread { id: string; name: string; initials: string; color: string; collection: string; participants?: string[] }
@@ -40,34 +42,34 @@ export default function ViewerApp() {
     return (s === 'hashtags' || s === 'settings' || s === 'story') ? s as Section : 'chat'
   })
   const [prevSection, setPrevSection] = useState<'chat' | 'hashtags' | 'story'>('chat')
-  const [searchInput, setSearchInput] = useState('')
-  const [hideImages, setHideImages] = useState(false)
-  const [hiddenUris, setHiddenUris] = useState<Set<string>>(() => {
-    if (typeof window === 'undefined') return new Set()
-    try { return new Set(JSON.parse(localStorage.getItem('hiddenUris') ?? '[]')) } catch { return new Set() }
-  })
-  const [dbHiddenItems, setDbHiddenItems] = useState<{ _id: string; type: 'message' | 'uri'; value: string }[]>([])
-  const dbHiddenUris    = useMemo(() => new Set(dbHiddenItems.filter(i => i.type === 'uri').map(i => i.value)), [dbHiddenItems])
-  const dbHiddenMsgIds  = useMemo(() => new Set(dbHiddenItems.filter(i => i.type === 'message').map(i => i.value)), [dbHiddenItems])
-  const allHiddenUris   = useMemo(() => new Set([...dbHiddenUris, ...hiddenUris]), [dbHiddenUris, hiddenUris])
-  const [currentUser, setCurrentUser] = useState('')
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
-  const [showHidden, setShowHidden] = useState(false)
+  // ─── Hidden state ────────────────────────────────────────────────────────────
+  const {
+    hiddenUris, dbHiddenItems, setDbHiddenItems,
+    dbHiddenMsgIds, allHiddenUris,
+    hideUri, handleHideMessage, handleUnhideMessage,
+    handleHideDbUri, handleUnhideDbUri, clearHiddenUris,
+  } = useHiddenState()
 
-  // Media pane visibility
-  const [showMediaPane, setShowMediaPane] = useState(false)
+  // ─── Hashtag pane state ───────────────────────────────────────────────────────
+  const {
+    hashtags, hashtagFilter, setHashtagFilter,
+    hashtagCreating, setHashtagCreating,
+    pendingHashtag, setPendingHashtag,
+    activeHashtagName, setActiveHashtagName,
+    hashtagActiveTab, setHashtagActiveTab,
+    hashtagMsgFilter, setHashtagMsgFilter,
+    showHashtagMenu, setShowHashtagMenu,
+    editingHashtagTitle, setEditingHashtagTitle,
+    hashtagTitleInput, setHashtagTitleInput,
+    hashtagActionsRef, hashtagTitleInputRef,
+    reloadHashtags, selectActiveHashtag,
+  } = useHashtagPaneState()
 
-  // Chat content type settings
-  const [enabledTypes, setEnabledTypes] = useState<Set<ContentTypeKey>>(DEFAULT_ENABLED)
-  const [showViewSettings, setShowViewSettings] = useState(false)
-
-  // Media counts
-  const [mediaCounts, setMediaCounts] = useState<Record<string, number>>({})
-
-  // Thread selection + list meta
+  // ─── Chat / thread state ──────────────────────────────────────────────────────
+  const [searchInput, setSearchInput]   = useState('')
   const [activeThread, setActiveThread] = useState<string>(() => {
-    if (typeof window === 'undefined') return 'messages'
-    return new URLSearchParams(window.location.search).get('thread') ?? 'messages'
+    if (typeof window === 'undefined') return ''
+    return new URLSearchParams(window.location.search).get('thread') ?? ''
   })
   const [chatDetailOpen, setChatDetailOpen] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -75,40 +77,29 @@ export default function ViewerApp() {
     return !!(p.get('msg') || p.get('thread'))
   })
   const [threadFilter, setThreadFilter] = useState('')
-  const [threadMeta, setThreadMeta] = useState<Record<string, { subtitle: string; badge: string }>>({})
-
-  // Hashtags
-  const [hashtags, setHashtags]         = useState<Hashtag[]>([])
-  const [hashtagFilter, setHashtagFilter] = useState('')
-  const [hashtagCreating, setHashtagCreating] = useState(false)
-  const [pendingHashtag, setPendingHashtag] = useState<Hashtag | null>(null)
-  const [activeHashtagName, setActiveHashtagName] = useState<string | null>(null)
-  const [hashtagActiveTab, setHashtagActiveTab] = useState<'context' | 'messages'>('context')
-  const [hashtagMsgFilter, setHashtagMsgFilter] = useState('')
-  const [showHashtagMenu, setShowHashtagMenu] = useState(false)
-  const [editingHashtagTitle, setEditingHashtagTitle] = useState(false)
-  const [hashtagTitleInput, setHashtagTitleInput] = useState('')
-  const hashtagActionsRef = useRef<{ back: () => void; delete: () => void; rename: (name: string) => Promise<void> } | null>(null)
-  const hashtagTitleInputRef = useRef<HTMLInputElement>(null)
-
-  // Chat stats (from ChatDetailPane)
-  const [chatTotal, setChatTotal] = useState(0)
+  const [threadMeta, setThreadMeta]     = useState<Record<string, { subtitle: string; badge: string }>>({})
+  const [chatTotal, setChatTotal]       = useState(0)
   const [chatDateIndex, setChatDateIndex] = useState<DateIndex | null>(null)
+  const [threads, setThreads]           = useState<Thread[]>([])
+  const [initialized, setInitialized]   = useState(false)
 
-  const [initialized, setInitialized] = useState(false)
-  const [threads, setThreads] = useState<Thread[]>([{ id: 'messages', name: 'Ciara', initials: 'C', color: 'bg-rose-400', collection: 'messages' }])
-
-  // UI overlays
-  const [lightbox, setLightbox] = useState<LightboxState | null>(null)
+  // ─── UI state ─────────────────────────────────────────────────────────────────
+  const [hideImages, setHideImages]         = useState(false)
+  const [showMediaPane, setShowMediaPane]   = useState(false)
+  const [enabledTypes, setEnabledTypes]     = useState<Set<ContentTypeKey>>(DEFAULT_ENABLED)
+  const [showViewSettings, setShowViewSettings] = useState(false)
+  const [mediaCounts, setMediaCounts]       = useState<Record<string, number>>({})
+  const [currentUser, setCurrentUser]       = useState('')
+  const [isSuperAdmin, setIsSuperAdmin]     = useState(false)
+  const [showHidden, setShowHidden]         = useState(false)
+  const [lightbox, setLightbox]             = useState<LightboxState | null>(null)
   const [galleryCtxMenu, setGalleryCtxMenu] = useState<ContextMenuState | null>(null)
 
-  // Refs
-  const chatScrollRef      = useRef<HTMLDivElement>(null)
-  const jumpFnRef          = useRef<JumpFn | null>(null)
-  const dbHiddenItemsRef   = useRef(dbHiddenItems)
-  useEffect(() => { dbHiddenItemsRef.current = dbHiddenItems }, [dbHiddenItems])
+  // ─── Refs ─────────────────────────────────────────────────────────────────────
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+  const jumpFnRef     = useRef<JumpFn | null>(null)
 
-  // ─── Jump wrapper ───────────────────────────────────────────────────────────
+  // ─── Jump ─────────────────────────────────────────────────────────────────────
 
   const jumpToMessage = useCallback(async (ts: number, msgId: string | null, thread?: string): Promise<void> => {
     if (thread && thread !== activeThread) setActiveThread(thread)
@@ -120,11 +111,6 @@ export default function ViewerApp() {
   const jumpToDate = useCallback((ts: number) => {
     jumpToMessage(ts, null)
   }, [jumpToMessage])
-
-  const reloadHashtags = useCallback(async () => {
-    const d = await apiFetch<{ docs: Hashtag[] }>('/api/hashtags?limit=200&sort=firstMsgTs&depth=0')
-    setHashtags(d.docs ?? [])
-  }, [])
 
   // Sync hideImages from localStorage after hydration
   useEffect(() => {
@@ -154,7 +140,7 @@ export default function ViewerApp() {
       params.set('s', section)
       params.delete('msg')
     }
-    if (activeThread !== 'messages') params.set('thread', activeThread)
+    if (activeThread) params.set('thread', activeThread)
     else params.delete('thread')
     if (section !== 'chat') params.delete('msg')
     const qs = params.toString()
@@ -172,10 +158,10 @@ export default function ViewerApp() {
         if (d.user?.name) setCurrentUser(d.user.name)
         if (d.user?.superAdmin) { setIsSuperAdmin(true); setShowHidden(true) }
 
-        if (d.threadLastMsg) {
+        if (d.threadLastMsg && activeThread) {
           setThreadMeta(prev => ({
             ...prev,
-            messages: { subtitle: d.threadLastMsg.subtitle, badge: relTime(d.threadLastMsg.ts) },
+            [activeThread]: { subtitle: d.threadLastMsg.subtitle, badge: relTime(d.threadLastMsg.ts) },
           }))
         }
 
@@ -199,7 +185,10 @@ export default function ViewerApp() {
       try {
         const d = await apiFetch<{ threads: Thread[] }>('/api/threads')
         if (d.threads?.length) {
-          setThreads(d.threads.map(t => ({ ...t, id: t.collection })))
+          const mapped = d.threads.map((t: Thread) => ({ ...t, id: t.collection }))
+          setThreads(mapped)
+          const urlThread = new URLSearchParams(window.location.search).get('thread')
+          if (!urlThread) setActiveThread(mapped[0].id)
         }
       } catch {}
     }
@@ -235,41 +224,6 @@ export default function ViewerApp() {
     }
     window.addEventListener('media-ctx', handler)
     return () => window.removeEventListener('media-ctx', handler)
-  }, [])
-
-  const hideUri = useCallback((uri: string) => {
-    setHiddenUris(prev => {
-      const next = new Set(prev)
-      next.add(uri)
-      localStorage.setItem('hiddenUris', JSON.stringify([...next]))
-      return next
-    })
-  }, [])
-
-  const handleHideMessage = useCallback(async (msgId: string) => {
-    const res = await fetch('/api/hidden-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'message', value: msgId }) })
-    const { item } = await res.json()
-    if (item) setDbHiddenItems(prev => [...prev.filter(i => !(i.type === 'message' && i.value === msgId)), { _id: item._id, type: 'message', value: msgId }])
-  }, [])
-
-  const handleUnhideMessage = useCallback(async (msgId: string) => {
-    const item = dbHiddenItemsRef.current.find(i => i.type === 'message' && i.value === msgId)
-    if (!item) return
-    await fetch(`/api/hidden-items?id=${item._id}`, { method: 'DELETE' })
-    setDbHiddenItems(prev => prev.filter(i => i._id !== item._id))
-  }, [])
-
-  const handleHideDbUri = useCallback(async (uri: string) => {
-    const res = await fetch('/api/hidden-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'uri', value: uri }) })
-    const { item } = await res.json()
-    if (item) setDbHiddenItems(prev => [...prev.filter(i => !(i.type === 'uri' && i.value === uri)), { _id: item._id, type: 'uri', value: uri }])
-  }, [])
-
-  const handleUnhideDbUri = useCallback(async (uri: string) => {
-    const item = dbHiddenItemsRef.current.find(i => i.type === 'uri' && i.value === uri)
-    if (!item) return
-    await fetch(`/api/hidden-items?id=${item._id}`, { method: 'DELETE' })
-    setDbHiddenItems(prev => prev.filter(i => i._id !== item._id))
   }, [])
 
   const handleGalleryContextMenu = useCallback((e: React.MouseEvent, item: GalleryItem) => {
@@ -529,7 +483,7 @@ export default function ViewerApp() {
               onFilterChange={setHashtagFilter}
               creating={hashtagCreating}
               onCreatingChange={setHashtagCreating}
-              onActiveHashtagChange={name => { setActiveHashtagName(name); if (name) { setHashtagActiveTab('context'); setHashtagMsgFilter('') } }}
+              onActiveHashtagChange={selectActiveHashtag}
               onActionsChange={a => { hashtagActionsRef.current = a }}
               activeTab={hashtagActiveTab}
               onActiveTabChange={setHashtagActiveTab}
@@ -567,10 +521,7 @@ export default function ViewerApp() {
                 return next
               })}
               hiddenUriCount={hiddenUris.size}
-              onClearHiddenUris={() => {
-                setHiddenUris(new Set())
-                localStorage.removeItem('hiddenUris')
-              }}
+              onClearHiddenUris={clearHiddenUris}
             />
           )}
 
