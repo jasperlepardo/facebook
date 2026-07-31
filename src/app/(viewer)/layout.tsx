@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import { Inter } from 'next/font/google'
+import { Inter, Newsreader } from 'next/font/google'
 import { cookies } from 'next/headers'
 import ServiceWorker from '@/components/ServiceWorker'
 import '../globals.css'
 
-const inter = Inter({ subsets: ['latin'], display: 'swap' })
+const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-sans' })
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-display',
+  style: ['normal', 'italic'],
+})
 
 export const metadata: Metadata = {
   title: 'Resibo',
@@ -44,9 +50,8 @@ export default async function ViewerLayout({ children }: { children: ReactNode }
   const darkClass = themeCookie === 'dark' ? 'dark' : undefined
 
   return (
-    <html lang="en" className={`h-full overflow-hidden overscroll-none bg-mist-50 dark:bg-mist-950${darkClass ? ' dark' : ''}`} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable} ${newsreader.variable} h-full overflow-hidden overscroll-none bg-mist-50 dark:bg-mist-950${darkClass ? ' dark' : ''}`} suppressHydrationWarning>
       <head>
-        {/* Fallback for system theme with OS dark preference — runs before first paint */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){var s=document.cookie.match(/(?:^|; )theme=([^;]*)/);var t=s?decodeURIComponent(s[1]):null;if(t)return;var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(d)document.documentElement.classList.add('dark')})()` }} />
       </head>
       <body

@@ -23,12 +23,12 @@ export function DaySummaryView({ summary, parentArc, onJumpToMessages, onNavigat
 
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <h2 className="text-sm font-bold text-gray-900 dark:text-white leading-snug">{fmtDateLong(summary.date)}</h2>
+          <h2 className="font-display text-base font-medium text-gray-900 dark:text-white leading-snug">{fmtDateLong(summary.date)}</h2>
           <p className="text-[11px] text-mist-400 dark:text-mist-500 mt-0.5">{summary.messageCount} messages</p>
         </div>
         <button
           onClick={() => { const [y, m, d] = summary.date.split('-').map(Number); onJumpToMessages(new Date(y, m - 1, d).getTime()) }}
-          className="shrink-0 text-[11px] font-medium px-2.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-mist-700 dark:text-mist-200 hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors whitespace-nowrap"
+          className="shrink-0 text-[11px] font-medium px-2.5 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors whitespace-nowrap"
         >
           Jump to messages →
         </button>

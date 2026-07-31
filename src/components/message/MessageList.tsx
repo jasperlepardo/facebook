@@ -49,7 +49,7 @@ const MessageList = memo(function MessageList({
         const iso = new Date(day.blocks[0].msgs[0].timestamp_ms).toISOString().split('T')[0]
         return (
           <div key={day.date + day.blocks[0].msgs[0]._id} id={`${uid}-${iso}`} data-day-iso={iso} className="flex flex-col">
-            <div className="dsep sticky top-0 z-10 flex items-center justify-center py-3 px-4 bg-white/90 dark:bg-mist-900/90 backdrop-blur-sm">
+            <div className="dsep sticky top-0 z-10 flex items-center justify-center py-2.5 px-4 bg-white/90 dark:bg-mist-900/90 backdrop-blur-sm">
               <span className="flex-1 border-t border-mist-200 dark:border-mist-700/60" />
               <span className="mx-3 flex-shrink-0">
                 {onJumpTo ? (

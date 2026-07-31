@@ -18,6 +18,8 @@ import ChatDetailPane, { JumpFn } from './ChatDetailPane'
 import InAppBrowserBanner from './InAppBrowserBanner'
 import ThreadAvatar from './ThreadAvatar'
 import Toaster from './Toaster'
+import { menu, menuItem } from '@/lib/ui'
+import { LockIcon, GlobeIcon } from '@/components/icons'
 
 const HashtagsPane = dynamic(() => import('./HashtagsPane'), { ssr: false })
 const StoryPane    = dynamic(() => import('./story/StoryPane'),    { ssr: false })
@@ -274,14 +276,14 @@ export default function ViewerApp() {
               </svg>
             </button>
             {activeHashtag?.isPrivate && (
-              <span className="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                🔒 Private
+              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                <LockIcon size={10} /> Private
               </span>
             )}
           </div>
         )
       ) : (
-        <span className="text-sm font-bold">{section === 'hashtags' && hashtagCreating ? 'Create New Hashtag' : sectionTitle}</span>
+        <span className={`text-sm font-bold ${section === 'story' ? 'font-display text-base font-medium' : ''}`}>{section === 'hashtags' && hashtagCreating ? 'Create New Hashtag' : sectionTitle}</span>
       )
 
     // ── Actions ────────────────────────────────────────────────────────────────
@@ -295,8 +297,8 @@ export default function ViewerApp() {
             {showHashtagMenu && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowHashtagMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-mist-800 rounded-lg shadow-lg py-1 z-50 min-w-[150px] border border-mist-100 dark:border-mist-700">
-                  <button onClick={() => { setShowViewSettings(true); setShowHashtagMenu(false) }} className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-mist-200 hover:bg-mist-100 dark:hover:bg-mist-700">View settings</button>
+                <div className={`absolute right-0 top-full mt-1 ${menu}`}>
+                  <button onClick={() => { setShowViewSettings(true); setShowHashtagMenu(false) }} className={menuItem}>View settings</button>
                 </div>
               </>
             )}
@@ -320,7 +322,7 @@ export default function ViewerApp() {
           {showHashtagMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowHashtagMenu(false)} />
-              <div className="absolute right-0 top-full mt-1 bg-white dark:bg-mist-800 rounded-lg shadow-lg py-1 z-50 min-w-[150px] border border-mist-100 dark:border-mist-700">
+              <div className={`absolute right-0 top-full mt-1 ${menu}`}>
                 {isSuperAdmin && activeHashtag && (
                   <button
                     onClick={async () => {
@@ -328,9 +330,11 @@ export default function ViewerApp() {
                       await reloadHashtags()
                       setShowHashtagMenu(false)
                     }}
-                    className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-mist-200 hover:bg-mist-100 dark:hover:bg-mist-700"
+                    className={`${menuItem} inline-flex items-center gap-2`}
                   >
-                    {activeHashtag.isPrivate ? '🌐 Make Public' : '🔒 Make Private'}
+                    {activeHashtag.isPrivate
+                      ? <><GlobeIcon size={12} /> Make Public</>
+                      : <><LockIcon size={12} /> Make Private</>}
                   </button>
                 )}
                 {activeHashtag && (
@@ -340,10 +344,10 @@ export default function ViewerApp() {
                       navigator.clipboard.writeText(url)
                       setShowHashtagMenu(false)
                     }}
-                    className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-mist-200 hover:bg-mist-100 dark:hover:bg-mist-700"
+                    className={menuItem}
                   >Copy link</button>
                 )}
-                <button onClick={() => { hashtagActionsRef.current?.delete(); setShowHashtagMenu(false) }} className="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>
+                <button onClick={() => { hashtagActionsRef.current?.delete(); setShowHashtagMenu(false) }} className={`${menuItem} text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20`}>Delete</button>
               </div>
             </>
           )}
@@ -370,7 +374,7 @@ export default function ViewerApp() {
             scrollContainerRef={chatScrollRef}
           />
         )}
-        <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden [animation:fade-in_180ms_ease-out]">
+        <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden [animation:fade-up_220ms_ease-out]">
 
           {/* Chat — empty state on desktop until thread is opened */}
           {section === 'chat' && !chatDetailOpen && (

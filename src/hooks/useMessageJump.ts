@@ -150,6 +150,8 @@ export function useMessageJump({
         src: r2(item.uri), uri: item.uri, type: typeMap[mtype] ?? 'photo', mediaType: mtype,
         caption: `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
         msgId: item.msgId, ts: item.ts,
+        index: absOff + 1,
+        total,
         onPrev: absOff > 0 ? async () => { const { items: pi } = await apiFetch<{ items: PhotoItem[] }>(withThread(`/api/attachments?type=${mtype}&offset=${absOff - 1}&limit=1`)); if (pi[0]) onLightbox(mkState(absOff - 1, pi[0])) } : undefined,
         onNext: absOff < total - 1 ? async () => { const { items: ni } = await apiFetch<{ items: PhotoItem[] }>(withThread(`/api/attachments?type=${mtype}&offset=${absOff + 1}&limit=1`)); if (ni[0]) onLightbox(mkState(absOff + 1, ni[0])) } : undefined,
       })

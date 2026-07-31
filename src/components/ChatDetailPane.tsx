@@ -236,7 +236,7 @@ export default function ChatDetailPane({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto flex flex-col min-h-0 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0${selection.selectedMsgs.size > 0 ? ' select-none' : ''}`}
+        className={`flex-1 overflow-y-auto flex flex-col min-h-0 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-0${selection.selectedMsgs.size > 0 ? ' select-none' : ''}`}
         style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
       >
         {loader.searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}

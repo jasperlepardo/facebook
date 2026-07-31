@@ -35,7 +35,7 @@ export function ArcTimeline({ arcs, selectedArc, arcDays: _arcDays, isPreview, o
             className={`text-left px-4 py-3 border-b border-mist-50 dark:border-mist-800/60 transition-colors
               ${isActive ? 'bg-mist-100 dark:bg-mist-800' : 'hover:bg-mist-50 dark:hover:bg-mist-800/50'}`}
           >
-            <p className="text-xs font-semibold text-gray-800 dark:text-mist-100 leading-snug mb-0.5">{arc.title}</p>
+            <p className="font-display text-sm font-medium text-gray-800 dark:text-mist-100 leading-snug mb-0.5">{arc.title}</p>
             <p className="text-[10px] text-mist-400 dark:text-mist-500">
               {fmtDateShort(arc.startDate)} – {fmtDateShort(arc.endDate)}
             </p>
@@ -60,7 +60,7 @@ export function ArcDetail({ arc, arcDays, onSelectDay }: ArcDetailProps) {
   return (
     <div className="max-w-prose">
       <div className="mb-4">
-        <h2 className="text-base font-bold text-gray-900 dark:text-white mb-1">{arc.title}</h2>
+        <h2 className="font-display text-base font-medium text-gray-900 dark:text-white mb-1">{arc.title}</h2>
         <p className="text-[11px] text-mist-400 dark:text-mist-500">
           {fmtDateShort(arc.startDate)} – {fmtDateShort(arc.endDate)} · {arc.dayCount} day{arc.dayCount !== 1 ? 's' : ''}
         </p>

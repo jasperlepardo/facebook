@@ -90,7 +90,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
         <>
           {/* Left pane */}
           {!hideListPane && (
-            <div className="flex flex-col shrink-0 overflow-hidden bg-white dark:bg-mist-950 md:dark:bg-mist-900 pb-[env(safe-area-inset-bottom)] absolute inset-0 md:static md:basis-0 md:min-w-0 md:rounded-2xl md:pb-0" style={{ flexGrow: listGrow }}>
+            <div className="flex flex-col shrink-0 overflow-hidden bg-white dark:bg-mist-950 md:dark:bg-mist-900 absolute inset-0 md:static md:basis-0 md:min-w-0 md:rounded-2xl" style={{ flexGrow: listGrow }}>
               {listPane(controls)}
             </div>
           )}

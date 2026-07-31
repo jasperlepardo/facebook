@@ -134,40 +134,24 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
         </div>
 
         {keyMissing ? (
-          <>
-            <div>
-              <p className="text-sm font-semibold text-gray-700 dark:text-mist-200 mb-1">API key not configured</p>
-              <p className="text-xs text-mist-400 dark:text-mist-500 max-w-xs leading-relaxed">Add your Anthropic API key to generate story chapters from your conversation history.</p>
-            </div>
-            <div className="bg-mist-100 dark:bg-mist-800 rounded-xl px-4 py-3 text-left w-full max-w-sm">
-              <p className="text-[10px] font-semibold text-mist-400 dark:text-mist-500 mb-1.5 uppercase tracking-wide">Add to .env.local or Vercel:</p>
-              <code className="text-xs text-mist-700 dark:text-mist-200 block mb-3">ANTHROPIC_API_KEY=&quot;sk-ant-...&quot;</code>
-              <p className="text-[10px] font-semibold text-mist-400 dark:text-mist-500 mb-1.5 uppercase tracking-wide">Then run:</p>
-              <code className="text-xs text-mist-700 dark:text-mist-200 block">node scripts/generate-summaries.mjs</code>
-            </div>
-          </>
+          <div>
+            <p className="text-sm font-semibold text-gray-700 dark:text-mist-200 mb-1">Story isn&apos;t set up yet</p>
+            <p className="text-xs text-mist-400 dark:text-mist-500 max-w-xs leading-relaxed">
+              Add an Anthropic API key on the server, then generate chapters from your archive. Until then, you can preview how Story looks.
+            </p>
+          </div>
         ) : (
-          <>
-            <div>
-              <div className="flex items-center justify-center gap-1.5 mb-1">
-                <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">API key configured</p>
-              </div>
-              <p className="text-sm font-semibold text-gray-700 dark:text-mist-200 mb-1">No chapters yet</p>
-              <p className="text-xs text-mist-400 dark:text-mist-500 max-w-xs leading-relaxed">Run the generation script to build daily story chapters from your conversation history.</p>
-            </div>
-            <div className="bg-mist-100 dark:bg-mist-800 rounded-xl px-4 py-3 text-left w-full max-w-sm">
-              <p className="text-[10px] font-semibold text-mist-400 dark:text-mist-500 mb-1.5 uppercase tracking-wide">Test with 5 days first:</p>
-              <code className="text-xs text-mist-700 dark:text-mist-200 block mb-3">node scripts/generate-summaries.mjs --limit 5</code>
-              <p className="text-[10px] font-semibold text-mist-400 dark:text-mist-500 mb-1.5 uppercase tracking-wide">Then run the full archive:</p>
-              <code className="text-xs text-mist-700 dark:text-mist-200 block">node scripts/generate-summaries.mjs</code>
-            </div>
-          </>
+          <div>
+            <p className="text-sm font-semibold text-gray-700 dark:text-mist-200 mb-1">No chapters yet</p>
+            <p className="text-xs text-mist-400 dark:text-mist-500 max-w-xs leading-relaxed">
+              Your archive is ready. Generate daily chapters to turn conversations into a readable story timeline.
+            </p>
+          </div>
         )}
 
         <button onClick={enterPreview}
-          className="text-xs text-mist-400 dark:text-mist-500 hover:text-mist-600 dark:hover:text-mist-300 underline underline-offset-2 transition-colors mt-1">
-          Preview the UI with sample data →
+          className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors mt-1">
+          Preview with sample data →
         </button>
       </div>
     )
@@ -249,7 +233,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
           </div>
 
           {leftTab === 'calendar' && (
-            <div className="flex-1 overflow-y-auto px-4 pb-3">
+            <div className="flex-1 overflow-y-auto px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-3">
               {selectedYear && selectedMonth && (
                 <p className="text-[10px] font-semibold text-mist-400 dark:text-mist-500 uppercase tracking-wide mb-2">
                   {['January','February','March','April','May','June','July','August','September','October','November','December'][selectedMonth - 1]} {selectedYear}
@@ -274,7 +258,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
           )}
 
           {leftTab === 'arcs' && (
-            <div className="flex-1 overflow-y-auto pb-3">
+            <div className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-3">
               <ArcTimeline
                 arcs={arcs}
                 selectedArc={selectedArc}
@@ -288,7 +272,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
         </div>
 
         {/* Right panel */}
-        <div className="flex-1 min-w-0 overflow-y-auto px-5 py-4">
+        <div className="flex-1 min-w-0 overflow-y-auto px-5 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-4">
           {selected ? (
             <DaySummaryView
               summary={selected}

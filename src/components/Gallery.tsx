@@ -175,6 +175,8 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
                   caption: `${new Date(itemsRef.current[idx].ts).toLocaleDateString()} · ${itemsRef.current[idx].sender}`,
                   msgId: itemsRef.current[idx].msgId,
                   ts: itemsRef.current[idx].ts,
+                  index: idx + 1,
+                  total: itemsRef.current.length,
                   onPrev: idx > 0                           ? () => onLightbox(mkState(idx - 1)) : undefined,
                   onNext: idx < itemsRef.current.length - 1 ? () => onLightbox(mkState(idx + 1)) : undefined,
                 })

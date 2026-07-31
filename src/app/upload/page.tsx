@@ -181,11 +181,11 @@ export default function UploadPage() {
     : threads
 
   return (
-    <div className="min-h-screen bg-mist-50 dark:bg-mist-950 p-6 md:p-10">
+    <div className="min-h-screen bg-mist-50 dark:bg-mist-950 p-6 md:p-10 [animation:fade-up_360ms_ease-out]">
       <div className="max-w-2xl mx-auto space-y-6">
 
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Import Thread</h1>
+          <h1 className="font-display text-2xl font-medium text-gray-900 dark:text-white">Import Thread</h1>
           <p className="text-sm text-mist-500 dark:text-mist-400 mt-1">
             Drop your Facebook export folder or .zip — threads with the same participants are merged automatically.
           </p>
@@ -204,7 +204,7 @@ export default function UploadPage() {
             onDragLeave={() => setDragging(false)}
             className={`border-2 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center gap-4 transition-colors
               ${dragging
-                ? 'border-mist-500 bg-mist-100 dark:bg-mist-800'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
                 : 'border-mist-300 dark:border-mist-700'
               }`}
           >
@@ -215,13 +215,13 @@ export default function UploadPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => dirInputRef.current?.click()}
-                className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors"
               >
                 Select folder
               </button>
               <button
                 onClick={() => zipInputRef.current?.click()}
-                className="px-4 py-2 bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-200 text-sm font-medium rounded-lg hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors"
+                className="px-4 py-2 bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-200 text-sm font-medium rounded-xl hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors"
               >
                 Select .zip
               </button>
@@ -237,7 +237,7 @@ export default function UploadPage() {
             onDragLeave={() => setDragging(false)}
             className={`border border-dashed rounded-xl px-4 py-3 flex items-center gap-3 transition-colors
               ${dragging
-                ? 'border-mist-500 bg-mist-100 dark:bg-mist-800'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
                 : 'border-mist-300 dark:border-mist-700'
               }`}
           >
@@ -293,7 +293,7 @@ export default function UploadPage() {
                   onClick={() => onSelect(t)}
                   className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors
                     ${selected?.key === t.key
-                      ? 'bg-mist-100 dark:bg-mist-800'
+                      ? 'bg-blue-50 dark:bg-blue-950/30'
                       : 'hover:bg-mist-50 dark:hover:bg-mist-800'
                     }`}
                 >
@@ -343,7 +343,7 @@ export default function UploadPage() {
 
             <button
               onClick={handleImport}
-              className="w-full py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold rounded-xl hover:opacity-90 transition-opacity"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
             >
               Import Thread
             </button>
@@ -370,7 +370,7 @@ export default function UploadPage() {
                 </div>
                 <div className="w-full bg-mist-100 dark:bg-mist-800 rounded-full h-1.5">
                   <div
-                    className="bg-gray-900 dark:bg-white h-1.5 rounded-full transition-all"
+                    className="bg-blue-600 h-1.5 rounded-full transition-all"
                     style={{ width: `${Math.min(100, (progress.current / progress.total) * 100)}%` }}
                   />
                 </div>
@@ -411,7 +411,7 @@ export default function UploadPage() {
               ))}
             </div>
             <div className="flex gap-3">
-              <Link href="/" className="flex-1 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold rounded-xl text-center hover:opacity-90 transition-opacity">
+              <Link href="/" className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl text-center transition-colors">
                 View App
               </Link>
               <button

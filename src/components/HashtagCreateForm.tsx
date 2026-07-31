@@ -1,6 +1,8 @@
 'use client'
 import { useState } from 'react'
 import { toSlug } from '@/lib/utils'
+import { btnPrimary, btnGhost, labelUpper } from '@/lib/ui'
+import { LockIcon, GlobeIcon } from '@/components/icons'
 
 interface CreatePayload {
   name: string
@@ -35,9 +37,8 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
     <div className="flex-1 overflow-y-auto">
       <form onSubmit={handleSubmit} className="max-w-lg mx-auto px-6 py-8 flex flex-col gap-5">
 
-        {/* Name */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wide text-mist-500 dark:text-mist-400">Name</label>
+          <label className={labelUpper}>Name</label>
           <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-mist-50 dark:bg-mist-800 border border-mist-200 dark:border-mist-700 focus-within:border-mist-400 dark:focus-within:border-mist-500 transition-colors">
             <span className="text-mist-400 font-semibold text-sm">#</span>
             <input
@@ -51,10 +52,9 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
           </div>
         </div>
 
-        {/* Visibility — admin only */}
         {isSuperAdmin && (
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wide text-mist-500 dark:text-mist-400">Visibility</label>
+            <label className={labelUpper}>Visibility</label>
             <div className="flex rounded-xl overflow-hidden border border-mist-200 dark:border-mist-700">
               {([false, true] as const).map(val => (
                 <button
@@ -63,20 +63,21 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
                   onClick={() => setIsPrivate(val)}
                   className={`flex-1 py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2
                     ${isPrivate === val
-                      ? 'bg-mist-600 text-white'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-mist-50 dark:bg-mist-800 text-mist-500 dark:text-mist-400 hover:bg-mist-100 dark:hover:bg-mist-700'
                     }`}
                 >
-                  {val ? '🔒 Private' : '🌐 Public'}
+                  {val
+                    ? <><LockIcon size={14} /> Private</>
+                    : <><GlobeIcon size={14} /> Public</>}
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Context */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wide text-mist-500 dark:text-mist-400">Context <span className="normal-case font-normal text-mist-400">(optional)</span></label>
+          <label className={labelUpper}>Context <span className="normal-case font-normal text-mist-400">(optional)</span></label>
           <textarea
             value={context}
             onChange={e => setContext(e.target.value)}
@@ -86,14 +87,11 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
           />
         </div>
 
-        {/* Actions */}
         <div className="flex gap-3 pt-1">
-          <button type="button" onClick={onCancel}
-            className="flex-1 py-2.5 rounded-xl border border-mist-200 dark:border-mist-700 text-sm font-semibold text-mist-500 dark:text-mist-400 hover:bg-mist-50 dark:hover:bg-mist-800 transition-colors">
+          <button type="button" onClick={onCancel} className={`flex-1 ${btnGhost}`}>
             Cancel
           </button>
-          <button type="submit" disabled={!name.trim() || loading}
-            className="flex-1 py-2.5 rounded-xl bg-mist-600 hover:bg-mist-700 text-white font-semibold text-sm disabled:opacity-40 transition-colors">
+          <button type="submit" disabled={!name.trim() || loading} className={`flex-1 ${btnPrimary} disabled:opacity-40`}>
             {loading ? 'Creating…' : 'Create'}
           </button>
         </div>

@@ -42,7 +42,7 @@ export function inferInitials(name: string): string {
 
 export const THREAD_COLORS = [
   'bg-rose-400', 'bg-violet-400', 'bg-amber-400', 'bg-sky-400',
-  'bg-pink-400', 'bg-indigo-400', 'bg-emerald-400', 'bg-orange-400',
+  'bg-teal-400', 'bg-indigo-400', 'bg-emerald-400', 'bg-orange-400',
 ]
 
 export function pickColor(hash: string): string {

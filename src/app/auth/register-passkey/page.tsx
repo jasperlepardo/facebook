@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { startRegistration } from '@simplewebauthn/browser'
+import { brandMark, btnPrimary } from '@/lib/ui'
 
 function RegisterPasskeyInner() {
   const router = useRouter()
@@ -48,32 +49,32 @@ function RegisterPasskeyInner() {
 
   return (
     <div className="w-full max-w-sm text-center">
-      <div className="w-14 h-14 bg-mist-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-        <span className="text-white text-2xl font-bold">J</span>
+      <div className={`${brandMark} mx-auto mb-4`}>
+        <span className="text-white text-2xl font-bold">R</span>
       </div>
-      <h1 className="text-2xl font-semibold text-gray-900 mb-2">Set up passkey</h1>
-      <p className="text-sm text-gray-500 mb-8">
+      <h1 className="font-display text-2xl font-medium text-gray-900 dark:text-gray-100 mb-2">Set up passkey</h1>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
         Use Face ID, fingerprint, or your device PIN to sign in — no password needed.
       </p>
 
       {status === 'success' ? (
-        <div className="text-green-600 font-medium">Passkey registered! Signing you in…</div>
+        <div className="text-emerald-600 dark:text-emerald-400 font-medium">Passkey registered! Signing you in…</div>
       ) : (
         <>
           <button
             onClick={handleRegister}
             disabled={status === 'loading'}
-            className="w-full py-2.5 bg-mist-600 text-white rounded-xl text-sm font-medium disabled:opacity-50"
+            className={`${btnPrimary}`}
           >
             {status === 'loading' ? 'Waiting for passkey…' : 'Register passkey'}
           </button>
-          {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
-          <p className="text-xs text-gray-400 mt-4">
+          {error && <p className="text-sm text-red-600 dark:text-red-400 mt-3">{error}</p>}
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
             Your passkey syncs via iCloud Keychain or Google Password Manager.
           </p>
           <button
             onClick={() => router.push('/')}
-            className="mt-3 text-sm text-gray-400 hover:text-gray-600"
+            className="mt-3 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           >
             Skip for now
           </button>

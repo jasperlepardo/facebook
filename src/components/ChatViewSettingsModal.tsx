@@ -64,7 +64,7 @@ export default function ChatViewSettingsModal({ enabledTypes, onChange, onReset,
           >Reset to defaults</button>
           <button
             onClick={onClose}
-            className="text-sm font-semibold text-mist-600 dark:text-mist-400 hover:text-mist-800 dark:hover:text-mist-200 transition-colors"
+            className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
           >Done</button>
         </div>
       </div>
@@ -78,7 +78,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
       role="switch"
       aria-checked={on}
       onClick={e => { e.preventDefault(); onChange(!on) }}
-      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${on ? 'bg-mist-600' : 'bg-mist-200 dark:bg-mist-700'}`}
+      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${on ? 'bg-blue-600' : 'bg-mist-200 dark:bg-mist-700'}`}
     >
       <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : 'translate-x-0'}`} />
     </button>

@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-
-const inputCls = 'w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-mist-500'
+import { field, btnPrimary, label, brandMark, linkAccent } from '@/lib/ui'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
@@ -38,16 +37,16 @@ export default function SignupPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <div className="w-14 h-14 bg-mist-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <div className={`${brandMark} mx-auto mb-5`}>
           <span className="text-white text-2xl font-bold">R</span>
         </div>
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Create account</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Resibo</p>
+        <p className="font-display text-3xl font-medium tracking-tight text-gray-900 dark:text-gray-100">Resibo</p>
+        <p className="text-sm text-mist-500 dark:text-mist-400 mt-1.5">Create your archive account</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label htmlFor="signup-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+          <label htmlFor="signup-name" className={label}>Name</label>
           <input
             id="signup-name"
             type="text"
@@ -56,11 +55,11 @@ export default function SignupPage() {
             placeholder="Your name"
             required
             autoComplete="name"
-            className={inputCls}
+            className={field}
           />
         </div>
         <div>
-          <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+          <label htmlFor="signup-email" className={label}>Email</label>
           <input
             id="signup-email"
             type="email"
@@ -69,11 +68,11 @@ export default function SignupPage() {
             placeholder="you@example.com"
             required
             autoComplete="email"
-            className={inputCls}
+            className={field}
           />
         </div>
         <div>
-          <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+          <label htmlFor="signup-password" className={label}>Password</label>
           <input
             id="signup-password"
             type="password"
@@ -82,11 +81,11 @@ export default function SignupPage() {
             placeholder="••••••••"
             required
             autoComplete="new-password"
-            className={inputCls}
+            className={field}
           />
         </div>
         <div>
-          <label htmlFor="signup-confirm" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Confirm password</label>
+          <label htmlFor="signup-confirm" className={label}>Confirm password</label>
           <input
             id="signup-confirm"
             type="password"
@@ -95,24 +94,20 @@ export default function SignupPage() {
             placeholder="••••••••"
             required
             autoComplete="new-password"
-            className={inputCls}
+            className={field}
           />
         </div>
 
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2.5 bg-mist-600 hover:bg-mist-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
-        >
+        <button type="submit" disabled={loading} className={btnPrimary}>
           {loading ? 'Creating account…' : 'Create account'}
         </button>
       </form>
 
-      <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
+      <p className="text-center text-sm text-mist-500 dark:text-mist-400 mt-6">
         Already have an account?{' '}
-        <Link href="/auth/signin" className="text-mist-600 dark:text-mist-400 font-medium">Sign in</Link>
+        <Link href="/auth/signin" className={linkAccent}>Sign in</Link>
       </p>
     </div>
   )

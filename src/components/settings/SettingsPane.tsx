@@ -27,7 +27,7 @@ function MoonIcon()   { return <svg width="16" height="16" viewBox="0 0 24 24" f
 function SystemIcon() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg> }
 function ChevronRight() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M9 18l6-6-6-6"/></svg> }
 
-const sectionCls = 'bg-white dark:bg-mist-800 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700'
+const sectionCls = 'bg-white dark:bg-mist-800 rounded-xl overflow-hidden divide-y divide-mist-100 dark:divide-mist-700'
 const rowCls     = 'flex items-center justify-between px-4 py-3'
 const labelCls   = 'text-sm text-gray-500 dark:text-mist-400'
 const valueCls   = 'text-sm font-medium text-gray-900 dark:text-mist-100'
@@ -179,7 +179,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
   ]
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">
+    <div className="flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
       <div className="px-4 py-6 space-y-6">
 
         <section>
@@ -226,7 +226,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
                   <button key={value} onClick={() => applyTheme(value)}
                     className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border-2 transition-colors text-xs font-semibold ${
                       theme === value
-                        ? 'border-mist-600 text-mist-600 bg-mist-50 dark:border-mist-400 dark:text-mist-400 dark:bg-mist-900/30'
+                        ? 'border-blue-600 text-blue-600 bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:bg-blue-950/30'
                         : 'border-gray-200 dark:border-mist-700 text-gray-500 dark:text-mist-400 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}>
                     {icon}{label}
@@ -249,7 +249,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
             <div className={sectionCls}>
               <button onClick={onToggleShowHidden} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
                 <span className="text-sm text-gray-900 dark:text-mist-100">Show hidden messages</span>
-                <div className={`w-10 h-6 rounded-full transition-colors ${showHidden ? 'bg-mist-600' : 'bg-gray-300 dark:bg-gray-600'} relative`}>
+                <div className={`w-10 h-6 rounded-full transition-colors ${showHidden ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'} relative`}>
                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${showHidden ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
               </button>

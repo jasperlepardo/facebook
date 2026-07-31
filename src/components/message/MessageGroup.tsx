@@ -113,16 +113,16 @@ const MessageRow = memo(function MessageRow({
     >
       <div className="w-8 shrink-0 flex items-center justify-end">
         {isFirst
-          ? <ThreadAvatar color={block.mine ? 'bg-mist-600' : (senderColor ?? 'bg-purple-600')} initials={(block.sender || '?')[0].toUpperCase()} />
+          ? <ThreadAvatar color={block.mine ? 'bg-blue-600' : (senderColor ?? 'bg-violet-500')} initials={(block.sender || '?')[0].toUpperCase()} />
           : <span className={timeCls}>{fmtTimeShort(m.timestamp_ms)}</span>
         }
       </div>
 
       <div className={`flex-1 min-w-0${isHidden ? ' opacity-40' : ''}`}>
         {isFirst && (
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className={`text-sm font-semibold ${block.mine ? 'text-mist-600 dark:text-mist-400' : 'text-gray-900 dark:text-gray-100'}`}>{block.sender}</span>
-            <span className="text-[11px] text-gray-400 dark:text-gray-500">{fmtTime(m.timestamp_ms)}</span>
+          <div className="flex items-baseline gap-2 mb-0.5">
+            <span className={`text-sm font-semibold ${block.mine ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-mist-100'}`}>{block.sender}</span>
+            <span className="text-[11px] text-mist-400 dark:text-mist-500">{fmtTime(m.timestamp_ms)}</span>
           </div>
         )}
         {renderContent(m, isHidden, hasMedia, show)}
@@ -149,7 +149,8 @@ const MessageRow = memo(function MessageRow({
               checked={isSel}
               onChange={() => {}}
               onClick={e => { e.stopPropagation(); onToggle(m._id, m.timestamp_ms, m.timestamp_ms, [m._id], e.shiftKey) }}
-              className="w-4 h-4 cursor-pointer accent-mist-600 shrink-0"
+              className="w-4 h-4 cursor-pointer accent-blue-600 shrink-0"
+              aria-label="Select message"
             />
           </>
         )}
@@ -198,7 +199,7 @@ const MessageGroup = memo(function MessageGroup({
   }
 
   return (
-    <div data-id={block.msgs[0]._id} className="msg-group flex flex-col py-1">
+    <div data-id={block.msgs[0]._id} className="msg-group flex flex-col py-0.5">
       {msgs.map((m, idx) => {
         if (isBlankMsg(m)) return null
         return (

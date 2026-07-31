@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { startAuthentication } from '@simplewebauthn/browser'
 import Link from 'next/link'
-
-const inputCls = 'w-full px-3 py-2.5 border border-gray-300 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-mist-500'
+import { field, btnPrimary, btnSecondary, label, brandMark, linkAccent } from '@/lib/ui'
 
 function getNextUrl() {
   const next = new URLSearchParams(window.location.search).get('next') ?? '/'
@@ -76,16 +75,16 @@ export default function SigninPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <div className="w-14 h-14 bg-mist-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <div className={`${brandMark} mx-auto mb-5`}>
           <span className="text-white text-2xl font-bold">R</span>
         </div>
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Sign in</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Resibo</p>
+        <p className="font-display text-3xl font-medium tracking-tight text-gray-900 dark:text-gray-100">Resibo</p>
+        <p className="text-sm text-mist-500 dark:text-mist-400 mt-1.5">Your private message archive</p>
       </div>
 
       <form onSubmit={handlePasswordSignin} className="space-y-4">
         <div>
-          <label htmlFor="signin-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+          <label htmlFor="signin-email" className={label}>Email</label>
           <input
             id="signin-email"
             type="email"
@@ -94,11 +93,11 @@ export default function SigninPage() {
             placeholder="you@example.com"
             required
             autoComplete="email"
-            className={inputCls}
+            className={field}
           />
         </div>
         <div>
-          <label htmlFor="signin-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+          <label htmlFor="signin-password" className={label}>Password</label>
           <input
             id="signin-password"
             type="password"
@@ -107,32 +106,28 @@ export default function SigninPage() {
             placeholder="••••••••"
             required
             autoComplete="current-password"
-            className={inputCls}
+            className={field}
           />
         </div>
 
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full py-2.5 bg-mist-600 hover:bg-mist-700 text-white rounded-xl text-sm font-medium disabled:opacity-50 transition-colors"
-        >
+        <button type="submit" disabled={loading} className={btnPrimary}>
           {pwLoading ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
 
       <div className="flex items-center gap-3 my-4">
-        <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-        <span className="text-xs text-gray-400 dark:text-gray-500">or</span>
-        <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+        <div className="flex-1 h-px bg-mist-200 dark:bg-mist-700" />
+        <span className="text-xs text-mist-400 dark:text-mist-500">or</span>
+        <div className="flex-1 h-px bg-mist-200 dark:bg-mist-700" />
       </div>
 
       <button
         type="button"
         onClick={handlePasskeySignin}
         disabled={loading}
-        className="w-full py-2.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+        className={`${btnSecondary} flex items-center justify-center gap-2`}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 2a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4"/>
@@ -144,9 +139,9 @@ export default function SigninPage() {
         {pkLoading ? 'Waiting for passkey…' : 'Sign in with passkey'}
       </button>
 
-      <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
+      <p className="text-center text-sm text-mist-500 dark:text-mist-400 mt-6">
         No account?{' '}
-        <Link href="/auth/signup" className="text-mist-600 dark:text-mist-400 font-medium">Sign up</Link>
+        <Link href="/auth/signup" className={linkAccent}>Sign up</Link>
       </p>
     </div>
   )

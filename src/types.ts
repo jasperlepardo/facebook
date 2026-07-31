@@ -52,6 +52,9 @@ export interface LightboxState {
   caption: string
   msgId?: string
   ts?: number
+  /** 1-based index when browsing a set */
+  index?: number
+  total?: number
   onPrev?: () => void
   onNext?: () => void
 }

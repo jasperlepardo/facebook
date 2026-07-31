@@ -1,5 +1,7 @@
 'use client'
 
+import { LockIcon } from '@/components/icons'
+
 export interface ListPaneItem {
   id: string
   label: string
@@ -60,8 +62,8 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
         </div>
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      {/* List — leave room for floating mobile nav */}
+      <div className="flex-1 overflow-y-auto pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
         {filtered.length === 0 && (
           <p className="text-xs text-mist-400 dark:text-mist-500 text-center py-8">
             {emptyMessage ?? (filter ? 'No matches.' : 'Nothing here yet.')}
@@ -91,8 +93,8 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">{item.label}</span>
                   {item.isPrivate && (
-                    <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                      🔒
+                    <span className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" title="Private">
+                      <LockIcon size={10} />
                     </span>
                   )}
                 </div>
@@ -105,7 +107,7 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
                   <div className="text-[13px] text-mist-500 dark:text-mist-400 truncate mt-0.5">{item.subtitle}</div>
                 )}
               </div>
-              {active && <div className="w-2.5 h-2.5 rounded-full bg-mist-600 shrink-0" />}
+              {active && <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />}
             </button>
           )
         })}

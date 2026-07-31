@@ -87,7 +87,7 @@ export function renderContent(
   }
 
   return (
-    <div className={`text-base leading-6 text-gray-900 dark:text-gray-100 break-words${isHidden ? ' line-through' : ''}`}>
+    <div className={`text-[15px] leading-6 text-gray-900 dark:text-mist-100 break-words${isHidden ? ' line-through' : ''}`}>
       {mapFbEmoji(m.content).split('\n').flatMap((line, i, arr) =>
         i < arr.length - 1 ? [line, <br key={i} />] : [line]
       )}

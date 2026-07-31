@@ -49,7 +49,7 @@ export default function AppNav({ section, prevSection = 'chat', initials, name, 
   const btnBase    = 'rounded-lg flex items-center transition-colors shrink-0'
   const btnActive  = 'bg-mist-200 dark:bg-mist-800 text-mist-700 dark:text-mist-200'
   const btnIdle    = 'text-mist-500 dark:text-mist-400 hover:bg-mist-100 dark:hover:bg-mist-800 hover:text-mist-700 dark:hover:text-mist-200'
-  const avatarBg   = section === 'settings' ? 'bg-mist-600 text-white' : 'bg-mist-200 dark:bg-mist-700 text-mist-700 dark:text-mist-200'
+  const avatarBg   = section === 'settings' ? 'bg-blue-600 text-white' : 'bg-mist-200 dark:bg-mist-700 text-mist-700 dark:text-mist-200'
   const settingsColor = section === 'settings' ? btnActive : 'text-mist-500 dark:text-mist-400 hover:bg-mist-100 dark:hover:bg-mist-800'
 
   return (

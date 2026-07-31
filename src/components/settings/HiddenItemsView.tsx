@@ -88,7 +88,7 @@ export default function HiddenItemsView({ onBack }: Props) {
           <input value={addNote} onChange={e => setAddNote(e.target.value)}
             placeholder="Note (optional)" className={inputCls} />
           <button onClick={add} disabled={adding || !addValue.trim()}
-            className="w-full py-2.5 rounded-xl text-sm font-medium bg-mist-600 hover:bg-mist-700 text-white disabled:opacity-50 transition-colors">
+            className="w-full py-2.5 rounded-xl text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-colors">
             {adding ? 'Adding…' : 'Add'}
           </button>
         </div>
