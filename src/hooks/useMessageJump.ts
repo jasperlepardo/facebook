@@ -34,7 +34,19 @@ export function useMessageJump({
       document.querySelector<HTMLElement>(`[data-id="${msgId}"]`)
     if (!group || !group.offsetParent) return false
     const target = row ?? group
-    target.scrollIntoView({ block: 'center' })
+    const scroller = scrollRef.current
+    if (!scroller) return false
+
+    // Land just below the sticky date separator for this day
+    const day  = target.closest<HTMLElement>('[data-day-iso]')
+    const dsep = day?.querySelector<HTMLElement>('.dsep')
+    const offset = dsep?.offsetHeight ?? 0
+    const top = target.getBoundingClientRect().top
+      - scroller.getBoundingClientRect().top
+      + scroller.scrollTop
+      - offset
+    scroller.scrollTop = Math.max(0, top)
+
     const isDark = document.documentElement.classList.contains('dark')
     target.style.background = isDark ? '#3b3010' : '#fff3cd'
     setTimeout(() => { target.style.transition = 'background 1s'; target.style.background = '' }, 800)

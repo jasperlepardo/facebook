@@ -79,19 +79,57 @@ export default function ViewerApp() {
   // ─── Refs ─────────────────────────────────────────────────────────────────────
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const jumpFnRef     = useRef<JumpFn | null>(null)
+  // Queued when jump is requested before ChatDetailPane has registered (section/thread remount)
+  const pendingJumpRef = useRef<{ ts: number; msgId: string | null } | null>(null)
 
   // ─── Jump ─────────────────────────────────────────────────────────────────────
 
+  const registerJump = useCallback((fn: JumpFn | null) => {
+    jumpFnRef.current = fn
+    if (fn && pendingJumpRef.current) {
+      const { ts, msgId } = pendingJumpRef.current
+      pendingJumpRef.current = null
+      void fn(ts, msgId)
+    }
+  }, [])
+
   const jumpToMessage = useCallback(async (ts: number, msgId: string | null, thread?: string): Promise<void> => {
-    if (thread && thread !== activeThread) setActiveThread(thread)
+    const targetThread = thread && thread !== activeThread ? thread : null
+    if (targetThread) setActiveThread(targetThread)
+
+    // Put msg in the URL before switching section so a remounted ChatDetailPane can restore it
+    if (msgId) {
+      const params = new URLSearchParams(window.location.search)
+      params.set('msg', msgId)
+      params.delete('s')
+      const t = targetThread ?? activeThread
+      if (t) params.set('thread', t)
+      window.history.replaceState(null, '', `?${params}`)
+    }
+
+    // Queue when chat isn't visible yet (CSS `hidden` breaks scrollIntoView) or pane will remount
+    const mustQueue = section !== 'chat' || !!targetThread || !jumpFnRef.current
+    if (mustQueue) pendingJumpRef.current = { ts, msgId }
+    else pendingJumpRef.current = null
+
     setSection('chat')
     setChatDetailOpen(true)
-    await jumpFnRef.current?.(ts, msgId)
-  }, [activeThread])
+
+    if (mustQueue) return
+    await jumpFnRef.current!(ts, msgId)
+  }, [activeThread, section])
 
   const jumpToDate = useCallback((ts: number) => {
     jumpToMessage(ts, null)
   }, [jumpToMessage])
+
+  // Flush queued jump once chat is the active section (pane visible + jump fn registered)
+  useEffect(() => {
+    if (section !== 'chat' || !jumpFnRef.current || !pendingJumpRef.current) return
+    const { ts, msgId } = pendingJumpRef.current
+    pendingJumpRef.current = null
+    void jumpFnRef.current(ts, msgId)
+  }, [section, activeThread])
 
   // Sync hideImages from localStorage after hydration
   useEffect(() => {
@@ -327,7 +365,7 @@ export default function ViewerApp() {
             scrollContainerRef={chatScrollRef}
           />
         )}
-        <div key={section} className="flex-1 flex flex-col min-h-0 relative overflow-hidden [animation:fade-in_180ms_ease-out]">
+        <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden [animation:fade-in_180ms_ease-out]">
 
           {/* Chat — empty state on desktop until thread is opened */}
           {section === 'chat' && !chatDetailOpen && (
@@ -360,7 +398,7 @@ export default function ViewerApp() {
               onHideMessage={handleHideMessage}
               onUnhideMessage={handleUnhideMessage}
               onLightbox={setLightbox}
-              onRegisterJump={fn => { jumpFnRef.current = fn }}
+              onRegisterJump={registerJump}
               onStatsChange={(total, dateIndex) => { setChatTotal(total); setChatDateIndex(dateIndex) }}
               enabledTypes={enabledTypes}
               senderColor={thread?.color}

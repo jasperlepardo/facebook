@@ -198,7 +198,7 @@ const MessageGroup = memo(function MessageGroup({
   }
 
   return (
-    <div data-id={block.msgs[0]._id} className="msg-group flex flex-col">
+    <div data-id={block.msgs[0]._id} className="msg-group flex flex-col py-1">
       {msgs.map((m, idx) => {
         if (isBlankMsg(m)) return null
         return (
