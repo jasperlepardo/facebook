@@ -1,4 +1,7 @@
-const R2_BASE = process.env.NEXT_PUBLIC_R2_URL ?? 'https://pub-bcf374add91945839b65e3ee37ef410d.r2.dev'
+const R2_BASE =
+  process.env.NEXT_PUBLIC_R2_URL
+  ?? process.env.R2_PUBLIC_URL
+  ?? 'https://pub-bcf374add91945839b65e3ee37ef410d.r2.dev'
 
 export const r2 = (uri: string) =>
   `${R2_BASE}/${uri.split('/').map(encodeURIComponent).join('/')}`

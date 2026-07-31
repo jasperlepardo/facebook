@@ -1,13 +1,13 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
-import { Section, LightboxState, ContextMenuState, GalleryItem, DateIndex } from '@/types'
-import { apiFetch } from '@/lib/utils'
-import { relTime } from '@/lib/format'
+import { Section, Thread, LightboxState, ContextMenuState, GalleryItem, DateIndex } from '@/types'
 import { toast } from '@/lib/toast'
 import { ContentTypeKey, ALL_CONTENT_TYPE_KEYS, DEFAULT_ENABLED } from '@/lib/contentTypes'
 import { useHashtagPaneState } from '@/hooks/useHashtagPaneState'
 import { useHiddenState } from '@/hooks/useHiddenState'
+import { useViewerUrlSync, initialSection, initialActiveThread, initialChatDetailOpen } from '@/hooks/useViewerUrlSync'
+import { useViewerInit } from '@/hooks/useViewerInit'
 import ChatViewSettingsModal from './ChatViewSettingsModal'
 import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
@@ -25,15 +25,9 @@ const SettingsPane = dynamic(() => import('./settings/SettingsPane'), { ssr: fal
 const MediaPane    = dynamic(() => import('./MediaPane'), { ssr: false })
 const Lightbox     = dynamic(() => import('./Lightbox'), { ssr: false })
 
-interface Thread { id: string; name: string; initials: string; color: string; collection: string; participants?: string[] }
-
 export default function ViewerApp() {
   // Navigation — default to 'chat' for SSR, then correct from URL after hydration
-  const [section, setSection]         = useState<Section>(() => {
-    if (typeof window === 'undefined') return 'chat'
-    const s = new URLSearchParams(window.location.search).get('s')
-    return (s === 'hashtags' || s === 'settings' || s === 'story') ? s as Section : 'chat'
-  })
+  const [section, setSection]         = useState<Section>(initialSection)
   const [prevSection, setPrevSection] = useState<'chat' | 'hashtags' | 'story'>('chat')
   // ─── Hidden state ────────────────────────────────────────────────────────────
   const {
@@ -61,15 +55,8 @@ export default function ViewerApp() {
 
   // ─── Chat / thread state ──────────────────────────────────────────────────────
   const [searchInput, setSearchInput]   = useState('')
-  const [activeThread, setActiveThread] = useState<string>(() => {
-    if (typeof window === 'undefined') return ''
-    return new URLSearchParams(window.location.search).get('thread') ?? ''
-  })
-  const [chatDetailOpen, setChatDetailOpen] = useState(() => {
-    if (typeof window === 'undefined') return false
-    const p = new URLSearchParams(window.location.search)
-    return !!(p.get('msg') || p.get('thread'))
-  })
+  const [activeThread, setActiveThread] = useState<string>(initialActiveThread)
+  const [chatDetailOpen, setChatDetailOpen] = useState(initialChatDetailOpen)
   const [threadFilter, setThreadFilter] = useState('')
   const [threadMeta, setThreadMeta]     = useState<Record<string, { subtitle: string; badge: string }>>({})
   const [chatTotal, setChatTotal]       = useState(0)
@@ -111,125 +98,27 @@ export default function ViewerApp() {
     setHideImages(localStorage.getItem('hideImages') === '1')
   }, [])
 
-  // ─── Sync section + mediaTab to/from URL ────────────────────────────────────
+  useViewerUrlSync({
+    section, setSection,
+    activeThread, setActiveThread,
+    chatDetailOpen, setChatDetailOpen,
+  })
 
-  const mountedRef = useRef(false)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (!mountedRef.current) {
-      mountedRef.current = true
-      const s = params.get('s')
-      if (s === 'hashtags' || s === 'settings' || s === 'story') setSection(s)
-      if (params.get('msg')) setChatDetailOpen(true)
-      const thread = params.get('thread')
-      if (thread) {
-        setActiveThread(thread)
-        if (!params.get('s')) setChatDetailOpen(true)
-      }
-      return
-    }
-    if (section === 'chat') {
-      params.delete('s')
-    } else {
-      params.set('s', section)
-      params.delete('msg')
-    }
-    if (activeThread) params.set('thread', activeThread)
-    else params.delete('thread')
-    if (section !== 'chat') params.delete('msg')
-    const qs = params.toString()
-    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-  }, [section, activeThread, chatDetailOpen])
-
-  // ─── Init ───────────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    async function init() {
-      try {
-        const d = await fetch('/api/init').then(r => r.ok ? r.json() : null)
-        if (!d) return
-
-        if (d.user?.name) setCurrentUser(d.user.name)
-        if (d.user?.superAdmin) { setIsSuperAdmin(true); setShowHidden(true) }
-
-        if (d.threadLastMsg && activeThread) {
-          setThreadMeta(prev => ({
-            ...prev,
-            [activeThread]: { subtitle: d.threadLastMsg.subtitle, badge: relTime(d.threadLastMsg.ts) },
-          }))
-        }
-
-        if (d.hiddenItems?.length) {
-          setDbHiddenItems(d.hiddenItems)
-        }
-
-        if (Array.isArray(d.hashtags)) {
-          setHashtags(d.hashtags.map((h: { id: string; name: string; thread?: string; context?: string; isPrivate?: boolean; createdBy?: string; createdById?: string; firstMsgTs?: number; groupCount?: number }) => ({
-            id: h.id,
-            name: h.name,
-            thread: h.thread,
-            context: h.context,
-            isPrivate: h.isPrivate,
-            createdBy: h.createdBy,
-            createdById: h.createdById,
-            firstMsgTs: h.firstMsgTs,
-            groupCount: h.groupCount,
-          })))
-        }
-
-        if (d.userSettings?.chatContentTypes) {
-          setEnabledTypes(new Set<ContentTypeKey>(d.userSettings.chatContentTypes))
-        }
-      } catch { toast('Failed to load app data') }
-      finally { setInitialized(true) }
-    }
-    async function loadThreads() {
-      try {
-        const d = await apiFetch<{ threads: Thread[] }>('/api/threads')
-        if (d.threads?.length) {
-          const mapped = d.threads.map((t: Thread) => ({ ...t, id: t.collection }))
-          setThreads(mapped)
-          const urlThread = new URLSearchParams(window.location.search).get('thread')
-          if (!urlThread) setActiveThread(mapped[0].id)
-        }
-      } catch { toast('Failed to load conversations') }
-    }
-    init()
-    loadThreads()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Reload thread-specific data when active thread changes ─────────────────
-
-  useEffect(() => {
-    if (!activeThread) return
-    async function loadThreadData() {
-      try {
-        const d = await fetch(`/api/init?thread=${activeThread}`).then(r => r.ok ? r.json() : null)
-        if (!d) return
-        if (d.threadLastMsg) {
-          setThreadMeta(prev => ({
-            ...prev,
-            [activeThread]: { subtitle: d.threadLastMsg.subtitle, badge: relTime(d.threadLastMsg.ts) },
-          }))
-        }
-      } catch { toast('Failed to load conversation') }
-    }
-    loadThreadData()
-    setMediaCounts({}) // reset until MediaPane asks for counts
-  }, [activeThread])
-
-  // Lazy media counts — only when MediaPane is open
-  useEffect(() => {
-    if (!showMediaPane || !activeThread) return
-    let cancelled = false
-    fetch(`/api/init?thread=${activeThread}&mediaOnly=1`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (!cancelled && d?.mediaCounts) setMediaCounts(d.mediaCounts)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [showMediaPane, activeThread])
+  useViewerInit({
+    activeThread,
+    showMediaPane,
+    setCurrentUser,
+    setIsSuperAdmin,
+    setShowHidden,
+    setThreadMeta,
+    setDbHiddenItems,
+    setHashtags,
+    setEnabledTypes,
+    setInitialized,
+    setThreads,
+    setActiveThread,
+    setMediaCounts,
+  })
 
   // ─── Context menu (gallery only) ─────────────────────────────────────────────
 

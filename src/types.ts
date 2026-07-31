@@ -70,6 +70,15 @@ export interface ContextMenuState {
 
 export type Section = 'chat' | 'hashtags' | 'settings' | 'story'
 
+export interface Thread {
+  id: string
+  name: string
+  initials: string
+  color: string
+  collection: string
+  participants?: string[]
+}
+
 export interface LinkedDate {
   date: string
   type: 'continues-from' | 'resolved-on' | 'echoes'
