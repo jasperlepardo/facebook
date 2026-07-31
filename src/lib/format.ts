@@ -1,10 +1,12 @@
-const R2_BASE =
-  process.env.NEXT_PUBLIC_R2_URL
-  ?? process.env.R2_PUBLIC_URL
-  ?? 'https://pub-bcf374add91945839b65e3ee37ef410d.r2.dev'
+/** Public CDN base when set (custom domain). Otherwise media is served via authenticated `/api/media`. */
+const R2_DIRECT = process.env.NEXT_PUBLIC_R2_URL?.replace(/\/$/, '') ?? ''
 
-export const r2 = (uri: string) =>
-  `${R2_BASE}/${uri.split('/').map(encodeURIComponent).join('/')}`
+export const r2 = (uri: string) => {
+  if (R2_DIRECT) {
+    return `${R2_DIRECT}/${uri.split('/').map(encodeURIComponent).join('/')}`
+  }
+  return `/api/media?key=${encodeURIComponent(uri)}`
+}
 
 export const fmtTime = (ts: number) =>
   new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })

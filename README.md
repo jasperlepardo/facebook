@@ -23,8 +23,8 @@ npm run lint
 | `PAYLOAD_SECRET` | Payload CMS encryption secret |
 | `SESSION_SECRET` | JWT session signing secret |
 | `NEXT_PUBLIC_OWNER_NAME` | Display name for "me" in chat (optional) |
-| `NEXT_PUBLIC_R2_URL` | Public R2 CDN base URL for media |
-| `CLOUDFLARE_ACCOUNT_ID` / `R2_*` | Media upload to Cloudflare R2 |
+| `NEXT_PUBLIC_R2_URL` | Optional public CDN/custom domain for media. If unset, media is proxied via authenticated `/api/media` |
+| `CLOUDFLARE_ACCOUNT_ID` / `R2_*` | R2 credentials for upload + media proxy |
 | `ANTHROPIC_API_KEY` | Optional — Story summary generation |
 | `ALLOW_SIGNUP` | Set `true` to reopen public signup after the first user |
 

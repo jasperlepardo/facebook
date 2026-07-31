@@ -1,6 +1,5 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import Image from 'next/image'
 import { GalleryItem, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
 import { GALLERY_LIMIT } from '@/lib/constants'
@@ -185,10 +184,8 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
               data-msg-id={item.msgId}
             >
               {type === 'videos'
-                ? <video src={r2(item.uri)} preload="none" className="w-full h-full object-cover block" />
-                : type === 'gifs'
-                ? <img src={r2(item.uri)} loading="lazy" className="w-full h-full object-cover block" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                : <Image src={r2(item.uri)} alt="" fill sizes="(min-width: 1024px) 200px, (min-width: 640px) 160px, 50vw" className="object-cover" />
+                ? <video src={r2(item.uri)} preload="none" className="absolute inset-0 w-full h-full object-cover" />
+                : <img src={r2(item.uri)} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
               }
               {isSuperAdmin && onHideUri && (
                 <button

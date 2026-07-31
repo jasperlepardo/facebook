@@ -9,6 +9,7 @@ export function getS3(socketTimeoutMs = 60_000): S3Client {
   if (!_s3) _s3 = new S3Client({
     region: 'auto',
     endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID ?? ''}.r2.cloudflarestorage.com`,
+    forcePathStyle: true,
     credentials: {
       accessKeyId:     process.env.R2_ACCESS_KEY_ID     ?? '',
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
