@@ -14,6 +14,7 @@ import HashtagPicker from './HashtagPicker'
 import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
 import DatePickerModal from './DatePickerModal'
+import { MessageListSkeleton } from '@/components/skeletons'
 
 export type JumpFn = (ts: number, msgId: string | null) => Promise<void>
 
@@ -202,34 +203,15 @@ export default function ChatDetailPane({
         </div>
       )}
 
-      {jump.jumping && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 dark:bg-mist-900/60 backdrop-blur-[2px] pointer-events-none">
-          <div className="flex items-center gap-2 bg-white dark:bg-mist-800 border border-mist-200 dark:border-mist-700 shadow-md rounded-full px-4 py-2 text-[13px] text-mist-600 dark:text-mist-300">
-            <svg className="animate-spin w-3.5 h-3.5 text-mist-500" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
-            </svg>
-            Loading…
-          </div>
-        </div>
-      )}
-
-      {!chatVisible && (
-        <div className="absolute inset-0 flex flex-col justify-end px-4 pb-6 pointer-events-none z-10 overflow-hidden">
-          {[
-            { side: 'left',  widths: ['w-48', 'w-32'] },
-            { side: 'right', widths: ['w-56'] },
-            { side: 'left',  widths: ['w-40'] },
-            { side: 'right', widths: ['w-36', 'w-44'] },
-            { side: 'left',  widths: ['w-52', 'w-28'] },
-            { side: 'right', widths: ['w-40'] },
-          ].map((row, i) => (
-            <div key={i} className={`flex flex-col gap-1 mb-2 ${row.side === 'right' ? 'items-end' : 'items-start'}`}>
-              {row.widths.map((w, j) => (
-                <div key={j} className={`h-9 rounded-2xl animate-pulse ${w} ${row.side === 'right' ? 'bg-blue-200 dark:bg-blue-900/40' : 'bg-mist-200 dark:bg-mist-700/60'}`} />
-              ))}
-            </div>
-          ))}
+      {(!chatVisible || jump.jumping || loader.searching) && (
+        <div
+          className={`absolute inset-0 flex flex-col justify-end z-30 overflow-hidden bg-white dark:bg-mist-900 ${
+            chatVisible ? '' : 'pointer-events-none'
+          }`}
+          aria-busy
+          aria-label={loader.searching ? 'Searching' : 'Loading'}
+        >
+          <MessageListSkeleton />
         </div>
       )}
 
@@ -237,9 +219,8 @@ export default function ChatDetailPane({
         ref={scrollRef}
         onScroll={handleScroll}
         className={`flex-1 overflow-y-auto flex flex-col min-h-0 pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-0${selection.selectedMsgs.size > 0 ? ' select-none' : ''}`}
-        style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
+        style={{ visibility: chatVisible && !jump.jumping && !loader.searching ? 'visible' : 'hidden' }}
       >
-        {loader.searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}
         <MessageList
           blocks={blocks}
           onLightbox={jump.handleMsgLightbox}

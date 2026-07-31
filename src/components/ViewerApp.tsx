@@ -20,6 +20,7 @@ import ThreadAvatar from './ThreadAvatar'
 import Toaster from './Toaster'
 import { menu, menuItem } from '@/lib/ui'
 import { LockIcon, GlobeIcon } from '@/components/icons'
+import { ListPaneSkeleton, ChatDetailSkeleton } from '@/components/skeletons'
 
 const HashtagsPane = dynamic(() => import('./HashtagsPane'), { ssr: false })
 const StoryPane    = dynamic(() => import('./story/StoryPane'),    { ssr: false })
@@ -486,63 +487,15 @@ export default function ViewerApp() {
   if (!initialized) {
     return (
       <div className="md:p-3 font-sans bg-mist-50 dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: '100%' }}>
-        <div className="md:gap-3 flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-
-          {/* Nav skeleton */}
-          <div className="hidden md:flex flex-col items-center gap-2 py-3 w-16 shrink-0 bg-mist-50 dark:bg-mist-950 rounded-2xl">
-            <div className="w-9 h-9 rounded-full bg-mist-200 dark:bg-mist-700 animate-pulse mt-1" />
-            <div className="flex-1" />
-            {[0, 1].map(i => <div key={i} className="w-10 h-10 rounded-xl bg-mist-100 dark:bg-mist-800 animate-pulse" />)}
-            <div className="flex-1" />
-            <div className="w-9 h-9 rounded-full bg-mist-100 dark:bg-mist-800 animate-pulse mb-1" />
-          </div>
-
-          {/* List pane skeleton */}
-          <div className="flex flex-col overflow-hidden bg-white dark:bg-mist-900 md:rounded-2xl flex-none md:basis-0 md:min-w-0" style={{ flexGrow: 4, minWidth: 0 }}>
-            <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] md:pt-4 pb-3 shrink-0">
-              <div className="h-7 w-14 rounded-lg bg-mist-200 dark:bg-mist-700 animate-pulse mb-3" />
-              <div className="h-9 rounded-full bg-mist-100 dark:bg-mist-800 animate-pulse" />
-            </div>
-            <div className="flex-1 overflow-hidden">
-              {[80, 56, 64, 48, 72, 52].map((w, i) => (
-                <div key={i} className="px-2 py-1.5 flex items-center gap-3 mx-1">
-                  <div className="w-14 h-14 rounded-full bg-mist-200 dark:bg-mist-700 animate-pulse shrink-0" />
-                  <div className="flex-1 min-w-0 flex flex-col gap-2">
-                    <div className="h-3.5 rounded-md bg-mist-200 dark:bg-mist-700 animate-pulse" style={{ width: `${w}%` }} />
-                    <div className="h-3 rounded-md bg-mist-100 dark:bg-mist-800 animate-pulse" style={{ width: `${Math.max(w - 20, 30)}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Detail pane skeleton — desktop only */}
-          <div className="hidden md:flex flex-col overflow-hidden bg-white dark:bg-mist-900 rounded-2xl md:basis-0 md:min-w-0" style={{ flexGrow: 12 }}>
-            <div className="h-12 shrink-0 border-b border-mist-100 dark:border-mist-800 flex items-center px-4 gap-3">
-              <div className="w-8 h-8 rounded-full bg-mist-200 dark:bg-mist-700 animate-pulse" />
-              <div className="h-3.5 w-28 rounded-md bg-mist-200 dark:bg-mist-700 animate-pulse" />
-            </div>
-            <div className="flex-1 flex flex-col justify-end px-6 pb-8 gap-2 overflow-hidden">
-              {[
-                { side: 'left',  widths: ['w-48', 'w-32'] },
-                { side: 'right', widths: ['w-64'] },
-                { side: 'left',  widths: ['w-40'] },
-                { side: 'right', widths: ['w-36', 'w-52'] },
-                { side: 'left',  widths: ['w-56', 'w-28'] },
-                { side: 'right', widths: ['w-44'] },
-              ].map((row, i) => (
-                <div key={i} className={`flex flex-col gap-1 ${row.side === 'right' ? 'items-end' : 'items-start'}`}>
-                  {row.widths.map((w, j) => (
-                    <div key={j} className={`h-9 rounded-2xl animate-pulse ${w} ${
-                      row.side === 'right' ? 'bg-blue-200 dark:bg-blue-900/40' : 'bg-mist-200 dark:bg-mist-700/60'
-                    }`} />
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
+        <AppLayout
+          section="chat"
+          onSectionChange={() => {}}
+          initials=""
+          detailGrow={12}
+          listGrow={4}
+          listPane={() => <ListPaneSkeleton />}
+          detailPane={() => <ChatDetailSkeleton />}
+        />
       </div>
     )
   }

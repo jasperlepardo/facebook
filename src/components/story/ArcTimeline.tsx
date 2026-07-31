@@ -14,13 +14,10 @@ export function ArcTimeline({ arcs, selectedArc, arcDays: _arcDays, isPreview, o
   if (arcs.length === 0) return (
     <div className="px-4 py-6 text-center">
       <p className="text-xs text-mist-400 dark:text-mist-500 leading-relaxed">
-        {isPreview ? 'Sample arc shown below.' : 'No arcs yet. Run after generating summaries:'}
+        {isPreview
+          ? 'Sample arc shown below.'
+          : 'No story arcs yet. Generate chapters first, then build arcs from your archive.'}
       </p>
-      {!isPreview && (
-        <code className="text-[10px] text-mist-500 dark:text-mist-400 block mt-2">
-          node scripts/generate-arcs.mjs
-        </code>
-      )}
     </div>
   )
 
@@ -58,7 +55,7 @@ interface ArcDetailProps {
 
 export function ArcDetail({ arc, arcDays, onSelectDay }: ArcDetailProps) {
   return (
-    <div className="max-w-prose">
+    <div key={`${arc.title}-${arc.startDate}`} className="max-w-prose [animation:fade-up_320ms_ease-out]">
       <div className="mb-4">
         <h2 className="font-display text-base font-medium text-gray-900 dark:text-white mb-1">{arc.title}</h2>
         <p className="text-[11px] text-mist-400 dark:text-mist-500">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { GalleryItem, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
 import { GALLERY_LIMIT } from '@/lib/constants'
+import { GallerySkeleton } from '@/components/skeletons'
 
 interface GalleryProps {
   type: 'photos' | 'videos' | 'gifs' | 'stickers'
@@ -22,7 +23,7 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
   const itemsRef    = useRef<GalleryItem[]>([])
   const [hasMore, setHasMore] = useState(true)
   const hasMoreRef  = useRef(true)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const loadingRef  = useRef(false)
   const offset      = useRef(0)
   const galleryRef  = useRef<HTMLDivElement>(null)
@@ -65,7 +66,8 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
     deviceId.current = id
 
     async function init() {
-      setItems([]); setHasMore(true); hasMoreRef.current = true; offset.current = 0; loadingRef.current = false
+      setItems([]); setHasMore(true); hasMoreRef.current = true; offset.current = 0
+      loadingRef.current = false; setLoading(true)
       try { const d = await fetch('/api/auth/me').then(r => r.json()); if (d?.name) userNameRef.current = d.name } catch {}
       const ns = `${userNameRef.current ? userNameRef.current + '-' : ''}gallery-${thread}-${type}`
       let startOffset = 0, scrollTop = 0
@@ -91,6 +93,7 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
         hasMoreRef.current = lastMore
         setHasMore(lastMore)
         offset.current = startOffset
+        setLoading(false)
         requestAnimationFrame(() => { if (galleryRef.current) galleryRef.current.scrollTop = scrollTop })
       } else {
         load()
@@ -114,6 +117,10 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
       <p className="text-sm text-mist-400 dark:text-mist-500">Images are hidden</p>
     </div>
   )
+
+  if (items.length === 0 && (loading || hasMore)) {
+    return <GallerySkeleton />
+  }
 
   if (!loading && !hasMore && items.length === 0) {
     const meta: Record<string, { icon: React.ReactNode; label: string }> = {

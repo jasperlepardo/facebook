@@ -2,11 +2,14 @@
 import { useEffect, useState } from 'react'
 import { GalleryItem } from '@/types'
 import { r2 } from '@/lib/format'
+import { MediaListSkeleton } from '@/components/skeletons'
 
 export default function FilesView({ type = 'all', thread = 'messages' }: { type?: 'files' | 'audio' | 'all'; thread?: string }) {
   const [items, setItems] = useState<(GalleryItem & { kind: string })[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    setLoading(true)
     const q = `&thread=${thread}`
     const fetches = type === 'files'
       ? [fetch(`/api/attachments?type=files&offset=0&limit=500${q}`).then(r => r.json()).then(d => d.items.map((i: GalleryItem) => ({ ...i, kind: 'file' })))]
@@ -18,7 +21,7 @@ export default function FilesView({ type = 'all', thread = 'messages' }: { type?
         ]
     Promise.all(fetches).then(results => {
       setItems(results.flat().sort((a, b) => a.ts - b.ts))
-    })
+    }).finally(() => setLoading(false))
   }, [type, thread])
 
   const icon = (item: { uri: string; kind: string }) => {
@@ -28,6 +31,8 @@ export default function FilesView({ type = 'all', thread = 'messages' }: { type?
     if (/\.(jpe?g|png|gif|webp)$/.test(n)) return '🖼'
     return '📎'
   }
+
+  if (loading) return <MediaListSkeleton />
 
   if (!items.length) return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">

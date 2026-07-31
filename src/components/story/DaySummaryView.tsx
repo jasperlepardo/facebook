@@ -11,7 +11,7 @@ interface DaySummaryViewProps {
 
 export function DaySummaryView({ summary, parentArc, onJumpToMessages, onNavigateToDate, onBackToArc }: DaySummaryViewProps) {
   return (
-    <div className="max-w-prose">
+    <div key={summary.date} className="max-w-prose [animation:fade-up_320ms_ease-out]">
       {parentArc && (
         <button
           onClick={onBackToArc}

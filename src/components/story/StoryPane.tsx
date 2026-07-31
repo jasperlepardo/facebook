@@ -6,6 +6,7 @@ import { PREVIEW_BY_MONTH, PREVIEW_META, PREVIEW_ARCS } from '@/fixtures/storyPr
 import { StoryCalendar } from './StoryCalendar'
 import { ArcTimeline, ArcDetail } from './ArcTimeline'
 import { DaySummaryView } from './DaySummaryView'
+import { StoryPaneSkeleton } from '@/components/skeletons'
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
@@ -110,11 +111,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
 
   // ── Empty / loading states ───────────────────────────────────────────────────
 
-  if (metaLoading) return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="w-5 h-5 rounded-full border-2 border-mist-200 dark:border-mist-700 border-t-mist-500 dark:border-t-mist-400 animate-spin" />
-    </div>
-  )
+  if (metaLoading) return <StoryPaneSkeleton />
 
   if (!previewMode && !meta?.years?.length) {
     const keyMissing = hasApiKey === false

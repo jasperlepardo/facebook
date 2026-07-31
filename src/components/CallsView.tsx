@@ -4,6 +4,7 @@ import { mapFbEmoji } from '@/lib/fbEmoji'
 import { fmtTime } from '@/lib/format'
 import ThreadAvatar from '@/components/ThreadAvatar'
 import { renderCallPill } from '@/components/message/MessageCallPill'
+import { MessageListSkeleton } from '@/components/skeletons'
 
 interface CallItem { duration: number; missed: boolean; content?: string; ts: number; sender: string; msgId: string }
 
@@ -25,12 +26,21 @@ function classifyCall(item: CallItem): CallType {
 
 export default function CallsView({ thread = 'messages' }: { thread?: string }) {
   const [items, setItems] = useState<CallItem[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    setLoading(true)
     fetch(`/api/attachments?type=calls&offset=0&limit=500&thread=${thread}`)
       .then(r => r.json())
       .then(d => setItems(d.items ?? []))
+      .finally(() => setLoading(false))
   }, [thread])
+
+  if (loading) return (
+    <div className="flex-1 overflow-hidden bg-white dark:bg-mist-900">
+      <MessageListSkeleton rows={6} />
+    </div>
+  )
 
   if (!items.length) return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">

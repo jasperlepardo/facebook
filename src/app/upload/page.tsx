@@ -6,6 +6,7 @@ import { inferInitials, pickColor } from '@/lib/import/utils'
 import { openSource, readDirEntry } from '@/lib/import/virtualFs'
 import { mergeThreads, parseSource } from '@/lib/import/parseExport'
 import { runImport } from '@/lib/import/runImport'
+import { fieldQuiet, btnPrimary, btnPrimaryInline, btnSecondaryInline, label } from '@/lib/ui'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -215,13 +216,13 @@ export default function UploadPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => dirInputRef.current?.click()}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors"
+                className={btnPrimaryInline}
               >
                 Select folder
               </button>
               <button
                 onClick={() => zipInputRef.current?.click()}
-                className="px-4 py-2 bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-200 text-sm font-medium rounded-xl hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors"
+                className={btnSecondaryInline}
               >
                 Select .zip
               </button>
@@ -282,7 +283,7 @@ export default function UploadPage() {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search conversations…"
-                className="w-full px-3 py-2 bg-mist-50 dark:bg-mist-800 rounded-lg text-sm text-gray-900 dark:text-white placeholder:text-mist-400 outline-hidden border border-mist-200 dark:border-mist-700"
+                className={fieldQuiet}
               />
             </div>
 
@@ -322,11 +323,11 @@ export default function UploadPage() {
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Configure import</h2>
 
             <div className="space-y-1">
-              <label className="text-xs text-mist-500 dark:text-mist-400">Display name</label>
+              <label className={label}>Display name</label>
               <input
                 value={threadName}
                 onChange={e => setThreadName(e.target.value)}
-                className="w-full px-3 py-2 bg-mist-50 dark:bg-mist-800 rounded-lg text-sm text-gray-900 dark:text-white outline-hidden border border-mist-200 dark:border-mist-700"
+                className={fieldQuiet}
               />
             </div>
 
@@ -343,7 +344,7 @@ export default function UploadPage() {
 
             <button
               onClick={handleImport}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors"
+              className={btnPrimary}
             >
               Import Thread
             </button>
@@ -411,12 +412,12 @@ export default function UploadPage() {
               ))}
             </div>
             <div className="flex gap-3">
-              <Link href="/" className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl text-center transition-colors">
+              <Link href="/" className={`flex-1 ${btnPrimaryInline}`}>
                 View App
               </Link>
               <button
                 onClick={reset}
-                className="flex-1 py-2.5 bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-200 text-sm font-semibold rounded-xl hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors"
+                className={`flex-1 ${btnSecondaryInline}`}
               >
                 Import Another
               </button>

@@ -1,6 +1,7 @@
 'use client'
 
 import { LockIcon } from '@/components/icons'
+import { fieldSearch } from '@/lib/ui'
 
 export interface ListPaneItem {
   id: string
@@ -57,7 +58,7 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
             value={filter}
             onChange={e => onFilterChange(e.target.value)}
             placeholder={filterPlaceholder ?? 'Search'}
-            className="w-full pl-8 pr-3 py-2 bg-mist-100 dark:bg-mist-800 rounded-full text-[13px] text-gray-900 dark:text-mist-100 placeholder:text-mist-400 dark:placeholder:text-mist-500 outline-hidden"
+            className={fieldSearch}
           />
         </div>
       </div>

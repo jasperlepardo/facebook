@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Hashtag } from '@/types'
 import { toSlug } from '@/lib/utils'
+import { field, btnPrimaryInline, btnGhost } from '@/lib/ui'
 
 interface HashtagPickerProps {
   hashtags: Hashtag[]
@@ -85,7 +86,7 @@ export default function HashtagPicker({ hashtags, initialSelected, onClose, onAp
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           placeholder="Type hashtag, press Enter…"
-          className="w-full px-3 py-2 text-sm border border-mist-200 dark:border-mist-600 rounded-xl outline-hidden focus:border-mist-500 focus:ring-2 focus:ring-mist-500/30 mb-3 bg-white dark:bg-mist-900 text-gray-900 dark:text-mist-100 placeholder:text-mist-400 dark:placeholder:text-mist-500 transition-colors"
+          className={`${field} mb-3`}
         />
 
         {/* New tags staged */}
@@ -115,7 +116,7 @@ export default function HashtagPicker({ hashtags, initialSelected, onClose, onAp
         </div>
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} disabled={loading} className="px-3 py-1.5 text-sm text-mist-500 dark:text-mist-400 border border-mist-200 dark:border-mist-600 rounded-xl disabled:opacity-40 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">Cancel</button>
+          <button onClick={onClose} disabled={loading} className={`px-3 py-1.5 ${btnGhost} disabled:opacity-40`}>Cancel</button>
           <button
             onClick={() => {
               if (!canApply || loading) return
@@ -124,7 +125,7 @@ export default function HashtagPicker({ hashtags, initialSelected, onClose, onAp
               onApply([...selected], allNew)
             }}
             disabled={!canApply || loading}
-            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium disabled:opacity-40 flex items-center gap-2 min-w-[64px] justify-center transition-colors"
+            className={`${btnPrimaryInline} px-3 py-1.5 min-w-[64px] disabled:opacity-40`}
           >
             {loading && (
               <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
