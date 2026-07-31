@@ -23,12 +23,20 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-Optional authenticated smoke (against local or deployed):
+Optional authenticated smoke (against local or deployed). Put credentials in
+`.env.local` (gitignored) so you can just run `npm run test:e2e`:
+
+```bash
+# .env.local
+E2E_EMAIL=you@example.com
+E2E_PASSWORD=secret
+```
+
+Or pass them inline / hit a deployed instance:
 
 ```bash
 E2E_EMAIL=you@example.com E2E_PASSWORD=secret npm run test:e2e
-# or hit a deployed instance:
-PLAYWRIGHT_BASE_URL=https://your-app.vercel.app E2E_EMAIL=… E2E_PASSWORD=… npm run test:e2e
+PLAYWRIGHT_BASE_URL=https://your-app.vercel.app npm run test:e2e
 ```
 
 CI runs the e2e job when the `E2E_BASE_URL` repository secret is set (optional `E2E_EMAIL` / `E2E_PASSWORD` for the authenticated smoke). Without that secret, CI skips e2e cleanly.
