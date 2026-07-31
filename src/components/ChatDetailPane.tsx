@@ -1,14 +1,14 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { Message, MessageBlock, LightboxState, ContextMenuState, Hashtag, DateIndex } from '@/types'
+import { MessageBlock, LightboxState, ContextMenuState, Hashtag, DateIndex } from '@/types'
 import { ContentTypeKey } from '@/lib/contentTypes'
-import { LIMIT, LOAD_THRESHOLD } from '@/lib/constants'
-import { apiFetch } from '@/lib/utils'
 import { fmtDate, fmtTime } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
 import { useMessageLoader } from '@/hooks/useMessageLoader'
 import { useMessageJump } from '@/hooks/useMessageJump'
 import { useMessageSelection } from '@/hooks/useMessageSelection'
+import { useChatScroll } from '@/hooks/useChatScroll'
+import { useChatInit } from '@/hooks/useChatInit'
 import MessageList from './message/MessageList'
 import HashtagPicker from './HashtagPicker'
 import ContextMenu from './ContextMenu'
@@ -52,15 +52,16 @@ export default function ChatDetailPane({
   onLightbox, onRegisterJump, onStatsChange, enabledTypes, senderColor,
   thread = 'messages',
 }: Props) {
-  // ─── Shared refs ──────────────────────────────────────────────────────────────
   const searchRef      = useRef('')
   const showHiddenRef  = useRef(showHidden)
   const dateIndexRef   = useRef<DateIndex | null>(null)
   const blocksRef      = useRef<MessageBlock[]>([])
+  const deviceId       = useRef('')
+  const currentUserRef = useRef(currentUser)
 
   useEffect(() => { showHiddenRef.current = showHidden }, [showHidden])
+  useEffect(() => { currentUserRef.current = currentUser }, [currentUser])
 
-  // ─── Hooks ────────────────────────────────────────────────────────────────────
   const loader = useMessageLoader({ thread, searchRef, showHiddenRef, scrollRef })
   const jump   = useMessageJump({
     withThread: loader.withThread, scrollRef, searchRef, dateIndexRef,
@@ -73,16 +74,23 @@ export default function ChatDetailPane({
     messagesRef: loader.messagesRef, blocksRef,
   })
 
-  // ─── Derived state ────────────────────────────────────────────────────────────
-  const [dateIndex, setDateIndex]       = useState<DateIndex | null>(null)
-  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [dateIndex, setDateIndex]             = useState<DateIndex | null>(null)
+  const [showDatePicker, setShowDatePicker]   = useState(false)
   const [datePickerDefault, setDatePickerDefault] = useState('')
-  const [chatVisible, setChatVisible]   = useState(false)
-  const [ctxMenu, setCtxMenu]           = useState<ContextMenuState | null>(null)
-  const [toast, setToast]               = useState<string | null>(null)
-  const toastTimer                      = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [chatVisible, setChatVisible]         = useState(false)
+  const [ctxMenu, setCtxMenu]                 = useState<ContextMenuState | null>(null)
+  const [toast, setToast]                     = useState<string | null>(null)
+  const toastTimer                            = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Per-component toast (copy/share feedback, distinct from global error toast)
+  const handleScroll = useChatScroll({
+    scrollRef, searchRef, thread, deviceId, currentUserRef, loader,
+  })
+
+  useChatInit({
+    thread, search, scrollRef, searchRef, dateIndexRef,
+    deviceId, currentUserRef, loader, jump, setDateIndex, setChatVisible,
+  })
+
   const showToast = useCallback((msg: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast(msg)
@@ -117,167 +125,13 @@ export default function ChatDetailPane({
     navigator.clipboard.writeText([header, ...lines].join('\n')).then(() => showToast('Text copied'))
   }, [showToast, loader.messagesRef])
 
-  // ─── Refs for scroll handler ───────────────────────────────────────────────────
-  const deviceId         = useRef('')
-  const currentUserRef   = useRef('')
-  const bookmarkTimer    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const queuedLoad       = useRef<'older' | 'newer' | null>(null)
-
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const chatTop = el.getBoundingClientRect().top
-    const id = deviceId.current
-    if (id && !searchRef.current) {
-      clearTimeout(bookmarkTimer.current)
-      bookmarkTimer.current = setTimeout(() => {
-        for (const g of el.querySelectorAll<HTMLElement>('.msg-group')) {
-          const rect = g.getBoundingClientRect()
-          if (rect.bottom > chatTop) {
-            fetch('/api/bookmark', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ msgId: g.dataset.id, offset: Math.max(0, rect.top - chatTop), deviceId: id, ns: `${currentUserRef.current ? currentUserRef.current + '-' : ''}${thread}` }) }).catch(() => {})
-            break
-          }
-        }
-      }, 1500)
-    }
-    const nearTop    = el.scrollTop < LOAD_THRESHOLD && loader.lowerOffset.current > 0
-    const nearBottom = el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && loader.hasMoreRef.current
-    if (loader.loadingRef.current || searchRef.current) {
-      if (nearTop)    queuedLoad.current = 'older'
-      if (nearBottom) queuedLoad.current = 'newer'
-      return
-    }
-    const run = (fn: () => Promise<void>) => {
-      loader.loadingRef.current = true
-      fn().finally(async () => {
-        const queued = queuedLoad.current; queuedLoad.current = null
-        const qel = scrollRef.current
-        const stillNearTop    = qel && qel.scrollTop < LOAD_THRESHOLD && loader.lowerOffset.current > 0
-        const stillNearBottom = qel && qel.scrollTop + qel.clientHeight > qel.scrollHeight - LOAD_THRESHOLD && loader.hasMoreRef.current
-        if (queued === 'older' && stillNearTop) await loader.loadOlder().catch(() => {})
-        else if (queued === 'newer' && stillNearBottom) await loader.loadNewer().catch(() => {})
-        loader.loadingRef.current = false
-      })
-    }
-    if (nearTop) run(loader.loadOlder)
-    else if (nearBottom) run(loader.loadNewer)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Init ─────────────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    let id = localStorage.getItem('deviceId')
-    if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id) }
-    deviceId.current = id
-
-    apiFetch<DateIndex>(loader.withThread('/api/date-index'))
-      .then(di => { setDateIndex(di); dateIndexRef.current = di })
-      .catch(() => {})
-
-    async function init() {
-      let userName = ''
-      try {
-        const d = await fetch('/api/auth/me').then(r => r.json())
-        if (d?.name) { userName = d.name; currentUserRef.current = d.name }
-      } catch {}
-
-      let startIdx = 0, anchorMsgId: string | null = null, anchorOffset = 0
-      const urlMsgId = new URLSearchParams(window.location.search).get('msg')
-      if (urlMsgId) {
-        anchorMsgId = urlMsgId
-        try { const jd = await apiFetch<{ index: number | null }>(loader.withThread('/api/jump?msgId=' + urlMsgId)); if (jd.index != null) startIdx = jd.index } catch {}
-      } else {
-        try {
-          const ns = `${userName ? userName + '-' : ''}${thread}`
-          const bk = await apiFetch<{ msgId: string | null; offset: number }>(loader.withThread(`/api/bookmark?deviceId=${id}&ns=${encodeURIComponent(ns)}`))
-          if (bk.msgId) {
-            anchorMsgId = bk.msgId; anchorOffset = bk.offset ?? 0
-            const jd = await apiFetch<{ index: number | null }>(loader.withThread('/api/jump?msgId=' + bk.msgId))
-            if (jd.index != null) startIdx = jd.index
-          }
-        } catch {}
-      }
-
-      loader.lowerOffset.current = Math.max(0, startIdx - Math.floor(LIMIT / 2))
-      loader.upperOffset.current = loader.lowerOffset.current
-      loader.loadingRef.current = true
-      try { await loader.loadMessages('fresh') } catch {}
-
-      if (urlMsgId) jump.scheduleScrollToMsg(urlMsgId)
-
-      if (anchorMsgId && !urlMsgId && scrollRef.current) {
-        const anchor = document.getElementById('msg-' + anchorMsgId)?.closest<HTMLElement>('.msg-group')
-        if (anchor) {
-          scrollRef.current.scrollTop = 0
-          scrollRef.current.scrollTop = anchor.getBoundingClientRect().top - scrollRef.current.getBoundingClientRect().top - anchorOffset
-        }
-      }
-      setChatVisible(true)
-      loader.loadingRef.current = false
-
-      const el = scrollRef.current
-      if (el) {
-        loader.loadingRef.current = true
-        if (el.scrollTop < LOAD_THRESHOLD && loader.lowerOffset.current > 0) await loader.loadOlder().catch(() => {})
-        if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && loader.hasMoreRef.current) await loader.loadNewer().catch(() => {})
-        loader.loadingRef.current = false
-      }
-    }
-    init()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Register jump fn ─────────────────────────────────────────────────────────
-
   useEffect(() => {
     onRegisterJump(jump.jumpToMessage)
     return () => onRegisterJump(null)
   }, [jump.jumpToMessage]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Expose stats to parent ───────────────────────────────────────────────────
-
   useEffect(() => { onStatsChange?.(loader.total, dateIndex) }, [loader.total, dateIndex]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Date index ref sync ──────────────────────────────────────────────────────
-
   useEffect(() => { dateIndexRef.current = dateIndex }, [dateIndex])
-
-  // ─── Search ───────────────────────────────────────────────────────────────────
-
-  const searchTimer           = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const searchEffectMounted   = useRef(false)
-
-  useEffect(() => {
-    if (!searchEffectMounted.current) { searchEffectMounted.current = true; return }
-    clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(async () => {
-      const trimmed = search.trim()
-      if (/^[0-9a-f]{24}$/i.test(trimmed)) {
-        loader.setSearching(true)
-        try {
-          const byBlock = await apiFetch<{ messages: Message[] }>(loader.withThread(`/api/messages?groupIds=${trimmed}`))
-          const msgs = byBlock.messages.length
-            ? byBlock.messages
-            : (await apiFetch<{ messages: Message[] }>(loader.withThread(`/api/messages?ids=${trimmed}`))).messages
-          if (msgs.length) {
-            searchRef.current = ''
-            loader.lowerOffset.current = 0; loader.upperOffset.current = 0
-            loader.messagesRef.current = msgs; loader.setSearching(false)
-            jump.pendingJump.current = msgs[0]._id
-          }
-        } catch {}
-        loader.setSearching(false)
-        return
-      }
-      searchRef.current = trimmed
-      loader.lowerOffset.current = 0; loader.upperOffset.current = 0
-      loader.setSearching(!!trimmed)
-      await loader.loadMessages('fresh')
-      loader.setSearching(false)
-    }, 350)
-  }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Pending scroll after message render ──────────────────────────────────────
 
   const blocks = useMemo(() => groupMessages(loader.messages), [loader.messages])
   useEffect(() => { blocksRef.current = blocks }, [blocks])
@@ -302,16 +156,12 @@ export default function ChatDetailPane({
     }
   }, [loader.messages]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Context menu ─────────────────────────────────────────────────────────────
-
   const handleMsgContextMenu = useCallback((e: React.MouseEvent, msgIds: string[]) => {
     e.preventDefault()
     const fromTouch = !!(e as unknown as { _fromTouch?: boolean })._fromTouch
     const firstMsg = loader.messagesRef.current.find(m => msgIds.includes(m._id))
     setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'message', msgIds, msgTs: firstMsg?.timestamp_ms, fromTouch })
   }, [loader.messagesRef])
-
-  // ─── Date picker ──────────────────────────────────────────────────────────────
 
   const openDatePicker = useCallback(() => {
     const el = scrollRef.current
@@ -328,11 +178,8 @@ export default function ChatDetailPane({
     setShowDatePicker(true)
   }, [scrollRef])
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
-
   return (
     <>
-      {/* Selection bar */}
       {selection.selectedMsgs.size > 0 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-4 py-2 flex items-center gap-2.5 text-[13px] whitespace-nowrap shadow-xl z-20">
           <span className="text-white/60 pr-0.5">{selection.selectedMsgs.size} selected</span>
@@ -355,7 +202,6 @@ export default function ChatDetailPane({
         </div>
       )}
 
-      {/* Jump overlay */}
       {jump.jumping && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 dark:bg-mist-900/60 backdrop-blur-[2px] pointer-events-none">
           <div className="flex items-center gap-2 bg-white dark:bg-mist-800 border border-mist-200 dark:border-mist-700 shadow-md rounded-full px-4 py-2 text-[13px] text-mist-600 dark:text-mist-300">
@@ -368,7 +214,6 @@ export default function ChatDetailPane({
         </div>
       )}
 
-      {/* Initial skeleton */}
       {!chatVisible && (
         <div className="absolute inset-0 flex flex-col justify-end px-4 pb-6 pointer-events-none z-10 overflow-hidden">
           {[
@@ -388,7 +233,6 @@ export default function ChatDetailPane({
         </div>
       )}
 
-      {/* Chat scroll */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -418,7 +262,6 @@ export default function ChatDetailPane({
         />
       </div>
 
-      {/* Overlays */}
       {showDatePicker && (
         <DatePickerModal defaultDate={datePickerDefault} onClose={() => setShowDatePicker(false)} onJump={jump.handleChatJump} />
       )}

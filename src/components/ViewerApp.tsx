@@ -31,7 +31,7 @@ export default function ViewerApp() {
   const [prevSection, setPrevSection] = useState<'chat' | 'hashtags' | 'story'>('chat')
   // ─── Hidden state ────────────────────────────────────────────────────────────
   const {
-    hiddenUris, dbHiddenItems, setDbHiddenItems,
+    hiddenUris, setDbHiddenItems,
     dbHiddenMsgIds, allHiddenUris,
     hideUri, handleHideMessage, handleUnhideMessage,
     handleHideDbUri, handleUnhideDbUri, clearHiddenUris,
@@ -211,7 +211,7 @@ export default function ViewerApp() {
   const threadItems = useMemo<ListPaneItem[]>(() => threads.map(t => ({
     id: t.id, label: t.name, initials: t.initials, color: t.color,
     subtitle: threadMeta[t.id]?.subtitle, badge: threadMeta[t.id]?.badge,
-  })), [threadMeta])
+  })), [threads, threadMeta])
 
   const hashtagItems = useMemo<ListPaneItem[]>(() => hashtags.map(h => ({
     id: h.id,
