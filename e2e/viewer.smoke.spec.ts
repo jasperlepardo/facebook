@@ -10,7 +10,7 @@ test.describe('viewer smoke', () => {
     await page.goto('/auth/signin')
     await page.getByLabel('Email').fill(email!)
     await page.getByLabel('Password').fill(password!)
-    await page.getByRole('button', { name: 'Sign in' }).click()
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
 
     await expect(page).not.toHaveURL(/\/auth\/signin/, { timeout: 15_000 })
     // App shell: chat nav or thread list should be present after init
