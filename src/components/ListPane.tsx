@@ -72,6 +72,7 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
           return (
             <button
               key={item.id}
+              data-testid={`list-item-${item.id}`}
               onClick={() => onSelect(item.id)}
               className={`w-full text-left px-2 py-1.5 flex items-center gap-3 transition-colors rounded-xl mx-1 my-0.5 ${
                 active ? 'bg-mist-100 dark:bg-mist-800' : 'hover:bg-mist-50 dark:hover:bg-mist-800'

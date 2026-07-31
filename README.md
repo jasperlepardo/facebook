@@ -39,7 +39,14 @@ E2E_EMAIL=you@example.com E2E_PASSWORD=secret npm run test:e2e
 PLAYWRIGHT_BASE_URL=https://your-app.vercel.app npm run test:e2e
 ```
 
-CI runs the e2e job when the `E2E_BASE_URL` repository secret is set (optional `E2E_EMAIL` / `E2E_PASSWORD` for the authenticated smoke). Without that secret, CI skips e2e cleanly.
+CI runs e2e when `E2E_BASE_URL` is set. Push secrets from `.env.local` after `gh auth login`:
+
+```bash
+# optional in .env.local:
+# E2E_BASE_URL=https://your-app.vercel.app
+chmod +x e2e/set-ci-secrets.sh
+./e2e/set-ci-secrets.sh
+```
 
 ## Required env vars
 

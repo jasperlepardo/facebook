@@ -87,6 +87,7 @@ export default function AppNav({ section, prevSection = 'chat', initials, name, 
               key={key}
               onClick={() => onSectionChange(key)}
               title={label}
+              aria-label={label}
               className={`${btnBase} ${active ? btnActive : btnIdle} ${isExpanded ? 'w-full flex-row gap-3 p-3' : 'w-12 flex-col justify-center p-3'}`}
             >
               <span className="shrink-0">{icon(active)}</span>

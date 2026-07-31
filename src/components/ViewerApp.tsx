@@ -301,7 +301,12 @@ export default function ViewerApp() {
               </>
             )}
           </div>
-          <button onClick={() => setShowMediaPane(v => !v)} className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${showMediaPane ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}>
+          <button
+            onClick={() => setShowMediaPane(v => !v)}
+            title="Media"
+            aria-label="Media"
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${showMediaPane ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}
+          >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
             </svg>
