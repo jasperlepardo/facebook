@@ -63,7 +63,7 @@ export default function HiddenItemsView({ onBack }: Props) {
     } catch { toast('Failed to remove hidden item') }
   }
 
-  useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [])
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-mist-900">

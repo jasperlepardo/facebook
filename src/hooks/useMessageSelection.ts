@@ -13,7 +13,7 @@ interface UseMessageSelectionParams {
   blocksRef: React.RefObject<MessageBlock[]>
 }
 
-export function useMessageSelection({ thread, withThread, hashtags, onReloadHashtags, messagesRef, blocksRef }: UseMessageSelectionParams) {
+export function useMessageSelection({ thread, withThread, hashtags, onReloadHashtags, messagesRef: _messagesRef, blocksRef }: UseMessageSelectionParams) {
   const [selectedMsgs, setSelectedMsgs]           = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[] }>())
   const lastSelectedAnchor                         = useRef<{ id: string; ts: number; tsEnd: number } | null>(null)
   const [preloadedHashtagIds, setPreloadedHashtagIds] = useState<Set<string> | null>(null)

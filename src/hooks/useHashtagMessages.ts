@@ -88,7 +88,7 @@ export function useHashtagMessages({ thread, isSuperAdmin, activeTab, msgFilter 
     winRef.current = { start: 0, end }
     setWinStart(0)
     setWinEnd(end)
-  }, [msgFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [msgFilter])
 
   function handleScrollToDay(target: string) {
     const container = msgsScrollRef.current

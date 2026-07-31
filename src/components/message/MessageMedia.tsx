@@ -1,3 +1,5 @@
+/* Archive media is served via same-origin /api/media — next/image is intentionally unused. */
+/* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from 'react'
 import { Message, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
@@ -34,7 +36,7 @@ export function VideoThumb({ src, onClick }: { src: string; onClick: () => void 
 
   return (
     <div className="relative max-w-[360px] mt-1 cursor-pointer group bg-black rounded-sm overflow-hidden min-h-[120px]" onClick={onClick}>
-      {thumb ? <img src={thumb} className="w-full rounded-sm block" /> : <div className="w-full min-h-[120px] bg-gray-900 rounded-sm" />}
+      {thumb ? <img src={thumb} alt="" className="w-full rounded-sm block" /> : <div className="w-full min-h-[120px] bg-gray-900 rounded-sm" />}
       <div className="absolute inset-0 flex items-center justify-center bg-black/25 rounded-sm group-hover:bg-black/40 transition-colors">
         <span className="text-white text-4xl drop-shadow-sm">▶</span>
       </div>
@@ -79,7 +81,7 @@ export function renderMedia({
               )
               return (
                 <div key={i} className={`relative group/img ${cellSize} overflow-hidden rounded-sm`}>
-                  <img src={r2(p.uri)} loading="lazy"
+                  <img src={r2(p.uri)} alt="" loading="lazy"
                     className="w-full h-full object-cover block cursor-pointer hover:opacity-90"
                     onClick={() => onLightbox({ src: r2(p.uri), uri: p.uri, type: 'photo', mediaType: 'photos', caption: '', msgId: m._id, ts: m.timestamp_ms })}
                     onContextMenu={e => imgCtx(e, p.uri)}
@@ -105,7 +107,7 @@ export function renderMedia({
 
       {m.gifs?.map((g, i) =>
         !show('gifs') || hideImages || hiddenUris?.has(g.uri) ? null
-          : <img key={i} src={r2(g.uri)} loading="lazy"
+          : <img key={i} src={r2(g.uri)} alt="" loading="lazy"
               className="max-w-[360px] max-h-[280px] rounded-sm block cursor-pointer mt-1"
               onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', mediaType: 'gifs', caption: '', msgId: m._id, ts: m.timestamp_ms })}
               onContextMenu={e => imgCtx(e, g.uri)}
@@ -113,7 +115,7 @@ export function renderMedia({
       )}
 
       {m.sticker && (!show('stickers') || hideImages || hiddenUris?.has(m.sticker.uri) ? null
-        : <img src={r2(m.sticker.uri)} loading="lazy" className="max-w-[72px] max-h-[72px]"
+        : <img src={r2(m.sticker.uri)} alt="" loading="lazy" className="max-w-[72px] max-h-[72px]"
             onContextMenu={e => imgCtx(e, m.sticker!.uri)}
             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       )}
@@ -158,7 +160,7 @@ export function renderMedia({
         if (isFacebook) return <OgLinkCard url={url} />
         if (isDirectImage) return (
           <div className="mt-1">
-            <img src={url} loading="lazy"
+            <img src={url} alt="" loading="lazy"
               className="max-w-[320px] max-h-[240px] rounded-sm block cursor-pointer hover:opacity-90"
               onClick={() => onLightbox({ src: url, type: 'photo', caption: host, msgId: m._id, ts: m.timestamp_ms })}
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
@@ -172,7 +174,7 @@ export function renderMedia({
           >
             <div className="px-3 pt-3 pb-2.5">
               <div className="flex items-center gap-1.5 mb-1.5">
-                <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=32`} className="w-4 h-4 rounded-sm shrink-0"
+                <img src={`https://www.google.com/s2/favicons?domain=${host}&sz=32`} alt="" className="w-4 h-4 rounded-sm shrink-0"
                   onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                 <span className="text-[10px] font-medium text-mist-400 dark:text-mist-500 uppercase tracking-wide truncate">{host}</span>
               </div>

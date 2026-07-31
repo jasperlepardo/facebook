@@ -130,7 +130,7 @@ export function useMessageJump({
     } else {
       await handleDateJump(target)
     }
-  }, [withThread, loadMessages, handleDateJump])
+  }, [withThread, loadMessages, handleDateJump]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMsgLightbox = useCallback(async (state: LightboxState) => {
     if (!state.ts) { onLightbox(state); return }
@@ -155,7 +155,7 @@ export function useMessageJump({
       })
       onLightbox(mkState(baseOff + target, items[target]))
     } catch { onLightbox(state) }
-  }, [withThread, onLightbox]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [withThread, onLightbox])
 
   return {
     jumping,

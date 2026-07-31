@@ -10,7 +10,7 @@ interface ArcTimelineProps {
   onSelectDay: (day: DailySummary) => void
 }
 
-export function ArcTimeline({ arcs, selectedArc, arcDays, isPreview, onSelectArc, onSelectDay }: ArcTimelineProps) {
+export function ArcTimeline({ arcs, selectedArc, arcDays: _arcDays, isPreview, onSelectArc, onSelectDay: _onSelectDay }: ArcTimelineProps) {
   if (arcs.length === 0) return (
     <div className="px-4 py-6 text-center">
       <p className="text-xs text-mist-400 dark:text-mist-500 leading-relaxed">

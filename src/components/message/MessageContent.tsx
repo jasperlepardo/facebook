@@ -3,7 +3,7 @@ import { mapFbEmoji } from '@/lib/fbEmoji'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import OgLinkCard from '@/components/OgLinkCard'
 import { StatusPill } from './MessageStyles'
-import { renderCallPill, callIcon } from './MessageCallPill'
+import { callIcon } from './MessageCallPill'
 
 export function renderContent(
   m: Message,

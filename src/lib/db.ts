@@ -16,7 +16,6 @@ export function assertSafeCollectionName(name: string): asserts name is string {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var _mongoClientPromise: Promise<MongoClient> | undefined
 }
 

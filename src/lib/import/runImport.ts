@@ -237,7 +237,6 @@ export async function runImport({
     throw new Error('Finalize failed')
   }
 
-  let total = 0
   const reader  = finRes.body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
@@ -253,8 +252,6 @@ export async function runImport({
       const ev = JSON.parse(line)
       if (ev.type === 'blockids') {
         onProgress({ label: 'Computing message groups', sublabel: `${ev.current.toLocaleString()} / ${ev.total.toLocaleString()}`, current: ev.current, total: ev.total, errors: [] })
-      } else if (ev.type === 'done') {
-        total = ev.total
       } else if (ev.type === 'error') {
         onError?.(ev.error ?? 'Finalize failed'); break outer
       }
