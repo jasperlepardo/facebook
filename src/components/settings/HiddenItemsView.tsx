@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { toast } from '@/lib/toast'
 
 interface HiddenItem {
   _id: string
@@ -34,25 +35,32 @@ export default function HiddenItemsView({ onBack }: Props) {
     try {
       const res = await fetch('/api/hidden-items')
       if (res.ok) setItems((await res.json()).items ?? [])
-    } finally { setLoading(false) }
+      else toast('Failed to load hidden items')
+    } catch { toast('Failed to load hidden items') }
+    finally { setLoading(false) }
   }
 
   async function add() {
     if (!addValue.trim()) return
     setAdding(true)
-    await fetch('/api/hidden-items', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: addType, value: addValue.trim(), note: addNote.trim() }),
-    })
-    setAddValue(''); setAddNote('')
-    await load()
-    setAdding(false)
+    try {
+      const res = await fetch('/api/hidden-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: addType, value: addValue.trim(), note: addNote.trim() }),
+      })
+      if (!res.ok) { toast('Failed to add hidden item'); return }
+      setAddValue(''); setAddNote('')
+      await load()
+    } catch { toast('Failed to add hidden item') }
+    finally { setAdding(false) }
   }
 
   async function remove(id: string) {
-    await fetch(`/api/hidden-items?id=${id}`, { method: 'DELETE' })
-    setItems(prev => prev.filter(i => i._id !== id))
+    try {
+      await fetch(`/api/hidden-items?id=${id}`, { method: 'DELETE' })
+      setItems(prev => prev.filter(i => i._id !== id))
+    } catch { toast('Failed to remove hidden item') }
   }
 
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps

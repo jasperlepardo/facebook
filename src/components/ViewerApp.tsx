@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { Section, LightboxState, ContextMenuState, GalleryItem, DateIndex } from '@/types'
 import { apiFetch } from '@/lib/utils'
 import { relTime } from '@/lib/format'
+import { toast } from '@/lib/toast'
 import { ContentTypeKey, ALL_CONTENT_TYPE_KEYS, DEFAULT_ENABLED } from '@/lib/contentTypes'
 import { useHashtagPaneState } from '@/hooks/useHashtagPaneState'
 import { useHiddenState } from '@/hooks/useHiddenState'
@@ -18,6 +19,7 @@ import ListPane, { ListPaneItem } from './ListPane'
 import ChatDetailPane, { JumpFn } from './ChatDetailPane'
 import InAppBrowserBanner from './InAppBrowserBanner'
 import ThreadAvatar from './ThreadAvatar'
+import Toaster from './Toaster'
 
 const HashtagsPane = dynamic(() => import('./HashtagsPane'), { ssr: false })
 const StoryPane    = dynamic(() => import('./StoryPane'),    { ssr: false })
@@ -178,7 +180,7 @@ export default function ViewerApp() {
         if (d.mediaCounts) {
           setMediaCounts(d.mediaCounts)
         }
-      } catch {}
+      } catch { toast('Failed to load app data') }
       finally { setInitialized(true) }
     }
     async function loadThreads() {
@@ -190,7 +192,7 @@ export default function ViewerApp() {
           const urlThread = new URLSearchParams(window.location.search).get('thread')
           if (!urlThread) setActiveThread(mapped[0].id)
         }
-      } catch {}
+      } catch { toast('Failed to load conversations') }
     }
     init()
     loadThreads()
@@ -241,7 +243,7 @@ export default function ViewerApp() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ chatContentTypes: [...next] }),
-      }).catch(() => {})
+      }).catch(() => toast('Failed to save view settings'))
       return next
     })
   }, [])
@@ -253,7 +255,7 @@ export default function ViewerApp() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chatContentTypes: [...next] }),
-    }).catch(() => {})
+    }).catch(() => toast('Failed to save view settings'))
   }, [])
 
   // ─── Render ──────────────────────────────────────────────────────────────────
@@ -435,7 +437,7 @@ export default function ViewerApp() {
 
           {/* Chat section */}
           <div className={`flex-1 flex flex-col min-h-0 relative${section !== 'chat' ? ' hidden' : !chatDetailOpen ? ' md:hidden' : ''}`}>
-            <ChatDetailPane
+            {activeThread && <ChatDetailPane
               key={activeThread}
               search={searchInput}
               onSearchChange={setSearchInput}
@@ -459,7 +461,7 @@ export default function ViewerApp() {
               enabledTypes={enabledTypes}
               senderColor={thread?.color}
               thread={thread?.collection ?? activeThread}
-            />
+            />}
           </div>
 
           {/* Hashtags — empty state on desktop when none selected */}
@@ -597,6 +599,7 @@ export default function ViewerApp() {
   return (
     <div className="md:p-3 font-sans bg-mist-50 dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: '100%' }}>
       <InAppBrowserBanner />
+      <Toaster />
       <AppLayout
         section={section}
         onSectionChange={s => {
@@ -697,7 +700,6 @@ export default function ViewerApp() {
           onEditNote={() => setGalleryCtxMenu(null)}
           onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setGalleryCtxMenu(null) }}
           onHideUri={hideUri}
-          onTagMessages={() => {}}
           onCopyLink={() => {}}
           onCopyText={() => {}}
         />

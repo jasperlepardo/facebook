@@ -385,7 +385,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   blocks={blocks}
                   onLightbox={setLightbox}
                   onJumpTo={handleScrollToDay}
-                  onContextMenu={(e, msgIds) => { if ((e as any)._fromTouch) setCtxMsgIds(msgIds) }}
+                  onContextMenu={(e, msgIds) => { if ((e as unknown as { _fromTouch?: boolean })._fromTouch) setCtxMsgIds(msgIds) }}
                   isSuperAdmin={isSuperAdmin}
                   hideImages={hideImages}
                   hiddenUris={hiddenUris}

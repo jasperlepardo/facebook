@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { startRegistration } from '@simplewebauthn/browser'
 import { DateIndex } from '@/types'
@@ -69,6 +69,10 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
 
   const [signingOut, setSigningOut] = useState(false)
 
+  const profileResetTimer  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const pwResetTimer       = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const passkeyResetTimer  = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => {
       if (!d?.id) return
@@ -95,7 +99,8 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
     } catch (e: unknown) {
       setProfileError(e instanceof Error ? e.message : 'Failed to save')
       setProfileSave('error')
-      setTimeout(() => setProfileSave('idle'), 3000)
+      clearTimeout(profileResetTimer.current)
+      profileResetTimer.current = setTimeout(() => setProfileSave('idle'), 3000)
     }
   }
 
@@ -116,7 +121,8 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
     } catch (e: unknown) {
       setPwError(e instanceof Error ? e.message : 'Failed to update')
       setPwSave('error')
-      setTimeout(() => setPwSave('idle'), 3000)
+      clearTimeout(pwResetTimer.current)
+      pwResetTimer.current = setTimeout(() => setPwSave('idle'), 3000)
     }
   }
 
@@ -158,10 +164,12 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
       const me = await fetch('/api/auth/me').then(r => r.json())
       setPasskeys(me.passkeys ?? [])
       setTimeout(() => setPasskeyStatus('idle'), 2000)
-    } catch (e: any) {
-      setPasskeyError(e.name === 'NotAllowedError' ? 'Cancelled.' : e.message || 'Failed')
+    } catch (e: unknown) {
+      const err = e instanceof Error ? e : null
+      setPasskeyError(err?.name === 'NotAllowedError' ? 'Cancelled.' : err?.message || 'Failed')
       setPasskeyStatus('error')
-      setTimeout(() => setPasskeyStatus('idle'), 3000)
+      clearTimeout(passkeyResetTimer.current)
+      passkeyResetTimer.current = setTimeout(() => setPasskeyStatus('idle'), 3000)
     }
   }
 
@@ -244,7 +252,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
               <div className={rowCls}><span className={labelCls}>No passkeys registered</span></div>
             )}
             {passkeys.map(pk => {
-              const transports: string[] = pk.transports ? JSON.parse(pk.transports) : []
+              const transports: string[] = pk.transports ? (() => { try { return JSON.parse(pk.transports!) } catch { return [] } })() : []
               const isInternal = transports.includes('internal')
               const isHybrid   = transports.includes('hybrid')
               const transportLabel = isInternal ? 'Face ID / Touch ID' : isHybrid ? 'Phone or tablet' : transports.includes('usb') ? 'Security key' : pk.deviceType === 'multiDevice' ? 'Synced passkey' : 'Passkey'

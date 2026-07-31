@@ -1,5 +1,5 @@
 import { Message, MessageBlock } from '@/types'
-import { ME } from './constants'
+import { ME, SESSION_GAP_MS } from './constants'
 import { fmtDate } from './format'
 
 function hasRenderableContent(m: Message): boolean {
@@ -7,8 +7,6 @@ function hasRenderableContent(m: Message): boolean {
   const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share)
   return !!(m.is_unsent || m.call_duration != null || m.content || hasMedia || m.reactions?.length)
 }
-
-const SESSION_GAP_MS = 60 * 60_000
 
 export function groupMessages(messages: Message[]): MessageBlock[] {
   const blocks: MessageBlock[] = []

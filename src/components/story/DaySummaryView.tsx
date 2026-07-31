@@ -27,7 +27,7 @@ export function DaySummaryView({ summary, parentArc, onJumpToMessages, onNavigat
           <p className="text-[11px] text-mist-400 dark:text-mist-500 mt-0.5">{summary.messageCount} messages</p>
         </div>
         <button
-          onClick={() => onJumpToMessages(new Date(summary.date + 'T00:00:00').getTime())}
+          onClick={() => { const [y, m, d] = summary.date.split('-').map(Number); onJumpToMessages(new Date(y, m - 1, d).getTime()) }}
           className="shrink-0 text-[11px] font-medium px-2.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-mist-700 dark:text-mist-200 hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors whitespace-nowrap"
         >
           Jump to messages →

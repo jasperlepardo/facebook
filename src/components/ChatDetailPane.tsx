@@ -1,18 +1,19 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { flushSync } from 'react-dom'
 import { Message, MessageBlock, LightboxState, ContextMenuState, Hashtag, DateIndex } from '@/types'
 import { ContentTypeKey } from '@/lib/contentTypes'
-import { LIMIT, MAX_DOM_BLOCKS, LOAD_THRESHOLD } from '@/lib/constants'
+import { LIMIT, LOAD_THRESHOLD } from '@/lib/constants'
 import { apiFetch } from '@/lib/utils'
-import { r2, fmtDate, fmtTime } from '@/lib/format'
+import { fmtDate, fmtTime } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
+import { useMessageLoader } from '@/hooks/useMessageLoader'
+import { useMessageJump } from '@/hooks/useMessageJump'
+import { useMessageSelection } from '@/hooks/useMessageSelection'
 import MessageList from './MessageList'
 import HashtagPicker from './HashtagPicker'
 import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
 import DatePickerModal from './DatePickerModal'
-
 
 export type JumpFn = (ts: number, msgId: string | null) => Promise<void>
 
@@ -51,61 +52,37 @@ export default function ChatDetailPane({
   onLightbox, onRegisterJump, onStatsChange, enabledTypes, senderColor,
   thread = 'messages',
 }: Props) {
-  const withThread = (url: string) => `${url}${url.includes('?') ? '&' : '?'}thread=${thread}`
-  // ─── Messages ──────────────────────────────────────────────────────────────
-  const [messages, setMessages]   = useState<Message[]>([])
-  const messagesRef               = useRef<Message[]>([])
-  const [total, setTotal]         = useState(0)
-  const [hasMore, setHasMore]     = useState(false)
-  const [searching, setSearching] = useState(false)
-  const [jumping,   setJumping]   = useState(false)
-  const lowerOffset = useRef(0)
-  const upperOffset = useRef(0)
-  const loadingRef  = useRef(false)
-  const hasMoreRef  = useRef(false)
-  const [chatVisible, setChatVisible] = useState(false)
+  // ─── Shared refs ──────────────────────────────────────────────────────────────
+  const searchRef      = useRef('')
+  const showHiddenRef  = useRef(showHidden)
+  const dateIndexRef   = useRef<DateIndex | null>(null)
+  const blocksRef      = useRef<MessageBlock[]>([])
 
-  // ─── Date index ────────────────────────────────────────────────────────────
-  const [dateIndex, setDateIndex] = useState<DateIndex | null>(null)
+  useEffect(() => { showHiddenRef.current = showHidden }, [showHidden])
+
+  // ─── Hooks ────────────────────────────────────────────────────────────────────
+  const loader = useMessageLoader({ thread, searchRef, showHiddenRef, scrollRef })
+  const jump   = useMessageJump({
+    withThread: loader.withThread, scrollRef, searchRef, dateIndexRef,
+    lowerOffset: loader.lowerOffset, upperOffset: loader.upperOffset,
+    onSearchChange, loadMessages: loader.loadMessages, onLightbox,
+  })
+  const selection = useMessageSelection({
+    thread, withThread: loader.withThread,
+    hashtags, onReloadHashtags,
+    messagesRef: loader.messagesRef, blocksRef,
+  })
+
+  // ─── Derived state ────────────────────────────────────────────────────────────
+  const [dateIndex, setDateIndex]       = useState<DateIndex | null>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [datePickerDefault, setDatePickerDefault] = useState('')
+  const [chatVisible, setChatVisible]   = useState(false)
+  const [ctxMenu, setCtxMenu]           = useState<ContextMenuState | null>(null)
+  const [toast, setToast]               = useState<string | null>(null)
+  const toastTimer                      = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ─── Selection ────────────────────────────────────────────────────────────
-  const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number; tsEnd: number; allIds: string[] }>())
-  const lastSelectedAnchor = useRef<{ id: string; ts: number; tsEnd: number } | null>(null)
-  const [preloadedHashtagIds, setPreloadedHashtagIds] = useState<Set<string> | null>(null)
-  const preloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const [hashtagPicker, setHashtagPicker] = useState<{ msgIds: string[] } | null>(null)
-
-  // ─── UI overlays ──────────────────────────────────────────────────────────
-  const [ctxMenu, setCtxMenu]   = useState<ContextMenuState | null>(null)
-  const [toast, setToast]       = useState<string | null>(null)
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // ─── Refs ──────────────────────────────────────────────────────────────────
-  const deviceId          = useRef('')
-  const currentUserRef    = useRef('')
-  const lastBookmarkTime  = useRef(0)
-  const pendingJump       = useRef<string | null>(null)
-  const pendingScrollReset  = useRef(false)
-  const pendingScrollBottom = useRef(false)
-  const pendingLightboxScroll = useRef<string | null>(null)
-  const queuedLoad        = useRef<'older' | 'newer' | null>(null)
-  const searchRef         = useRef('')
-  const searchTimer       = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const showHiddenRef     = useRef(showHidden)
-  const dateIndexRef      = useRef<DateIndex | null>(null)
-  const blocksRef         = useRef<MessageBlock[]>([])
-
-  // ─── Helpers ───────────────────────────────────────────────────────────────
-
-  const applyMessages = useCallback((msgs: Message[]) => {
-    const seen = new Set<string>()
-    const deduped = msgs.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
-    messagesRef.current = deduped
-    setMessages(deduped)
-  }, [])
-
+  // Per-component toast (copy/share feedback, distinct from global error toast)
   const showToast = useCallback((msg: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast(msg)
@@ -120,7 +97,7 @@ export default function ChatDetailPane({
 
   const copyText = useCallback((msgIds: string[]) => {
     const ids = new Set(msgIds)
-    const msgs = messagesRef.current.filter(m => ids.has(m._id))
+    const msgs = loader.messagesRef.current.filter(m => ids.has(m._id))
     if (!msgs.length) return
     const first = msgs[0]
     const header = `${first.sender_name} · ${fmtDate(first.timestamp_ms)} at ${fmtTime(first.timestamp_ms)}`
@@ -138,172 +115,13 @@ export default function ChatDetailPane({
       return parts
     })
     navigator.clipboard.writeText([header, ...lines].join('\n')).then(() => showToast('Text copied'))
-  }, [showToast])
+  }, [showToast, loader.messagesRef])
 
-  function scrollToMsg(msgId: string): boolean {
-    // id="msg-{id}" is on every row; data-id is only on block anchors (first message)
-    const row   = document.getElementById(`msg-${msgId}`)
-    const group = row?.closest<HTMLElement>('.msg-group') ??
-      document.querySelector<HTMLElement>(`[data-id="${msgId}"]`)
-    if (!group) return false
-    // offsetParent is null when element or ancestor has display:none — scrollIntoView would be a no-op
-    if (!group.offsetParent) return false
-    const target = row ?? group
-    target.scrollIntoView({ block: 'center' })
-    const isDarkMode = document.documentElement.classList.contains('dark')
-    target.style.background = isDarkMode ? '#3b3010' : '#fff3cd'
-    setTimeout(() => { target.style.transition = 'background 1s'; target.style.background = '' }, 800)
-    setTimeout(() => { target.style.transition = '' }, 1800)
-    return true
-  }
-
-  function scheduleScrollToMsg(msgId: string, attempts = 0) {
-    if (attempts > 40) return  // give up after ~670ms
-    if (scrollToMsg(msgId)) { pendingJump.current = null; return }
-    requestAnimationFrame(() => scheduleScrollToMsg(msgId, attempts + 1))
-  }
-
-  // ─── Load messages ─────────────────────────────────────────────────────────
-
-  const loadMessages = useCallback(async (mode: 'fresh' | 'append' | 'prepend', skipScrollReset = false) => {
-    const offset = mode === 'prepend' ? lowerOffset.current : mode === 'append' ? upperOffset.current : lowerOffset.current
-    const params = new URLSearchParams({ offset: String(offset), limit: String(LIMIT), asc: '1' })
-    const q = searchRef.current
-    if (q) { params.delete('asc'); params.set('offset', '0'); params.set('search', q) }
-    if (showHiddenRef.current) params.set('showHidden', '1')
-
-    const data = await apiFetch<{ messages: Message[]; total: number; has_more: boolean }>(withThread('/api/messages?' + params))
-    setTotal(data.total)
-    hasMoreRef.current = !!(data.has_more && !q)
-    setHasMore(hasMoreRef.current)
-
-    const count = data.messages.length
-    const prev  = messagesRef.current
-
-    if (mode === 'prepend') {
-      const el = scrollRef.current
-      const prevH = el?.scrollHeight ?? 0
-      const prevTop = el?.scrollTop ?? 0
-      const combined = [...data.messages, ...prev]
-
-      el?.style.setProperty('overflow-anchor', 'none')
-      flushSync(() => applyMessages(combined))
-      if (el) el.scrollTop = prevTop + el.scrollHeight - prevH
-
-      if (combined.length > MAX_DOM_BLOCKS && el) {
-        const excess = combined.length - MAX_DOM_BLOCKS
-        const currentH = el.scrollHeight
-        const currentTop = el.scrollTop
-        const clientH = el.clientHeight
-        const estCullH = Math.round(currentH * excess / combined.length)
-        if (currentTop <= currentH - estCullH - clientH) {
-          upperOffset.current -= excess
-          flushSync(() => applyMessages(combined.slice(0, MAX_DOM_BLOCKS)))
-        }
-      }
-      el?.style.removeProperty('overflow-anchor')
-
-    } else if (mode === 'append') {
-      upperOffset.current += count
-      const next = [...prev, ...data.messages]
-      const seen = new Set<string>()
-      const deduped = next.filter(m => { if (!m._id || seen.has(m._id)) return false; seen.add(m._id); return true })
-      if (deduped.length > MAX_DOM_BLOCKS) {
-        const excess = deduped.length - MAX_DOM_BLOCKS
-        const culled = deduped.slice(-MAX_DOM_BLOCKS)
-        flushSync(() => applyMessages(deduped))
-        const el = scrollRef.current
-        const prevH2 = el?.scrollHeight ?? 0
-        const prevTop2 = el?.scrollTop ?? 0
-        const estCullH = Math.round(prevH2 * excess / deduped.length)
-        if (prevTop2 > estCullH) {
-          lowerOffset.current += excess
-          el?.style.setProperty('overflow-anchor', 'none')
-          flushSync(() => applyMessages(culled))
-          if (el) { el.scrollTop = prevTop2 + el.scrollHeight - prevH2; el.style.removeProperty('overflow-anchor') }
-        }
-      } else {
-        applyMessages(deduped)
-      }
-    } else {
-      upperOffset.current = lowerOffset.current + count
-      flushSync(() => applyMessages(data.messages))
-      if (!skipScrollReset && scrollRef.current) scrollRef.current.scrollTop = 0
-    }
-  }, [applyMessages]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const loadOlder = useCallback(async () => {
-    if (lowerOffset.current === 0) return
-    lowerOffset.current = Math.max(0, lowerOffset.current - LIMIT)
-    try { await loadMessages('prepend') } catch { lowerOffset.current += LIMIT }
-  }, [loadMessages])
-
-  const loadNewer = useCallback(async () => { await loadMessages('append') }, [loadMessages])
-
-  // ─── Jump ──────────────────────────────────────────────────────────────────
-
-  function setMsgParam(msgId: string | null) {
-    const params = new URLSearchParams(window.location.search)
-    if (msgId) params.set('msg', msgId); else params.delete('msg')
-    window.history.replaceState(null, '', params.toString() ? `?${params}` : window.location.pathname)
-  }
-
-  const jumpToMessage = useCallback(async (ts: number, msgId: string | null) => {
-    setJumping(true)
-    try {
-      const url = withThread(msgId ? `/api/jump?msgId=${msgId}` : `/api/jump?date=${new Date(ts).toISOString()}`)
-      const d = await apiFetch<{ index: number | null }>(url)
-      if (d.index == null) return
-      lowerOffset.current = Math.max(0, d.index - (msgId ? Math.floor(LIMIT / 2) : 0))
-      upperOffset.current = lowerOffset.current
-      searchRef.current = ''; onSearchChange('')
-      if (msgId) setMsgParam(msgId)
-      else pendingScrollReset.current = true
-      await loadMessages('fresh', !!msgId)
-      // After flushSync inside loadMessages, messages are in the DOM — try immediate scroll
-      if (msgId) {
-        if (!scrollToMsg(msgId)) { pendingJump.current = msgId; scheduleScrollToMsg(msgId) }
-      }
-    } finally {
-      setJumping(false)
-    }
-  }, [showHidden]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Register jump function with parent
-  useEffect(() => {
-    onRegisterJump(jumpToMessage)
-    return () => onRegisterJump(null)
-  }, [jumpToMessage]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Expose total + dateIndex to parent for SettingsPane
-  useEffect(() => { onStatsChange?.(total, dateIndex) }, [total, dateIndex]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Lightbox scroll ───────────────────────────────────────────────────────
-
-  const handleMsgLightbox = useCallback(async (state: LightboxState) => {
-    if (!state.ts) { onLightbox(state); return }
-    const mtype = state.mediaType ?? 'photos'
-    const uriParam = state.uri ? `&uri=${encodeURIComponent(state.uri)}` : ''
-    const { offset: photoOff } = await apiFetch<{ offset: number }>(withThread(`/api/attachments?type=${mtype}&offsetOf=${state.ts}${uriParam}`))
-    const { items, total } = await apiFetch<{ items: { uri: string; ts: number; sender: string; msgId: string }[]; total: number }>(
-      withThread(`/api/attachments?type=${mtype}&offset=${Math.max(0, photoOff - 1)}&limit=3`)
-    )
-    const baseOff = Math.max(0, photoOff - 1)
-    const localIdx = items.findIndex(i => i.uri === state.uri || (i.msgId === state.msgId && i.ts === state.ts))
-    const target = localIdx >= 0 ? localIdx : 0
-    type PhotoItem = { uri: string; ts: number; sender: string; msgId: string }
-    const typeMap: Record<string, LightboxState['type']> = { photos: 'photo', videos: 'video', gifs: 'gif' }
-    const mkState = (absOff: number, item: PhotoItem): LightboxState => ({
-      src: r2(item.uri), uri: item.uri, type: typeMap[mtype] ?? 'photo', mediaType: mtype,
-      caption: `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
-      msgId: item.msgId, ts: item.ts,
-      onPrev: absOff > 0 ? async () => { const { items: pi } = await apiFetch<{ items: PhotoItem[] }>(withThread(`/api/attachments?type=${mtype}&offset=${absOff - 1}&limit=1`)); if (pi[0]) onLightbox(mkState(absOff - 1, pi[0])) } : undefined,
-      onNext: absOff < total - 1 ? async () => { const { items: ni } = await apiFetch<{ items: PhotoItem[] }>(withThread(`/api/attachments?type=${mtype}&offset=${absOff + 1}&limit=1`)); if (ni[0]) onLightbox(mkState(absOff + 1, ni[0])) } : undefined,
-    })
-    onLightbox(mkState(baseOff + target, items[target]))
-  }, [onLightbox]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Scroll handler ────────────────────────────────────────────────────────
+  // ─── Refs for scroll handler ───────────────────────────────────────────────────
+  const deviceId         = useRef('')
+  const currentUserRef   = useRef('')
+  const lastBookmarkTime = useRef(0)
+  const queuedLoad       = useRef<'older' | 'newer' | null>(null)
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current
@@ -324,42 +142,39 @@ export default function ChatDetailPane({
         }
       }
     }
-    const nearTop    = el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0
-    const nearBottom = el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current
-    if (loadingRef.current || searchRef.current) {
+    const nearTop    = el.scrollTop < LOAD_THRESHOLD && loader.lowerOffset.current > 0
+    const nearBottom = el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && loader.hasMoreRef.current
+    if (loader.loadingRef.current || searchRef.current) {
       if (nearTop)    queuedLoad.current = 'older'
       if (nearBottom) queuedLoad.current = 'newer'
       return
     }
     const run = (fn: () => Promise<void>) => {
-      loadingRef.current = true
+      loader.loadingRef.current = true
       fn().finally(async () => {
         const queued = queuedLoad.current; queuedLoad.current = null
         const qel = scrollRef.current
-        const stillNearTop    = qel && qel.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0
-        const stillNearBottom = qel && qel.scrollTop + qel.clientHeight > qel.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current
-        if (queued === 'older' && stillNearTop) await loadOlder().catch(() => {})
-        else if (queued === 'newer' && stillNearBottom) await loadNewer().catch(() => {})
-        loadingRef.current = false
+        const stillNearTop    = qel && qel.scrollTop < LOAD_THRESHOLD && loader.lowerOffset.current > 0
+        const stillNearBottom = qel && qel.scrollTop + qel.clientHeight > qel.scrollHeight - LOAD_THRESHOLD && loader.hasMoreRef.current
+        if (queued === 'older' && stillNearTop) await loader.loadOlder().catch(() => {})
+        else if (queued === 'newer' && stillNearBottom) await loader.loadNewer().catch(() => {})
+        loader.loadingRef.current = false
       })
     }
-    if (nearTop) run(loadOlder)
-    else if (nearBottom) run(loadNewer)
+    if (nearTop) run(loader.loadOlder)
+    else if (nearBottom) run(loader.loadNewer)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Ref sync ──────────────────────────────────────────────────────────────
-
-  useEffect(() => { showHiddenRef.current = showHidden }, [showHidden])
-  useEffect(() => { dateIndexRef.current  = dateIndex  }, [dateIndex])
-
-  // ─── Init ──────────────────────────────────────────────────────────────────
+  // ─── Init ─────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     let id = localStorage.getItem('deviceId')
     if (!id) { id = crypto.randomUUID(); localStorage.setItem('deviceId', id) }
     deviceId.current = id
 
-    apiFetch<DateIndex>(withThread('/api/date-index')).then(setDateIndex).catch(() => {})
+    apiFetch<DateIndex>(loader.withThread('/api/date-index'))
+      .then(di => { setDateIndex(di); dateIndexRef.current = di })
+      .catch(() => {})
 
     async function init() {
       let userName = ''
@@ -372,25 +187,25 @@ export default function ChatDetailPane({
       const urlMsgId = new URLSearchParams(window.location.search).get('msg')
       if (urlMsgId) {
         anchorMsgId = urlMsgId
-        try { const jd = await apiFetch<{ index: number | null }>(withThread('/api/jump?msgId=' + urlMsgId)); if (jd.index != null) startIdx = jd.index } catch {}
+        try { const jd = await apiFetch<{ index: number | null }>(loader.withThread('/api/jump?msgId=' + urlMsgId)); if (jd.index != null) startIdx = jd.index } catch {}
       } else {
         try {
           const ns = `${userName ? userName + '-' : ''}${thread}`
-          const bk = await apiFetch<{ msgId: string | null; offset: number }>(withThread(`/api/bookmark?deviceId=${id}&ns=${encodeURIComponent(ns)}`))
+          const bk = await apiFetch<{ msgId: string | null; offset: number }>(loader.withThread(`/api/bookmark?deviceId=${id}&ns=${encodeURIComponent(ns)}`))
           if (bk.msgId) {
             anchorMsgId = bk.msgId; anchorOffset = bk.offset ?? 0
-            const jd = await apiFetch<{ index: number | null }>(withThread('/api/jump?msgId=' + bk.msgId))
+            const jd = await apiFetch<{ index: number | null }>(loader.withThread('/api/jump?msgId=' + bk.msgId))
             if (jd.index != null) startIdx = jd.index
           }
         } catch {}
       }
 
-      lowerOffset.current = Math.max(0, startIdx - Math.floor(LIMIT / 2))
-      upperOffset.current = lowerOffset.current
-      loadingRef.current = true
-      try { await loadMessages('fresh') } catch {}
+      loader.lowerOffset.current = Math.max(0, startIdx - Math.floor(LIMIT / 2))
+      loader.upperOffset.current = loader.lowerOffset.current
+      loader.loadingRef.current = true
+      try { await loader.loadMessages('fresh') } catch {}
 
-      if (urlMsgId) scheduleScrollToMsg(urlMsgId)
+      if (urlMsgId) jump.scheduleScrollToMsg(urlMsgId)
 
       if (anchorMsgId && !urlMsgId && scrollRef.current) {
         const anchor = document.getElementById('msg-' + anchorMsgId)?.closest<HTMLElement>('.msg-group')
@@ -400,157 +215,104 @@ export default function ChatDetailPane({
         }
       }
       setChatVisible(true)
-      loadingRef.current = false
+      loader.loadingRef.current = false
 
       const el = scrollRef.current
       if (el) {
-        loadingRef.current = true
-        if (el.scrollTop < LOAD_THRESHOLD && lowerOffset.current > 0) await loadOlder().catch(() => {})
-        if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && hasMoreRef.current) await loadNewer().catch(() => {})
-        loadingRef.current = false
+        loader.loadingRef.current = true
+        if (el.scrollTop < LOAD_THRESHOLD && loader.lowerOffset.current > 0) await loader.loadOlder().catch(() => {})
+        if (el.scrollTop + el.clientHeight > el.scrollHeight - LOAD_THRESHOLD && loader.hasMoreRef.current) await loader.loadNewer().catch(() => {})
+        loader.loadingRef.current = false
       }
     }
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Search (react to prop) ────────────────────────────────────────────────
+  // ─── Register jump fn ─────────────────────────────────────────────────────────
 
-  const searchEffectMounted = useRef(false)
+  useEffect(() => {
+    onRegisterJump(jump.jumpToMessage)
+    return () => onRegisterJump(null)
+  }, [jump.jumpToMessage]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Expose stats to parent ───────────────────────────────────────────────────
+
+  useEffect(() => { onStatsChange?.(loader.total, dateIndex) }, [loader.total, dateIndex]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Date index ref sync ──────────────────────────────────────────────────────
+
+  useEffect(() => { dateIndexRef.current = dateIndex }, [dateIndex])
+
+  // ─── Search ───────────────────────────────────────────────────────────────────
+
+  const searchTimer           = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const searchEffectMounted   = useRef(false)
+
   useEffect(() => {
     if (!searchEffectMounted.current) { searchEffectMounted.current = true; return }
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(async () => {
       const trimmed = search.trim()
       if (/^[0-9a-f]{24}$/i.test(trimmed)) {
-        setSearching(true)
-        const byBlock = await apiFetch<{ messages: Message[] }>(withThread(`/api/messages?groupIds=${trimmed}`))
-        const msgs = byBlock.messages.length
-          ? byBlock.messages
-          : (await apiFetch<{ messages: Message[] }>(withThread(`/api/messages?ids=${trimmed}`))).messages
-        if (msgs.length) {
-          searchRef.current = ''
-          lowerOffset.current = 0; upperOffset.current = 0
-          setMessages(msgs); messagesRef.current = msgs
-          pendingJump.current = msgs[0]._id
-        }
-        setSearching(false)
+        loader.setSearching(true)
+        try {
+          const byBlock = await apiFetch<{ messages: Message[] }>(loader.withThread(`/api/messages?groupIds=${trimmed}`))
+          const msgs = byBlock.messages.length
+            ? byBlock.messages
+            : (await apiFetch<{ messages: Message[] }>(loader.withThread(`/api/messages?ids=${trimmed}`))).messages
+          if (msgs.length) {
+            searchRef.current = ''
+            loader.lowerOffset.current = 0; loader.upperOffset.current = 0
+            loader.messagesRef.current = msgs; loader.setSearching(false)
+            jump.pendingJump.current = msgs[0]._id
+          }
+        } catch {}
+        loader.setSearching(false)
         return
       }
       searchRef.current = trimmed
-      lowerOffset.current = 0; upperOffset.current = 0
-      setSearching(!!trimmed)
-      await loadMessages('fresh')
-      setSearching(false)
+      loader.lowerOffset.current = 0; loader.upperOffset.current = 0
+      loader.setSearching(!!trimmed)
+      await loader.loadMessages('fresh')
+      loader.setSearching(false)
     }, 350)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Pending scroll after messages render ──────────────────────────────────
+  // ─── Pending scroll after message render ──────────────────────────────────────
+
+  const blocks = useMemo(() => groupMessages(loader.messages), [loader.messages])
+  useEffect(() => { blocksRef.current = blocks }, [blocks])
 
   useEffect(() => {
-    if (pendingScrollReset.current) {
-      pendingScrollReset.current = false
+    if (jump.pendingScrollReset.current) {
+      jump.pendingScrollReset.current = false
       if (scrollRef.current) scrollRef.current.scrollTop = 0
       return
     }
-    if (pendingScrollBottom.current) {
-      pendingScrollBottom.current = false
+    if (jump.pendingScrollBottom.current) {
+      jump.pendingScrollBottom.current = false
       if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
       return
     }
-    const jumpId = pendingJump.current
-    if (jumpId) scheduleScrollToMsg(jumpId)
-    const scrollId = pendingLightboxScroll.current
+    const jumpId = jump.pendingJump.current
+    if (jumpId) jump.scheduleScrollToMsg(jumpId)
+    const scrollId = jump.pendingLightboxScroll.current
     if (scrollId) {
       const anchor = document.getElementById('msg-' + scrollId)?.closest<HTMLElement>('.msg-group')
-      if (anchor) { pendingLightboxScroll.current = null; anchor.scrollIntoView({ block: 'center', behavior: 'smooth' }) }
+      if (anchor) { jump.pendingLightboxScroll.current = null; anchor.scrollIntoView({ block: 'center', behavior: 'smooth' }) }
     }
-  }, [messages])
+  }, [loader.messages]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Selection preload ─────────────────────────────────────────────────────
-
-  useEffect(() => {
-    clearTimeout(preloadTimer.current)
-    if (selectedMsgs.size === 0) { setPreloadedHashtagIds(null); return }
-    const msgIds = [...selectedMsgs.keys()]
-    preloadTimer.current = setTimeout(() => {
-      fetch(`/api/hashtag-groups?messageIds=${msgIds.join(',')}&thread=${thread}`)
-        .then(r => r.json())
-        .then(d => setPreloadedHashtagIds(new Set<string>(d.hashtagIds ?? [])))
-        .catch(() => {})
-    }, 300)
-    return () => clearTimeout(preloadTimer.current)
-  }, [selectedMsgs])
-
-  // ─── Selection handlers ────────────────────────────────────────────────────
-
-  const blocks = useMemo(() => groupMessages(messages), [messages])
-  useEffect(() => { blocksRef.current = blocks }, [blocks])
-
-  const handleToggle = useCallback(async (id: string, ts: number, tsEnd: number, allIds: string[], shiftKey?: boolean) => {
-    if (shiftKey && lastSelectedAnchor.current) {
-      const anchor = lastSelectedAnchor.current
-      const anchorIdx = blocksRef.current.findIndex(b => b.msgs[0]._id === anchor.id)
-      const clickedIdx = blocksRef.current.findIndex(b => b.msgs[0]._id === id)
-      if (anchorIdx !== -1 && clickedIdx !== -1) {
-        const [start, end] = anchorIdx < clickedIdx ? [anchorIdx, clickedIdx] : [clickedIdx, anchorIdx]
-        setSelectedMsgs(prev => {
-          const next = new Map(prev)
-          for (let i = start; i <= end; i++) {
-            const b = blocksRef.current[i]; const f = b.msgs[0]; const l = b.msgs[b.msgs.length - 1]
-            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map((m: Message) => m._id) })
-          }
-          return next
-        })
-      } else {
-        const minTs = Math.min(anchor.ts, ts); const maxTs = Math.max(anchor.tsEnd, tsEnd)
-        const data = await apiFetch<{ messages: Message[] }>(withThread(`/api/messages?tsFrom=${minTs}&tsTo=${maxTs}`))
-        const rangeBlocks = groupMessages(data.messages)
-        setSelectedMsgs(prev => {
-          const next = new Map(prev)
-          for (const b of rangeBlocks) {
-            const f = b.msgs[0]; const l = b.msgs[b.msgs.length - 1]
-            next.set(f._id, { ts: f.timestamp_ms, tsEnd: l.timestamp_ms, allIds: b.msgs.map((m: Message) => m._id) })
-          }
-          return next
-        })
-      }
-      return
-    }
-    lastSelectedAnchor.current = { id, ts, tsEnd }
-    setSelectedMsgs(prev => { const next = new Map(prev); next.has(id) ? next.delete(id) : next.set(id, { ts, tsEnd, allIds }); return next })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  function clearSelection() { setSelectedMsgs(new Map()); lastSelectedAnchor.current = null; setPreloadedHashtagIds(null) }
-
-  function openNoteFromSelection() {
-    const msgIds = [...new Set([...selectedMsgs.values()].flatMap(v => v.allIds))]
-    setHashtagPicker({ msgIds })
-  }
-
-  function applyHashtags(hashtagIds: string[], newNames: string[]) {
-    const messageIds = hashtagPicker?.msgIds ?? []
-    const snapHashtags = hashtags
-    setHashtagPicker(null); clearSelection()
-    const tagMessages = (hashtagId: string) =>
-      fetch('/api/hashtag-groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hashtagId, messageIds, thread }) })
-    Promise.all(newNames.map(name => {
-      const existing = snapHashtags.find(h => h.name === name)
-      if (existing) return Promise.resolve(existing.id as string | undefined)
-      return fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, thread }) })
-        .then(r => r.json()).then(d => d.doc?.id as string | undefined)
-    })).then(ids => Promise.all([...hashtagIds, ...ids.filter((id): id is string => !!id)].map(tagMessages))).then(() => onReloadHashtags())
-  }
-
-  // ─── Context menu ──────────────────────────────────────────────────────────
+  // ─── Context menu ─────────────────────────────────────────────────────────────
 
   const handleMsgContextMenu = useCallback((e: React.MouseEvent, msgIds: string[]) => {
     e.preventDefault()
     const fromTouch = !!(e as unknown as { _fromTouch?: boolean })._fromTouch
-    const firstMsg = messagesRef.current.find(m => msgIds.includes(m._id))
+    const firstMsg = loader.messagesRef.current.find(m => msgIds.includes(m._id))
     setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'message', msgIds, msgTs: firstMsg?.timestamp_ms, fromTouch })
-  }, [])
+  }, [loader.messagesRef])
 
-  // ─── Date picker ───────────────────────────────────────────────────────────
+  // ─── Date picker ──────────────────────────────────────────────────────────────
 
   const openDatePicker = useCallback(() => {
     const el = scrollRef.current
@@ -565,69 +327,22 @@ export default function ChatDetailPane({
       setDatePickerDefault(current)
     }
     setShowDatePicker(true)
-  }, [])
+  }, [scrollRef])
 
-  const handleDateJump = useCallback(async (date: string) => {
-    if (!date) return
-    setJumping(true)
-    try {
-      let offset: number | null = null
-      if (date.startsWith('ts:')) {
-        const ts = parseInt(date.slice(3))
-        const t = new Date(ts)
-        const midnight = new Date(t.getFullYear(), t.getMonth(), t.getDate()).getTime()
-        const d = await apiFetch<{ index: number | null }>(withThread(`/api/jump?date=${new Date(midnight).toISOString()}`))
-        offset = d.index
-      } else {
-        offset = dateIndexRef.current
-          ? (dateIndexRef.current.weeks.find(w => w.iso === date) ?? dateIndexRef.current.months.find(m => m.iso === date))?.offset ?? null
-          : null
-        if (offset == null) {
-          const parts = date.split('-').map(Number)
-          const localTs = parts.length === 3 && parts[0] && parts[1] && parts[2]
-            ? new Date(parts[0], parts[1] - 1, parts[2]).getTime()
-            : new Date(date).getTime()
-          const d = await apiFetch<{ index: number | null }>(withThread(`/api/jump?date=${new Date(localTs).toISOString()}`))
-          offset = d.index
-        }
-      }
-      if (offset == null) return
-      lowerOffset.current = offset; upperOffset.current = offset
-      searchRef.current = ''; onSearchChange('')
-      pendingJump.current = null; pendingScrollReset.current = true
-      await loadMessages('fresh')
-    } finally { setJumping(false) }
-  }, [loadMessages, onSearchChange])
-
-  const handleChatJump = useCallback(async (target: string) => {
-    if (target === 'recent') {
-      const d = await apiFetch<{ total: number }>(withThread('/api/messages?offset=0&limit=1&asc=1'))
-      lowerOffset.current = Math.max(0, d.total - LIMIT); upperOffset.current = lowerOffset.current
-      pendingJump.current = null; pendingScrollBottom.current = true
-      await loadMessages('fresh')
-    } else if (target === 'beginning') {
-      lowerOffset.current = 0; upperOffset.current = 0
-      pendingJump.current = null; pendingScrollReset.current = true
-      await loadMessages('fresh')
-    } else {
-      handleDateJump(target)
-    }
-  }, [loadMessages, handleDateJump])
-
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <>
       {/* Selection bar */}
-      {selectedMsgs.size > 0 && (
+      {selection.selectedMsgs.size > 0 && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-4 py-2 flex items-center gap-2.5 text-[13px] whitespace-nowrap shadow-xl z-20">
-          <span className="text-white/60 pr-0.5">{selectedMsgs.size} selected</span>
-          <button onClick={openNoteFromSelection} className="bg-white/15 hover:bg-white/25 px-3 py-1 rounded-full font-semibold transition-colors"># Tag</button>
+          <span className="text-white/60 pr-0.5">{selection.selectedMsgs.size} selected</span>
+          <button onClick={selection.openNoteFromSelection} className="bg-white/15 hover:bg-white/25 px-3 py-1 rounded-full font-semibold transition-colors"># Tag</button>
           <button
             onClick={() => {
-              const firstId = [...selectedMsgs.keys()][0]
+              const firstId = [...selection.selectedMsgs.keys()][0]
               if (firstId) copyLink([firstId])
-              clearSelection()
+              selection.clearSelection()
             }}
             className="bg-white/15 hover:bg-white/25 px-3 py-1 rounded-full font-semibold transition-colors flex items-center gap-1.5"
           >
@@ -637,12 +352,12 @@ export default function ChatDetailPane({
             </svg>
             Share
           </button>
-          <button onClick={clearSelection} className="opacity-50 hover:opacity-100 transition-opacity pl-0.5">✕</button>
+          <button onClick={selection.clearSelection} className="opacity-50 hover:opacity-100 transition-opacity pl-0.5">✕</button>
         </div>
       )}
 
-      {/* Date-jump overlay */}
-      {jumping && (
+      {/* Jump overlay */}
+      {jump.jumping && (
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/60 dark:bg-mist-900/60 backdrop-blur-[2px] pointer-events-none">
           <div className="flex items-center gap-2 bg-white dark:bg-mist-800 border border-mist-200 dark:border-mist-700 shadow-md rounded-full px-4 py-2 text-[13px] text-mist-600 dark:text-mist-300">
             <svg className="animate-spin w-3.5 h-3.5 text-mist-500" viewBox="0 0 24 24" fill="none">
@@ -667,14 +382,7 @@ export default function ChatDetailPane({
           ].map((row, i) => (
             <div key={i} className={`flex flex-col gap-1 mb-2 ${row.side === 'right' ? 'items-end' : 'items-start'}`}>
               {row.widths.map((w, j) => (
-                <div
-                  key={j}
-                  className={`h-9 rounded-2xl animate-pulse ${w} ${
-                    row.side === 'right'
-                      ? 'bg-blue-200 dark:bg-blue-900/40'
-                      : 'bg-mist-200 dark:bg-mist-700/60'
-                  }`}
-                />
+                <div key={j} className={`h-9 rounded-2xl animate-pulse ${w} ${row.side === 'right' ? 'bg-blue-200 dark:bg-blue-900/40' : 'bg-mist-200 dark:bg-mist-700/60'}`} />
               ))}
             </div>
           ))}
@@ -685,18 +393,18 @@ export default function ChatDetailPane({
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto flex flex-col min-h-0 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0${selectedMsgs.size > 0 ? ' select-none' : ''}`}
+        className={`flex-1 overflow-y-auto flex flex-col min-h-0 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0${selection.selectedMsgs.size > 0 ? ' select-none' : ''}`}
         style={{ visibility: chatVisible ? 'visible' : 'hidden' }}
       >
-        {searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}
+        {loader.searching && <div className="text-center py-2 text-[13px] text-gray-500 dark:text-gray-400">Searching…</div>}
         <MessageList
           blocks={blocks}
-          onLightbox={handleMsgLightbox}
-          selectedMsgIds={selectedMsgs}
-          onToggle={handleToggle}
+          onLightbox={jump.handleMsgLightbox}
+          selectedMsgIds={selection.selectedMsgs}
+          onToggle={selection.handleToggle}
           onContextMenu={handleMsgContextMenu}
           dateIndex={dateIndex}
-          onJumpTo={handleChatJump}
+          onJumpTo={jump.handleChatJump}
           onOpenDatePicker={openDatePicker}
           hideImages={hideImages}
           hiddenUris={hiddenUris}
@@ -713,28 +421,25 @@ export default function ChatDetailPane({
 
       {/* Overlays */}
       {showDatePicker && (
-        <DatePickerModal defaultDate={datePickerDefault} onClose={() => setShowDatePicker(false)} onJump={handleChatJump} />
+        <DatePickerModal defaultDate={datePickerDefault} onClose={() => setShowDatePicker(false)} onJump={jump.handleChatJump} />
       )}
-      {hashtagPicker && (
+      {selection.hashtagPicker && (
         <HashtagPicker
           hashtags={hashtags}
-            initialSelected={preloadedHashtagIds ?? undefined}
-          onClose={() => setHashtagPicker(null)}
-          onApply={applyHashtags}
+          initialSelected={selection.preloadedHashtagIds ?? undefined}
+          onClose={() => selection.setHashtagPicker(null)}
+          onApply={selection.applyHashtags}
         />
       )}
       {ctxMenu && ctxMenu.fromTouch ? (
         <ActionSheet
           onClose={() => setCtxMenu(null)}
           actions={[
-            ...(ctxMenu.kind === 'message' && ctxMenu.msgTs != null ? [{ label: 'Go to message', onPress: () => { jumpToMessage(ctxMenu.msgTs!, ctxMenu.msgIds?.[0] ?? null); setCtxMenu(null) } }] : []),
+            ...(ctxMenu.kind === 'message' && ctxMenu.msgTs != null ? [{ label: 'Go to message', onPress: () => { jump.jumpToMessage(ctxMenu.msgTs!, ctxMenu.msgIds?.[0] ?? null); setCtxMenu(null) } }] : []),
             ...(ctxMenu.kind === 'message' && ctxMenu.msgIds ? [
               { label: 'Copy link', onPress: () => { copyLink(ctxMenu.msgIds!); setCtxMenu(null) } },
               { label: 'Copy text', onPress: () => { copyText(ctxMenu.msgIds!); setCtxMenu(null) } },
-              { label: '# Tag', onPress: () => {
-                const data = messagesRef.current.filter(m => ctxMenu.msgIds!.includes(m._id))
-                setHashtagPicker({ msgIds: ctxMenu.msgIds! }); setCtxMenu(null)
-              }},
+              { label: '# Tag', onPress: () => { selection.setHashtagPicker({ msgIds: ctxMenu.msgIds! }); setCtxMenu(null) } },
             ] : []),
             ...(isSuperAdmin && ctxMenu.msgIds?.length ? [hiddenMsgIds.has(ctxMenu.msgIds[0])
               ? { label: 'Unhide message', onPress: () => { onUnhideMessage(ctxMenu.msgIds![0]); setCtxMenu(null) } }
@@ -747,11 +452,9 @@ export default function ChatDetailPane({
           state={ctxMenu}
           onClose={() => setCtxMenu(null)}
           onEditNote={() => setCtxMenu(null)}
-          onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setCtxMenu(null) }}
+          onJumpToMessage={(ts, msgId) => { jump.jumpToMessage(+ts, msgId); setCtxMenu(null) }}
           onHideUri={onHideUri}
-          onTagMessages={msgIds => {
-            setHashtagPicker({ msgIds })
-          }}
+          onTagMessages={msgIds => selection.setHashtagPicker({ msgIds })}
           onCopyLink={copyLink}
           onCopyText={copyText}
         />

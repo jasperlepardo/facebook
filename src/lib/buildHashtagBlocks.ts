@@ -5,7 +5,8 @@ import { fmtDate } from './format'
 export function buildHashtagBlocks(messages: Message[]): MessageBlock[] {
   const groupMap = new Map<string, Message[]>()
   for (const m of messages) {
-    const key = m.blockId!
+    if (!m.blockId) continue
+    const key = m.blockId
     if (!groupMap.has(key)) groupMap.set(key, [])
     groupMap.get(key)!.push(m)
   }

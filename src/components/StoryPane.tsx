@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { toast } from '@/lib/toast'
 import { DailySummary, Arc } from '@/types'
 import { PREVIEW_BY_MONTH, PREVIEW_META, PREVIEW_ARCS } from '@/fixtures/storyPreviewData'
 import { StoryCalendar } from './story/StoryCalendar'
@@ -60,7 +61,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
           if (months?.length) setSelectedMonth(months[0])
         }
       })
-      .catch(() => {})
+      .catch(() => toast('Failed to load story data'))
       .finally(() => setMetaLoading(false))
   }, [])
 
@@ -69,7 +70,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
     fetch(`/api/arcs?year=${selectedYear}`)
       .then(r => r.json())
       .then(d => setArcs(d.arcs ?? []))
-      .catch(() => {})
+      .catch(() => toast('Failed to load story arcs'))
   }, [previewMode, selectedYear])
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
     fetch(`/api/summaries?from=${selectedArc.startDate}&to=${selectedArc.endDate}`)
       .then(r => r.json())
       .then(d => setArcDays(d.summaries ?? []))
-      .catch(() => {})
+      .catch(() => toast('Failed to load arc days'))
   }, [previewMode, selectedArc])
 
   useEffect(() => {
@@ -93,7 +94,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
     fetch(`/api/summaries?year=${selectedYear}&month=${selectedMonth}`)
       .then(r => r.json())
       .then(d => setDaySummaries(d.summaries ?? []))
-      .catch(() => {})
+      .catch(() => toast('Failed to load chapters'))
       .finally(() => setMonthLoading(false))
   }, [previewMode, selectedYear, selectedMonth])
 
@@ -104,7 +105,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
     fetch(`/api/summaries?date=${dateStr}`)
       .then(r => r.json())
       .then(d => { if (d.summaries?.[0]) setSelected(d.summaries[0]) })
-      .catch(() => {})
+      .catch(() => toast('Failed to navigate to date'))
   }, [])
 
   // ── Empty / loading states ───────────────────────────────────────────────────
