@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { startAuthentication } from '@simplewebauthn/browser'
 import Link from 'next/link'
-import { field, btnPrimary, btnSecondary, label, brandMark, linkAccent } from '@/lib/ui'
+import { field, btnPrimary, btnSecondary, label, brandMark, linkAccent, glassPanel } from '@/lib/ui'
 
 function getNextUrl() {
   const next = new URLSearchParams(window.location.search).get('next') ?? '/'
@@ -73,7 +73,7 @@ export default function SigninPage() {
   const loading = pwLoading || pkLoading
 
   return (
-    <div className="w-full max-w-sm">
+    <div className={`${glassPanel} max-w-sm`}>
       <div className="text-center mb-8">
         <div className={`${brandMark} mx-auto mb-5`}>
           <span className="text-white text-2xl font-bold">R</span>
@@ -118,9 +118,9 @@ export default function SigninPage() {
       </form>
 
       <div className="flex items-center gap-3 my-4">
-        <div className="flex-1 h-px bg-mist-200 dark:bg-mist-700" />
+        <div className="flex-1 h-px bg-black/10 dark:bg-white/10" />
         <span className="text-xs text-mist-400 dark:text-mist-500">or</span>
-        <div className="flex-1 h-px bg-mist-200 dark:bg-mist-700" />
+        <div className="flex-1 h-px bg-black/10 dark:bg-white/10" />
       </div>
 
       <button

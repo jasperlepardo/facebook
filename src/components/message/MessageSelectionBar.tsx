@@ -15,8 +15,8 @@ export default function MessageSelectionBar({ count, actions, onClear }: Message
 
   return (
     <>
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-3 py-2 flex items-center gap-2 text-[13px] whitespace-nowrap shadow-xl z-20">
-        <span className="text-white/60 px-1">{count} selected</span>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 liquid-glass text-gray-900 dark:text-white rounded-full px-3 py-2 flex items-center gap-2 text-[13px] whitespace-nowrap shadow-xl z-20">
+        <span className="text-mist-500 dark:text-white/60 px-1">{count} selected</span>
 
         {/* Desktop: icon actions */}
         <div className="hidden md:flex items-center gap-1.5">
@@ -29,18 +29,20 @@ export default function MessageSelectionBar({ count, actions, onClear }: Message
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
-          className="md:hidden bg-white/15 hover:bg-white/25 px-3 py-1 rounded-full font-semibold transition-colors"
+          className="md:hidden liquid-glass-btn liquid-glass-chip !h-8 font-semibold"
         >
-          Actions
+          <span>Actions</span>
         </button>
 
         <button
           type="button"
           onClick={onClear}
           aria-label="Clear selection"
-          className="opacity-50 hover:opacity-100 transition-opacity w-7 h-7 inline-flex items-center justify-center"
+          className="liquid-glass-btn !w-8 !h-8"
         >
-          ✕
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
         </button>
       </div>
 

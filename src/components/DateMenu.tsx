@@ -103,37 +103,37 @@ export default function DateMenu({ date, ts, prevDayTs, nextDayTs, dateIndex, on
   return (
     <div className="relative">
       <button ref={btnRef} onClick={openMenu}
-        className="flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-mist-50 dark:bg-mist-900 border border-mist-200 dark:border-mist-700 shadow-xs hover:bg-mist-100 dark:hover:bg-mist-800 transition-colors whitespace-nowrap text-mist-500 dark:text-mist-400"
+        className="flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold liquid-glass whitespace-nowrap text-mist-600 dark:text-mist-300"
       >
         {date} <span className="text-[10px] opacity-60">▾</span>
       </button>
 
       {isOpen && (
         <div ref={dropRef}
-          className={`absolute left-1/2 -translate-x-1/2 bg-white dark:bg-mist-800 border border-mist-200 dark:border-mist-700 rounded-xl shadow-xl z-50 w-64 py-2 text-left text-[13px] text-gray-900 dark:text-mist-100 ${isAbove ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
-          <button onClick={() => select('beginning')} className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
+          className={`absolute left-1/2 -translate-x-1/2 liquid-glass rounded-xl shadow-xl z-50 w-64 py-2 text-left text-[13px] text-gray-900 dark:text-mist-100 ${isAbove ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}>
+          <button onClick={() => select('beginning')} className="w-full text-left px-4 py-2 liquid-glass-hover transition-colors">
             Start from the beginning
           </button>
 
           {dynamicOptions.length > 0 && (
             <>
-              <div className="border-t border-mist-100 dark:border-mist-700 my-1" />
+              <div className="border-t border-black/5 dark:border-white/10 my-1" />
               {dynamicOptions.map(o => (
                 <button key={o.val} onClick={() => select(o.val)}
-                  className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
+                  className="w-full text-left px-4 py-2 liquid-glass-hover transition-colors">
                   {o.label}
                 </button>
               ))}
             </>
           )}
 
-          <div className="border-t border-mist-100 dark:border-mist-700 mt-1 pt-1">
-            <button onClick={() => select('recent')} className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
+          <div className="border-t border-black/5 dark:border-white/10 mt-1 pt-1">
+            <button onClick={() => select('recent')} className="w-full text-left px-4 py-2 liquid-glass-hover transition-colors">
               Most recent
             </button>
             {onOpenDatePicker && (
               <button onClick={() => { setSticky(''); setIsOpen(false); onOpenDatePicker() }}
-                className="w-full text-left px-4 py-2 hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors">
+                className="w-full text-left px-4 py-2 liquid-glass-hover transition-colors">
                 Jump to a specific date
               </button>
             )}

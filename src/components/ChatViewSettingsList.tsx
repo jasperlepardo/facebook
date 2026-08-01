@@ -18,10 +18,10 @@ export default function ChatViewSettingsList({
 }: Props) {
   const allOn = ALL_CONTENT_TYPE_KEYS.every(k => enabledTypes.has(k))
   const pad = compact ? 'px-4 py-3' : 'px-5 py-3'
-  const row = `flex items-center justify-between gap-3 ${pad} cursor-pointer hover:bg-mist-50 dark:hover:bg-mist-700/40`
+  const row = `flex items-center justify-between gap-3 ${pad} cursor-pointer liquid-glass-hover`
 
   return (
-    <div className="divide-y divide-mist-100 dark:divide-mist-700">
+    <div className="divide-y divide-black/10 dark:divide-white/12">
       <label className={row}>
         <span className="text-sm font-semibold text-gray-900 dark:text-mist-100">All content types</span>
         <Toggle on={allOn} onChange={on => ALL_CONTENT_TYPE_KEYS.forEach(k => onChange(k, on))} />

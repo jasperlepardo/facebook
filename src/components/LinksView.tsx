@@ -20,8 +20,8 @@ export default function LinksView({ thread = 'messages' }: { thread?: string }) 
   if (loading) return <MediaListSkeleton />
 
   if (!items.length) return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">
-      <div className="w-14 h-14 rounded-2xl bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-400 dark:text-mist-500">
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-transparent pb-12">
+      <div className="w-14 h-14 rounded-2xl liquid-glass flex items-center justify-center text-mist-400 dark:text-mist-500">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
       </div>
       <p className="text-sm text-mist-400 dark:text-mist-500">No links shared yet</p>
@@ -29,12 +29,12 @@ export default function LinksView({ thread = 'messages' }: { thread?: string }) 
   )
 
   return (
-    <div className={`flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-mist-900 ${pbSafe} md:pb-3`}>
+    <div className={`flex-1 overflow-y-auto p-3 bg-transparent ${pbSafe} md:pb-3`}>
       {items.map((item, i) => {
         let host = ''
         try { host = new URL(item.uri).hostname.replace(/^www\./, '') } catch {}
         return (
-          <div key={i} className="bg-white dark:bg-mist-800 rounded-lg px-3.5 py-3 mb-2 flex items-start gap-3 shadow-xs dark:shadow-gray-900 border border-transparent dark:border-mist-700">
+          <div key={i} className="liquid-glass rounded-lg px-3.5 py-3 mb-2 flex items-start gap-3">
             <div className="text-[20px] mt-0.5">🔗</div>
             <div className="flex-1 min-w-0">
               {item.text && <div className="text-sm font-medium text-gray-800 dark:text-mist-100 line-clamp-2 mb-0.5">{item.text}</div>}

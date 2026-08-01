@@ -160,8 +160,8 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
   }, [hasMore, items.length, type, thread]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (hideImages) return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">
-      <div className="w-14 h-14 rounded-2xl bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-400 dark:text-mist-500">
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-transparent pb-12">
+      <div className="w-14 h-14 rounded-2xl liquid-glass flex items-center justify-center text-mist-400 dark:text-mist-500">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
       </div>
       <p className="text-sm text-mist-400 dark:text-mist-500">Images are hidden</p>
@@ -193,8 +193,8 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
     }
     const { icon, label } = meta[type] ?? meta.photos
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">
-        <div className="w-14 h-14 rounded-2xl bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-400 dark:text-mist-500">
+      <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-transparent pb-12">
+        <div className="w-14 h-14 rounded-2xl liquid-glass flex items-center justify-center text-mist-400 dark:text-mist-500">
           {icon}
         </div>
         <p className="text-sm text-mist-400 dark:text-mist-500">{label}</p>
@@ -203,7 +203,7 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
   }
 
   return (
-    <div ref={galleryRef} className={`flex-1 overflow-y-auto p-3 bg-white dark:bg-mist-900 ${pbSafe} md:pb-3`} onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
+    <div ref={galleryRef} className={`flex-1 overflow-y-auto p-3 bg-transparent ${pbSafe} md:pb-3`} onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
       <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
         {items.map((item, i) => {
           const isHidden = hiddenUris?.has(item.uri)

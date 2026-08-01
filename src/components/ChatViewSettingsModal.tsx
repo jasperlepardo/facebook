@@ -26,8 +26,8 @@ export default function ChatViewSettingsModal({ enabledTypes, onChange, onReset,
       className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
       onClick={e => { if (e.target === backdropRef.current) onClose() }}
     >
-      <div className="bg-white dark:bg-mist-900 rounded-2xl shadow-2xl w-[340px] max-h-[80vh] flex flex-col overflow-hidden border border-mist-100 dark:border-mist-700">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-mist-100 dark:border-mist-800 shrink-0">
+      <div className="liquid-glass rounded-2xl shadow-2xl w-[340px] max-h-[80vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-black/8 dark:border-white/10 shrink-0">
           <span className="text-sm font-bold text-gray-900 dark:text-white">View settings</span>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-mist-200 transition-colors">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

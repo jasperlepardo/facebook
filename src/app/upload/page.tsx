@@ -192,7 +192,7 @@ export default function UploadPage() {
     : threads
 
   return (
-    <div className="min-h-screen bg-mist-50 dark:bg-mist-950 p-6 md:p-10 [animation:fade-up_360ms_ease-out]">
+    <div className="min-h-screen p-6 md:p-10 [animation:fade-up_360ms_ease-out]">
       <div className="max-w-2xl mx-auto space-y-6">
 
         <div>
@@ -213,10 +213,10 @@ export default function UploadPage() {
             onDrop={onDrop}
             onDragOver={e => { e.preventDefault(); setDragging(true) }}
             onDragLeave={() => setDragging(false)}
-            className={`border-2 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center gap-4 transition-colors
+            className={`liquid-glass rounded-2xl p-12 flex flex-col items-center justify-center gap-4 transition-colors
               ${dragging
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
-                : 'border-mist-300 dark:border-mist-700'
+                ? 'ring-2 ring-blue-500/60 bg-blue-500/10'
+                : ''
               }`}
           >
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-mist-400">
@@ -246,11 +246,8 @@ export default function UploadPage() {
             onDrop={onDrop}
             onDragOver={e => { e.preventDefault(); setDragging(true) }}
             onDragLeave={() => setDragging(false)}
-            className={`border border-dashed rounded-xl px-4 py-3 flex items-center gap-3 transition-colors
-              ${dragging
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30'
-                : 'border-mist-300 dark:border-mist-700'
-              }`}
+            className={`liquid-glass rounded-xl px-4 py-3 flex items-center gap-3 transition-colors
+              ${dragging ? 'ring-2 ring-blue-500/60 bg-blue-500/10' : ''}`}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-mist-400 shrink-0">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
@@ -263,22 +260,22 @@ export default function UploadPage() {
         )}
 
         {parsing && (
-          <div className="flex items-center gap-3 p-6 bg-white dark:bg-mist-900 rounded-2xl border border-mist-200 dark:border-mist-700">
+          <div className="liquid-glass rounded-2xl flex items-center gap-3 p-6">
             <div className="w-5 h-5 border-2 border-mist-400 border-t-transparent rounded-full animate-spin shrink-0" />
             <span className="text-sm text-mist-600 dark:text-mist-300">{parseLabel || 'Scanning…'}</span>
           </div>
         )}
 
         {error && (
-          <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-sm text-red-700 dark:text-red-400">
-            {error}
+          <div className="liquid-glass rounded-xl p-4 text-sm text-red-700 dark:text-red-400 ring-1 ring-red-500/30">
+            <span>{error}</span>
           </div>
         )}
 
         {/* Thread list */}
         {threads.length > 0 && !progress && !done && (
-          <div className="bg-white dark:bg-mist-900 rounded-2xl border border-mist-200 dark:border-mist-700 overflow-hidden">
-            <div className="p-4 border-b border-mist-100 dark:border-mist-800">
+          <div className="liquid-glass rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-black/5 dark:border-white/10">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs text-mist-500 dark:text-mist-400">
                   {threads.length} conversation{threads.length !== 1 ? 's' : ''}
@@ -297,7 +294,7 @@ export default function UploadPage() {
               />
             </div>
 
-            <div className="max-h-72 overflow-y-auto divide-y divide-mist-100 dark:divide-mist-800">
+            <div className="max-h-72 overflow-y-auto divide-y divide-black/5 dark:divide-white/10">
               {filtered.map(t => {
                 const label = defaultThreadName(t.participants) || t.title
                 const avatars = t.participants.map(name => ({
@@ -309,11 +306,8 @@ export default function UploadPage() {
                 <button
                   key={t.key}
                   onClick={() => onSelect(t)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors
-                    ${selected?.key === t.key
-                      ? 'bg-blue-50 dark:bg-blue-950/30'
-                      : 'hover:bg-mist-50 dark:hover:bg-mist-800'
-                    }`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-[background,box-shadow] liquid-glass-hover
+                    ${selected?.key === t.key ? 'liquid-glass-selected' : ''}`}
                 >
                   <AvatarGroup people={avatars} size="md" />
                   <div className="flex-1 min-w-0">
@@ -335,7 +329,7 @@ export default function UploadPage() {
 
         {/* Config */}
         {selected && !progress && !done && (
-          <div className="bg-white dark:bg-mist-900 rounded-2xl border border-mist-200 dark:border-mist-700 p-5 space-y-4">
+          <div className="liquid-glass rounded-2xl p-5 space-y-4">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Configure import</h2>
 
             <div className="space-y-1">
@@ -348,7 +342,7 @@ export default function UploadPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs text-mist-500 dark:text-mist-400">
-              <div><span className="font-medium text-gray-700 dark:text-mist-200">Collection:</span> <code className="bg-mist-100 dark:bg-mist-800 px-1 rounded">{selected.key}</code></div>
+              <div><span className="font-medium text-gray-700 dark:text-mist-200">Collection:</span> <code className="bg-black/5 dark:bg-white/10 px-1 rounded">{selected.key}</code></div>
               <div><span className="font-medium text-gray-700 dark:text-mist-200">Format:</span> {selected.format}</div>
               <div><span className="font-medium text-gray-700 dark:text-mist-200">Messages:</span> ~{selected.messageCount.toLocaleString()}</div>
               <div><span className="font-medium text-gray-700 dark:text-mist-200">Message files:</span> {selected.messageFiles.length}</div>
@@ -360,7 +354,7 @@ export default function UploadPage() {
 
             <button
               onClick={handleImport}
-              className={btnPrimary}
+              className={`${btnPrimary}`}
             >
               Import Thread
             </button>
@@ -369,7 +363,7 @@ export default function UploadPage() {
 
         {/* Progress */}
         {progress && (
-          <div className="bg-white dark:bg-mist-900 rounded-2xl border border-mist-200 dark:border-mist-700 p-5 space-y-4">
+          <div className="liquid-glass rounded-2xl p-5 space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-5 h-5 border-2 border-mist-400 border-t-transparent rounded-full animate-spin shrink-0 mt-0.5" />
               <div className="min-w-0">
@@ -385,7 +379,7 @@ export default function UploadPage() {
                   <span>{progress.current.toLocaleString()}</span>
                   <span>{progress.total.toLocaleString()}</span>
                 </div>
-                <div className="w-full bg-mist-100 dark:bg-mist-800 rounded-full h-1.5">
+                <div className="w-full bg-black/5 dark:bg-white/10 rounded-full h-1.5">
                   <div
                     className="bg-blue-600 h-1.5 rounded-full transition-all"
                     style={{ width: `${Math.min(100, (progress.current / progress.total) * 100)}%` }}
@@ -403,7 +397,7 @@ export default function UploadPage() {
 
         {/* Done */}
         {done && (
-          <div className="bg-white dark:bg-mist-900 rounded-2xl border border-mist-200 dark:border-mist-700 p-5 space-y-4">
+          <div className="liquid-glass rounded-2xl p-5 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600 dark:text-emerald-400">
@@ -421,7 +415,7 @@ export default function UploadPage() {
                 { label: 'Media uploaded', value: done.mediaUploaded.toLocaleString() },
                 { label: done.mediaMissing > 0 ? 'Missing (re-import to recover)' : 'Media missing', value: done.mediaMissing.toLocaleString() },
               ].map(({ label, value }) => (
-                <div key={label} className="bg-mist-50 dark:bg-mist-800 rounded-xl p-3">
+                <div key={label} className="liquid-glass rounded-xl p-3">
                   <div className="text-lg font-bold text-gray-900 dark:text-white">{value}</div>
                   <div className="text-xs text-mist-500 dark:text-mist-400">{label}</div>
                 </div>

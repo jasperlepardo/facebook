@@ -47,17 +47,17 @@ export default function AppNav({ section, prevSection = 'chat', initials, name, 
   ]
 
   const btnBase    = 'rounded-lg flex items-center transition-colors shrink-0'
-  const btnActive  = 'bg-mist-200 dark:bg-mist-800 text-mist-700 dark:text-mist-200'
-  const btnIdle    = 'text-mist-500 dark:text-mist-400 hover:bg-mist-100 dark:hover:bg-mist-800 hover:text-mist-700 dark:hover:text-mist-200'
-  const avatarBg   = section === 'settings' ? 'bg-blue-600 text-white' : 'bg-mist-200 dark:bg-mist-700 text-mist-700 dark:text-mist-200'
-  const settingsColor = section === 'settings' ? btnActive : 'text-mist-500 dark:text-mist-400 hover:bg-mist-100 dark:hover:bg-mist-800'
+  const btnActive  = 'liquid-glass-selected text-gray-900 dark:text-white'
+  const btnIdle    = 'text-mist-500 dark:text-mist-400 liquid-glass-hover hover:text-mist-700 dark:hover:text-mist-200'
+  const avatarBg   = section === 'settings' ? 'bg-blue-600 text-white' : 'bg-black/8 dark:bg-white/12 text-mist-700 dark:text-mist-200'
+  const settingsColor = section === 'settings' ? btnActive : 'text-mist-500 dark:text-mist-400 liquid-glass-hover'
 
   return (
     <div className={hiddenOnMobile
       ? 'hidden md:contents'
       : 'flex fixed inset-x-0 bottom-0 z-20 justify-center pointer-events-none pb-[max(0.25rem,var(--resibo-safe-bottom))] md:contents'
     }>
-    <nav className={`pointer-events-auto liquid-glass shrink-0 flex flex-col rounded-full mb-0 mt-1 md:static md:rounded-none md:my-0 md:pb-0 md:overflow-hidden md:transition-all md:duration-200 md:ease-in-out md:bg-mist-50 md:dark:bg-mist-950 md:backdrop-filter-none md:[border:none] md:shadow-none md:before:hidden ${isExpanded ? 'md:w-60' : 'md:w-fit'}`}>
+    <nav className={`pointer-events-auto liquid-glass shrink-0 flex flex-col rounded-full mb-0 mt-1 md:static md:rounded-2xl md:my-0 md:p-1.5 md:overflow-hidden md:transition-all md:duration-200 md:ease-in-out ${isExpanded ? 'md:w-60' : 'md:w-fit'}`}>
 
       {/* Mobile: horizontal capsule row */}
       <div className="flex md:hidden flex-row items-center px-2 py-2 gap-1">
@@ -69,7 +69,7 @@ export default function AppNav({ section, prevSection = 'chat', initials, name, 
               onClick={() => onSectionChange(key)}
               title={label}
               className={`flex items-center justify-center w-12 h-10 rounded-full transition-colors
-                ${active ? 'bg-black/8 dark:bg-white/12 text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}
+                ${active ? 'liquid-glass-selected text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400 liquid-glass-hover'}`}
             >
               {icon(active)}
             </button>

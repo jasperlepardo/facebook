@@ -21,13 +21,13 @@ interface Props {
 
 export default function ProfileView({ nameInput, emailInput, saveState, error, onNameChange, onEmailChange, onSave, onBack }: Props) {
   return (
-    <div className={`flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900 ${pbNav} md:pb-0`}>
+    <div className={`flex-1 overflow-y-auto liquid-glass-atmosphere ${pbNav} md:pb-0`}>
       <div className="px-4 py-6">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-mist-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
           <BackIcon /> Back
         </button>
         <h1 className="text-lg font-semibold text-gray-900 dark:text-mist-100 mb-6">Edit profile</h1>
-        <div className="space-y-4">
+        <div className="liquid-glass rounded-2xl p-5 space-y-4">
           <div>
             <label className={label}>Name</label>
             <input type="text" value={nameInput} onChange={e => onNameChange(e.target.value)} className={field} />

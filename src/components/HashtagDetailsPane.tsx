@@ -28,7 +28,7 @@ function headerTitle(label: string) {
   return <span className="text-sm font-bold truncate">{label}</span>
 }
 
-const rowBtn = 'w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left text-sm text-gray-900 dark:text-white hover:bg-mist-100/80 dark:hover:bg-mist-700/50 transition-colors'
+const rowBtn = 'w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left text-sm text-gray-900 dark:text-white liquid-glass-hover transition-[background,box-shadow]'
 
 export default function HashtagDetailsPane({
   hashtag, activeTab, isSuperAdmin, onRenamed, onPrivacyChanged, onDeleted,
@@ -110,20 +110,20 @@ export default function HashtagDetailsPane({
 
   if (page === 'info') {
     return (
-      <div className="flex-1 flex flex-col min-h-0 bg-mist-50 dark:bg-mist-900">
+      <div className="flex-1 flex flex-col min-h-0 liquid-glass-atmosphere">
         <AppHeader title={headerTitle('Hashtag info')} onBack={() => setPage('hub')} embedded />
         <div className={`flex-1 overflow-y-auto ${pbSafe} md:pb-6`}>
           <div className="px-4 py-5 space-y-6">
             <section>
               <p className="text-xs font-semibold uppercase tracking-wide text-mist-400 dark:text-mist-500 mb-2 px-1">Name</p>
-              <div className="bg-white dark:bg-mist-800 rounded-xl p-4 space-y-3">
+              <div className="liquid-glass rounded-xl p-4 space-y-3">
                 <input
                   value={nameInput}
                   onChange={e => {
                     setNameInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))
                     setSaved(false)
                   }}
-                  className={fieldQuiet}
+                  className={`${fieldQuiet}`}
                   autoComplete="off"
                   aria-label="Hashtag name"
                 />
@@ -142,8 +142,8 @@ export default function HashtagDetailsPane({
             {isSuperAdmin && (
               <section>
                 <p className="text-xs font-semibold uppercase tracking-wide text-mist-400 dark:text-mist-500 mb-2 px-1">Privacy</p>
-                <div className="bg-white dark:bg-mist-800 rounded-xl overflow-hidden">
-                  <button type="button" onClick={() => void togglePrivacy()} className={rowBtn}>
+                <div className="liquid-glass rounded-xl overflow-hidden">
+                  <button type="button" onClick={() => void togglePrivacy()} className={`${rowBtn}`}>
                     <span className="inline-flex items-center gap-2">
                       {hashtag.isPrivate ? <LockIcon size={14} /> : <GlobeIcon size={14} />}
                       {hashtag.isPrivate ? 'Private' : 'Public'}
@@ -162,10 +162,10 @@ export default function HashtagDetailsPane({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-mist-900">
+    <div className="flex-1 flex flex-col min-h-0 liquid-glass-atmosphere">
       <AppHeader title={headerTitle('Settings')} embedded />
       <div className={`flex-1 overflow-y-auto ${pbSafe} md:pb-4`}>
-        <div className="mx-3 md:mx-4 mt-4 rounded-2xl bg-mist-50 dark:bg-mist-800/80 overflow-hidden divide-y divide-mist-100 dark:divide-mist-700/80">
+        <div className="mx-3 md:mx-4 mt-4 liquid-glass rounded-2xl overflow-hidden divide-y divide-black/5 dark:divide-white/10">
           <button type="button" onClick={() => setPage('info')} className={rowBtn}>
             <span>Hashtag info</span>
             <RowChevron />
@@ -176,7 +176,7 @@ export default function HashtagDetailsPane({
           </button>
         </div>
 
-        <div className="mx-3 md:mx-4 mt-4 rounded-2xl bg-mist-50 dark:bg-mist-800/80 overflow-hidden">
+        <div className="mx-3 md:mx-4 mt-4 liquid-glass rounded-2xl overflow-hidden">
           {!confirming ? (
             <button
               type="button"

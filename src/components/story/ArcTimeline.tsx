@@ -30,7 +30,7 @@ export function ArcTimeline({ arcs, selectedArc, arcDays: _arcDays, isPreview, o
             key={`${arc.title}-${arc.startDate}`}
             onClick={() => onSelectArc(arc)}
             className={`text-left px-4 py-3 border-b border-mist-50 dark:border-mist-800/60 transition-colors
-              ${isActive ? 'bg-mist-100 dark:bg-mist-800' : 'hover:bg-mist-50 dark:hover:bg-mist-800/50'}`}
+              ${isActive ? 'liquid-glass-selected' : 'liquid-glass-hover'}`}
           >
             <p className="font-display text-sm font-medium text-gray-800 dark:text-mist-100 leading-snug mb-0.5">{arc.title}</p>
             <p className="text-[10px] text-mist-400 dark:text-mist-500">
@@ -70,7 +70,7 @@ export function ArcDetail({ arc, arcDays, onSelectDay }: ArcDetailProps) {
       {arc.themes?.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-5">
           {arc.themes.map(t => (
-            <span key={t} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-mist-100 dark:bg-mist-800 text-mist-600 dark:text-mist-300">{t}</span>
+            <span key={t} className="text-[10px] font-medium px-2 py-0.5 rounded-full liquid-glass text-mist-600 dark:text-mist-300">{t}</span>
           ))}
         </div>
       )}
@@ -80,7 +80,7 @@ export function ArcDetail({ arc, arcDays, onSelectDay }: ArcDetailProps) {
           <div className="flex flex-col gap-1">
             {arcDays.map(day => (
               <button key={day.date} onClick={() => onSelectDay(day)}
-                className="text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-mist-50 dark:hover:bg-mist-800/50 transition-colors group">
+                className="text-left flex items-center gap-3 px-3 py-2 rounded-lg liquid-glass-hover transition-[background,box-shadow] group">
                 <div className={`w-2 h-2 rounded-full shrink-0 ${moodColor(day.mood)}`} />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-gray-700 dark:text-mist-200">{fmtDateShort(day.date)}</p>

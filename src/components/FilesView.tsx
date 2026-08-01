@@ -36,8 +36,8 @@ export default function FilesView({ type = 'all', thread = 'messages' }: { type?
   if (loading) return <MediaListSkeleton />
 
   if (!items.length) return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">
-      <div className="w-14 h-14 rounded-2xl bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-400 dark:text-mist-500">
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-transparent pb-12">
+      <div className="w-14 h-14 rounded-2xl liquid-glass flex items-center justify-center text-mist-400 dark:text-mist-500">
         {type === 'audio'
           ? <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           : <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -48,11 +48,11 @@ export default function FilesView({ type = 'all', thread = 'messages' }: { type?
   )
 
   return (
-    <div className={`flex-1 overflow-y-auto p-3 bg-gray-50 dark:bg-mist-900 ${pbSafe} md:pb-3`}>
+    <div className={`flex-1 overflow-y-auto p-3 bg-transparent ${pbSafe} md:pb-3`}>
       {items.map((item, i) => {
         const name = item.uri.split('/').pop() ?? ''
         return (
-          <div key={i} className="bg-white dark:bg-mist-800 rounded-lg px-3.5 py-3 mb-2 flex items-center gap-3 shadow-xs dark:shadow-gray-900 border border-transparent dark:border-mist-700">
+          <div key={i} className="liquid-glass rounded-lg px-3.5 py-3 mb-2 flex items-center gap-3">
             <div className="text-[22px]">{icon(item)}</div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">

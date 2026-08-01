@@ -118,7 +118,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
     const keyMissing = hasApiKey === false
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-8 py-12">
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center ${keyMissing ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-mist-100 dark:bg-mist-800'}`}>
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center ${keyMissing ? 'bg-amber-50 dark:bg-amber-900/20' : 'liquid-glass'}`}>
           {keyMissing ? (
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
@@ -163,7 +163,7 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
     : []
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden liquid-glass-atmosphere">
 
       {previewMode && (
         <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800/40">
@@ -191,8 +191,8 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
           }}
             className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors shrink-0
               ${y === selectedYear
-                ? 'bg-mist-800 dark:bg-mist-100 text-white dark:text-mist-900'
-                : 'text-mist-500 dark:text-mist-400 hover:bg-mist-100 dark:hover:bg-mist-800'}`}
+                ? 'liquid-glass-selected text-gray-900 dark:text-white'
+                : 'text-mist-500 dark:text-mist-400 liquid-glass-hover'}`}
           >{y}</button>
         ))}
       </div>
@@ -207,8 +207,8 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
             }}
               className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0
                 ${m === selectedMonth
-                  ? 'bg-mist-200 dark:bg-mist-700 text-mist-800 dark:text-mist-100'
-                  : 'text-mist-500 dark:text-mist-400 hover:bg-mist-100 dark:hover:bg-mist-800'}`}
+                  ? 'liquid-glass-selected text-mist-800 dark:text-mist-100'
+                  : 'text-mist-500 dark:text-mist-400 liquid-glass-hover'}`}
             >{MONTH_NAMES[m - 1]}</button>
           ))}
         </div>
@@ -224,8 +224,8 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
               <button key={tab} onClick={() => { setLeftTab(tab); setSelectedArc(null) }}
                 className={`flex-1 py-1 rounded-full text-[11px] font-semibold transition-colors capitalize
                   ${leftTab === tab
-                    ? 'bg-mist-200 dark:bg-mist-700 text-mist-800 dark:text-mist-100'
-                    : 'text-mist-400 dark:text-mist-500 hover:bg-mist-100 dark:hover:bg-mist-800'}`}
+                    ? 'liquid-glass-selected text-mist-800 dark:text-mist-100'
+                    : 'text-mist-400 dark:text-mist-500 liquid-glass-hover'}`}
               >{tab}</button>
             ))}
           </div>

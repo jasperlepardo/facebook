@@ -104,7 +104,7 @@ export default function HashtagPicker({
         {newTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
             {newTags.map(t => (
-              <span key={t} className="flex items-center gap-1 bg-mist-100 dark:bg-mist-900/40 text-mist-700 dark:text-mist-300 text-xs px-2 py-0.5 rounded-full font-medium">
+              <span key={t} className="flex items-center gap-1 liquid-glass text-mist-700 dark:text-mist-300 text-xs px-2 py-0.5 rounded-full font-medium">
                 #{t}
                 <button type="button" onClick={() => removeNew(t)} disabled={loading} className="hover:text-mist-900 dark:hover:text-mist-100 leading-none disabled:opacity-40">×</button>
               </span>
@@ -118,7 +118,7 @@ export default function HashtagPicker({
           <p className="text-xs text-gray-400 dark:text-gray-500 py-1 px-2">Press Enter to create <strong>#{input}</strong></p>
         )}
         {filtered.map(h => (
-          <label key={h.id} className="flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer hover:bg-mist-50 dark:hover:bg-mist-700">
+          <label key={h.id} className="flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer liquid-glass-hover">
             <input type="checkbox" checked={selected.has(h.id)} onChange={() => toggleExisting(h.id)} disabled={loading} className="accent-blue-600" />
             <span className="text-sm text-gray-700 dark:text-gray-200">#{h.name}</span>
             <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">{h.groupCount ?? 0}</span>

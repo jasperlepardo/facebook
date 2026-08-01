@@ -51,7 +51,7 @@ function headerTitle(label: string) {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-wide text-mist-400 dark:text-mist-500 mb-2 px-1">
+    <p className="text-xs font-semibold uppercase tracking-wide text-mist-500 dark:text-mist-400 mb-2 px-1">
       {children}
     </p>
   )
@@ -193,8 +193,8 @@ export default function ThreadDetailsPane({
     }
   }
 
-  const rowBtn =
-    'w-full flex items-center justify-between px-4 py-3.5 text-left text-[15px] font-medium text-gray-900 dark:text-white hover:bg-mist-50 dark:hover:bg-mist-800/60 transition-colors'
+const rowBtn =
+    'w-full flex items-center justify-between px-4 py-3.5 text-left text-[15px] font-medium text-gray-900 dark:text-white liquid-glass-hover transition-[background,box-shadow]'
 
   const goHub = () => {
     setPage('hub')
@@ -205,7 +205,7 @@ export default function ThreadDetailsPane({
 
   if (page === 'chatInfo') {
     return (
-      <div className="flex-1 flex flex-col min-h-0 bg-mist-50 dark:bg-mist-900">
+      <div className="flex-1 flex flex-col min-h-0 liquid-glass-atmosphere">
         <AppHeader title={headerTitle('Chat info')} onBack={goHub} embedded />
         <div className={`flex-1 overflow-y-auto ${pbSafe} md:pb-6`}>
           <div className="px-4 py-5 space-y-6">
@@ -213,7 +213,7 @@ export default function ThreadDetailsPane({
             {/* Thread */}
             <section>
               <SectionLabel>Thread</SectionLabel>
-              <div className="bg-white dark:bg-mist-800 rounded-xl p-4 space-y-4">
+              <div className="liquid-glass rounded-xl p-4 space-y-4">
                 {isSuperAdmin ? (
                   <>
                     <div>
@@ -243,9 +243,9 @@ export default function ThreadDetailsPane({
                 )}
 
                 {threadCollection && (
-                  <div className="flex items-baseline justify-between gap-2 pt-3 border-t border-mist-100 dark:border-mist-700">
+                  <div className="flex items-baseline justify-between gap-2 pt-3 border-t border-black/5 dark:border-white/10">
                     <span className="text-xs text-mist-500 dark:text-mist-400 shrink-0">Collection</span>
-                    <code className="text-xs text-gray-700 dark:text-mist-300 bg-mist-100 dark:bg-mist-700 px-1.5 py-0.5 rounded truncate">{threadCollection}</code>
+                    <code className="text-xs text-gray-700 dark:text-mist-300 bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded truncate">{threadCollection}</code>
                   </div>
                 )}
               </div>
@@ -254,7 +254,7 @@ export default function ThreadDetailsPane({
             {/* Members */}
             <section>
               <SectionLabel>Members</SectionLabel>
-              <div className={`${sectionCard} divide-y divide-mist-100 dark:divide-mist-700/80`}>
+              <div className={sectionCard}>
                 {memberList.length === 0 ? (
                   <p className="px-4 py-6 text-sm text-mist-400 dark:text-mist-500 text-center">No members listed.</p>
                 ) : (
@@ -302,7 +302,7 @@ export default function ThreadDetailsPane({
                                 type="button"
                                 onClick={() => { setEditingMember(null); setMemberError(null) }}
                                 disabled={memberSaving}
-                                className="flex-1 py-2 bg-mist-100 dark:bg-mist-700 text-sm font-medium rounded-xl disabled:opacity-50"
+                                className="flex-1 py-2 liquid-glass rounded-xl text-sm font-medium liquid-glass-hover disabled:opacity-50"
                               >
                                 Cancel
                               </button>
@@ -369,7 +369,7 @@ export default function ThreadDetailsPane({
                 </div>
 
                 {canDelete && (
-                  <div className="mt-3 border border-red-200 dark:border-red-800 rounded-xl p-4 space-y-3 bg-white dark:bg-mist-800">
+                  <div className="mt-3 liquid-glass rounded-xl p-4 space-y-3 ring-1 ring-red-500/25">
                     <p className="text-xs font-semibold text-red-500 uppercase tracking-wide">Danger zone</p>
                     {!confirming ? (
                       <>
@@ -393,7 +393,7 @@ export default function ThreadDetailsPane({
                             type="button"
                             onClick={() => { setConfirming(false); setDeleteError(null) }}
                             disabled={deleting}
-                            className="flex-1 py-2.5 bg-mist-100 dark:bg-mist-700 text-sm font-medium rounded-xl disabled:opacity-50"
+                            className="flex-1 py-2.5 liquid-glass rounded-xl text-sm font-medium liquid-glass-hover disabled:opacity-50"
                           >
                             Cancel
                           </button>
@@ -419,14 +419,14 @@ export default function ThreadDetailsPane({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-mist-900">
+    <div className="flex-1 flex flex-col min-h-0 liquid-glass-atmosphere">
       <AppHeader title={headerTitle('Settings')} embedded />
       <div className={`flex-1 overflow-y-auto ${pbSafe} md:pb-4`}>
         <div className="flex flex-col items-center gap-2 px-4 pt-5 pb-4">
           <AvatarGroup people={participantAvatars(memberList)} size="lg" />
           <p className="text-base font-semibold text-gray-900 dark:text-white text-center px-4">{threadName}</p>
         </div>
-        <div className="mx-3 md:mx-4 rounded-2xl bg-mist-50 dark:bg-mist-800/80 overflow-hidden divide-y divide-mist-100 dark:divide-mist-700/80">
+        <div className="mx-3 md:mx-4 liquid-glass rounded-2xl overflow-hidden divide-y divide-black/5 dark:divide-white/10">
           <button type="button" onClick={() => setPage('chatInfo')} className={rowBtn}>
             <span>Chat info</span>
             <RowChevron />

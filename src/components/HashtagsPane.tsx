@@ -12,7 +12,7 @@ import Tabs from './Tabs'
 import { useHashtagMessages } from '@/hooks/useHashtagMessages'
 import { buildMessageLink, formatMessagesText } from '@/lib/messageCopy'
 import { buildMessageActions, actionsToSheet } from '@/lib/messageActions'
-import { pbSafe } from '@/lib/ui'
+import { pbSafe, toastPill } from '@/lib/ui'
 
 interface HashtagsPaneProps {
   hashtags: Hashtag[]
@@ -278,8 +278,8 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
       />
     }
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-white dark:bg-mist-900 px-8 text-center">
-        <div className="w-20 h-20 rounded-full bg-mist-100 dark:bg-mist-800 flex items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 liquid-glass-atmosphere px-8 text-center">
+        <div className="w-20 h-20 rounded-full liquid-glass flex items-center justify-center">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-mist-400 dark:text-mist-500">
             <line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/>
             <line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/>
@@ -295,7 +295,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
 
   return (
     <>
-      <div className="flex flex-col h-full min-h-0 bg-white dark:bg-mist-900">
+      <div className="flex flex-col h-full min-h-0 liquid-glass-atmosphere">
         <Tabs
           tabs={[
             { key: 'context',  label: 'Context' },
@@ -316,7 +316,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   onBlur={() => setEditingContext(false)}
                   onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') setEditingContext(false) }}
                   placeholder={`Notes and context for #${selected.name}…\n\nSupports **markdown**`}
-                  className="w-full h-full p-3 text-sm text-gray-700 dark:text-mist-200 leading-relaxed resize-none outline-hidden font-mono bg-white dark:bg-mist-900"
+                  className="w-full h-full p-3 text-sm text-gray-700 dark:text-mist-200 leading-relaxed resize-none outline-hidden font-mono bg-transparent"
                   autoFocus
                 />
               ) : (
@@ -409,7 +409,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
       />
     )}
     {toast && (
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-mist-900 dark:bg-mist-700 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none z-[400]">
+      <div className={toastPill}>
         {toast}
       </div>
     )}

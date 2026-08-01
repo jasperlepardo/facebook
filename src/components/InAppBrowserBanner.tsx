@@ -45,7 +45,7 @@ export default function InAppBrowserBanner() {
   }
 
   return (
-    <div className="shrink-0 flex items-center gap-2 px-3 py-2 bg-mist-50 dark:bg-mist-800 border-b border-mist-200 dark:border-mist-700 text-[12px]">
+    <div className="shrink-0 flex items-center gap-2 px-3 py-2 liquid-glass-bar text-[12px]">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-mist-400 dark:text-mist-500">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
@@ -55,14 +55,14 @@ export default function InAppBrowserBanner() {
       {android ? (
         <button
           onClick={openInBrowser}
-          className="shrink-0 font-semibold text-mist-800 dark:text-white px-2.5 py-1 rounded-full bg-mist-200 dark:bg-mist-700 hover:bg-mist-300 dark:hover:bg-mist-600 transition-colors"
+          className="shrink-0 font-semibold liquid-glass-btn liquid-glass-chip !h-7 text-mist-800 dark:text-white"
         >
           Open
         </button>
       ) : (
         <button
           onClick={handleCopy}
-          className="shrink-0 font-semibold text-mist-800 dark:text-white px-2.5 py-1 rounded-full bg-mist-200 dark:bg-mist-700 hover:bg-mist-300 dark:hover:bg-mist-600 transition-colors"
+          className="shrink-0 font-semibold liquid-glass-btn liquid-glass-chip !h-7 text-mist-800 dark:text-white"
         >
           {copied ? 'Copied!' : 'Copy link'}
         </button>

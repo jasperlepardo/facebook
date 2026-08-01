@@ -52,8 +52,8 @@ export default async function SamplesPage() {
   const samples = results.filter((s): s is { label: string; msg: Message } => s !== null)
 
   return (
-    <div className="min-h-screen bg-white dark:bg-mist-950">
-      <div className="sticky top-0 z-10 px-5 py-3 bg-white/90 dark:bg-mist-950/90 backdrop-blur-sm border-b border-mist-100 dark:border-mist-800 flex items-center justify-between">
+    <div className="min-h-screen">
+      <div className="sticky top-0 z-10 px-5 py-3 liquid-glass-bar flex items-center justify-between">
         <h1 className="text-sm font-semibold text-gray-900 dark:text-white">Content Types</h1>
         <span className="text-[11px] text-mist-400">{samples.length} types · live data</span>
       </div>

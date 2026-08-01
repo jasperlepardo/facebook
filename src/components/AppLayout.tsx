@@ -608,7 +608,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
       {centeredDetail ? (
         <>
           <div className="hidden md:block basis-0 min-w-0" style={{ flexGrow: listGrow }} />
-          <div className="flex flex-col overflow-hidden bg-white dark:bg-mist-900 flex-1 md:basis-0 md:min-w-0 md:min-h-0 md:rounded-2xl" style={{ flexGrow: detailGrow }}>
+          <div className="flex flex-col overflow-hidden liquid-glass-atmosphere flex-1 md:basis-0 md:min-w-0 md:min-h-0 md:rounded-2xl" style={{ flexGrow: detailGrow }}>
             {detailPane(controls)}
           </div>
           <div className="hidden md:block basis-0 min-w-0" style={{ flexGrow: listGrow }} />
@@ -619,7 +619,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
             <div
               ref={listRef}
               className={[
-                'flex flex-col shrink-0 overflow-hidden bg-white dark:bg-mist-950 md:dark:bg-mist-900 absolute inset-0 md:static md:basis-0 md:min-w-0 md:rounded-2xl will-change-transform md:!transform-none',
+                'flex flex-col shrink-0 overflow-hidden liquid-glass-atmosphere absolute inset-0 md:static md:basis-0 md:min-w-0 md:rounded-2xl will-change-transform md:!transform-none',
                 // Hide list while sheet is open so only the chat card peeks (not a 3rd layer).
                 sheetVisible ? 'max-md:invisible' : '',
               ].filter(Boolean).join(' ')}
@@ -639,7 +639,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
           <div
             ref={detailRef}
             className={[
-              'flex flex-col overflow-hidden bg-white dark:bg-mist-900 absolute inset-0 z-10',
+              'flex flex-col overflow-hidden liquid-glass-atmosphere absolute inset-0 z-10',
               'md:static md:z-auto md:basis-0 md:min-w-0 md:min-h-0 md:rounded-2xl md:!transform-none md:!shadow-none',
               'will-change-transform',
               'shadow-[-12px_0_32px_rgba(0,0,0,0.18)] dark:shadow-[-12px_0_32px_rgba(0,0,0,0.45)]',
@@ -664,7 +664,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
                 ref={sheetPanelRef}
                 role="dialog"
                 aria-modal
-                className="relative z-10 flex flex-col flex-1 min-h-0 w-full rounded-t-[1.25rem] overflow-hidden bg-white dark:bg-mist-900 shadow-[0_-8px_40px_rgba(0,0,0,0.25)] dark:shadow-[0_-8px_40px_rgba(0,0,0,0.55)] pointer-events-auto [animation:sheet-up_340ms_cubic-bezier(0.32,0.72,0,1)] md:h-full md:rounded-2xl md:shadow-none md:animate-none will-change-transform"
+                className="relative z-10 flex flex-col flex-1 min-h-0 w-full rounded-t-[1.25rem] overflow-hidden liquid-glass-atmosphere shadow-[0_-8px_40px_rgba(0,0,0,0.25)] dark:shadow-[0_-8px_40px_rgba(0,0,0,0.55)] pointer-events-auto [animation:sheet-up_340ms_cubic-bezier(0.32,0.72,0,1)] md:h-full md:rounded-2xl md:shadow-none md:animate-none will-change-transform"
               >
                 <div className="flex justify-center pt-2.5 pb-1 shrink-0 md:hidden" aria-hidden>
                   <div className="w-9 h-1 rounded-full bg-mist-300 dark:bg-mist-600" />

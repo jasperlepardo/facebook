@@ -17,9 +17,9 @@ const ICONS: Record<MessageActionId, (p: { size?: number }) => React.ReactNode> 
 }
 
 const btnBase =
-  'inline-flex items-center justify-center w-7 h-7 rounded-md border border-mist-200 dark:border-mist-600 bg-white dark:bg-mist-800 text-mist-600 dark:text-mist-300 shadow-xs hover:bg-mist-50 dark:hover:bg-mist-700 transition-colors'
+  'liquid-glass-btn !w-7 !h-7 text-mist-600 dark:text-mist-300'
 
-const btnDanger = `${btnBase} text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40`
+const btnDanger = `${btnBase} !text-red-500 dark:!text-red-400`
 
 interface MessageRowActionsProps {
   actions: MessageActionDesc[]
@@ -65,10 +65,10 @@ export function MessageBarIconButton({
       title={action.label}
       aria-label={action.label}
       onClick={action.onPress}
-      className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+      className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors liquid-glass-btn !w-8 !h-8 ${
         action.destructive
-          ? 'bg-red-500/20 hover:bg-red-500/30 text-red-200'
-          : 'bg-white/15 hover:bg-white/25 text-white'
+          ? '!text-red-500 dark:!text-red-300'
+          : ''
       }`}
     >
       <MessageActionIcon id={action.iconKey} size={15} />

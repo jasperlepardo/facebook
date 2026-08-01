@@ -6,7 +6,7 @@ import ProfileView from './ProfileView'
 import PasswordView from './PasswordView'
 import HiddenItemsView from './HiddenItemsView'
 import PasskeysSection, { type Passkey } from './PasskeysSection'
-import { sectionCard, toggleOn, toggleOff, pbNav } from '@/lib/ui'
+import { sectionCard, sectionLabel, toggleOn, toggleOff, pbNav } from '@/lib/ui'
 
 type Theme    = 'light' | 'dark' | 'system'
 type View     = 'main' | 'profile' | 'password' | 'hidden-items'
@@ -180,16 +180,16 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
   ]
 
   return (
-    <div className={`flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900 ${pbNav} md:pb-0`}>
+    <div className={`flex-1 overflow-y-auto liquid-glass-atmosphere ${pbNav} md:pb-0`}>
       <div className="px-4 py-6 space-y-6">
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Profile</h2>
+          <h2 className={sectionLabel}>Profile</h2>
           <div className={sectionCls}>
             <div className={rowCls}><span className={labelCls}>Name</span><span className={valueCls}>{name || '—'}</span></div>
             <div className={rowCls}><span className={labelCls}>Email</span><span className={valueCls}>{email || '—'}</span></div>
             <button onClick={() => { setNameInput(name); setEmailInput(email); setProfileError(''); setProfileSave('idle'); setView('profile') }}
-              className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+              className={`${rowCls} w-full liquid-glass-hover transition-[background,box-shadow]`}>
               <span className="text-sm text-mist-600 dark:text-mist-400 font-medium">Edit profile</span>
               <ChevronRight />
             </button>
@@ -197,11 +197,11 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
         </section>
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Security</h2>
+          <h2 className={sectionLabel}>Security</h2>
           <div className={sectionCls}>
             <div className={rowCls}><span className={labelCls}>Password</span><span className="text-sm text-gray-400 dark:text-mist-500 tracking-widest">••••••••</span></div>
             <button onClick={() => { setNewPw(''); setConfirmPw(''); setPwError(''); setPwSave('idle'); setView('password') }}
-              className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+              className={`${rowCls} w-full liquid-glass-hover transition-[background,box-shadow]`}>
               <span className="text-sm text-mist-600 dark:text-mist-400 font-medium">Change password</span>
               <ChevronRight />
             </button>
@@ -218,17 +218,17 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
         />
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Appearance</h2>
+          <h2 className={sectionLabel}>Appearance</h2>
           <div className={sectionCls}>
             <div className="px-4 py-3">
               <p className="text-sm text-gray-500 dark:text-mist-400 mb-3">Theme</p>
               <div className="flex gap-2">
                 {themeOptions.map(({ value, label, icon }) => (
                   <button key={value} onClick={() => applyTheme(value)}
-                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-lg border-2 transition-colors text-xs font-semibold ${
+                    className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-xl transition-colors text-xs font-semibold ${
                       theme === value
-                        ? 'border-blue-600 text-blue-600 bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:bg-blue-950/30'
-                        : 'border-mist-200 dark:border-mist-700 text-mist-500 dark:text-mist-400 hover:border-mist-300 dark:hover:border-mist-600'
+                        ? 'liquid-glass ring-2 ring-blue-600 text-blue-600 dark:ring-blue-400 dark:text-blue-400'
+                        : 'liquid-glass text-mist-500 dark:text-mist-400 opacity-90 hover:opacity-100'
                     }`}>
                     {icon}{label}
                   </button>
@@ -236,7 +236,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
               </div>
             </div>
             {!!hiddenUriCount && onClearHiddenUris && (
-              <button onClick={onClearHiddenUris} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+              <button onClick={onClearHiddenUris} className={`${rowCls} w-full liquid-glass-hover transition-[background,box-shadow]`}>
                 <span className="text-sm text-gray-900 dark:text-mist-100">Hidden images</span>
                 <span className="text-sm text-mist-600 dark:text-mist-400 font-medium">Unhide all ({hiddenUriCount})</span>
               </button>
@@ -246,19 +246,19 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
 
         {isSuperAdmin && (
           <section>
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Super Admin</h2>
+            <h2 className={sectionLabel}>Super Admin</h2>
             <div className={sectionCls}>
-              <button onClick={onToggleShowHidden} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+              <button onClick={onToggleShowHidden} className={`${rowCls} w-full liquid-glass-hover transition-[background,box-shadow]`}>
                 <span className="text-sm text-gray-900 dark:text-mist-100">Show hidden messages</span>
                 <div className={`w-10 h-6 rounded-full transition-colors ${showHidden ? toggleOn : toggleOff} relative`}>
                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${showHidden ? 'translate-x-5' : 'translate-x-1'}`} />
                 </div>
               </button>
-              <button onClick={() => setView('hidden-items')} className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+              <button onClick={() => setView('hidden-items')} className={`${rowCls} w-full liquid-glass-hover transition-[background,box-shadow]`}>
                 <span className="text-sm text-gray-900 dark:text-mist-100">Hidden items</span>
                 <ChevronRight />
               </button>
-              <a href="/admin" target="_blank" rel="noopener noreferrer" className={`${rowCls} w-full hover:bg-mist-50 dark:hover:bg-mist-700/50 transition-colors`}>
+              <a href="/admin" target="_blank" rel="noopener noreferrer" className={`${rowCls} w-full liquid-glass-hover transition-[background,box-shadow]`}>
                 <span className="text-sm text-gray-900 dark:text-mist-100">Payload admin</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               </a>
@@ -267,7 +267,7 @@ export default function SettingsPane({ total, dateIndex, currentUser, isSuperAdm
         )}
 
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">About</h2>
+          <h2 className={sectionLabel}>About</h2>
           <div className={sectionCls}>
             {currentUser && <div className={rowCls}><span className={labelCls}>Viewing as</span><span className={valueCls}>{currentUser}</span></div>}
             {total > 0 && <div className={rowCls}><span className={labelCls}>Messages</span><span className={valueCls}>{total.toLocaleString()}</span></div>}

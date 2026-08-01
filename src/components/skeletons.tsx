@@ -11,7 +11,7 @@ function Bone({ className = '', style }: { className?: string; style?: CSSProper
 /** Thread / hashtag list — matches ListPane. */
 export function ListPaneSkeleton({ titleWidth = 'w-16' }: { titleWidth?: string }) {
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-mist-950 md:dark:bg-mist-900 md:shadow-xl" aria-hidden>
+    <div className="flex flex-col h-full bg-transparent" aria-hidden>
       <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 shrink-0">
         <Bone className={`h-[22px] ${titleWidth} mb-3 rounded-lg`} />
         <Bone className="h-9 w-full rounded-full bg-mist-100 dark:bg-mist-800" />
@@ -76,7 +76,7 @@ export function MessageListSkeleton({ rows = 8 }: { rows?: number }) {
 /** Chat detail pane while messages load (bottom-anchored like the real scroll). */
 export function ChatDetailSkeleton() {
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-white dark:bg-mist-900" aria-busy>
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-transparent" aria-busy>
       <div className="flex-1 overflow-hidden flex flex-col justify-end">
         <MessageListSkeleton />
       </div>
@@ -87,7 +87,7 @@ export function ChatDetailSkeleton() {
 /** Media gallery grid. */
 export function GallerySkeleton({ count = 12 }: { count?: number }) {
   return (
-    <div className="flex-1 overflow-hidden p-3 bg-white dark:bg-mist-900" aria-busy>
+    <div className="flex-1 overflow-hidden p-3 bg-transparent" aria-busy>
       <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
         {Array.from({ length: count }).map((_, i) => (
           <Bone key={i} className="aspect-square rounded-xs" />
@@ -141,7 +141,7 @@ export function StoryPaneSkeleton() {
 /** Settings / hidden-items list rows. */
 export function SettingsRowsSkeleton({ rows = 3 }: { rows?: number }) {
   return (
-    <div className="bg-white dark:bg-mist-800 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700" aria-busy>
+    <div className="liquid-glass rounded-xl overflow-hidden divide-y divide-black/10 dark:divide-white/12" aria-busy>
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex items-center justify-between px-4 py-3 gap-3">
           <div className="flex-1 min-w-0 flex flex-col gap-1.5">
@@ -161,9 +161,9 @@ export function SettingsRowsSkeleton({ rows = 3 }: { rows?: number }) {
 /** Files / links card list in MediaPane. */
 export function MediaListSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="flex-1 overflow-hidden p-3 bg-gray-50 dark:bg-mist-900" aria-busy>
+    <div className="flex-1 overflow-hidden p-3 bg-transparent" aria-busy>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="bg-white dark:bg-mist-800 rounded-lg px-3.5 py-3 mb-2 flex items-center gap-3 border border-transparent dark:border-mist-700">
+        <div key={i} className="liquid-glass rounded-lg px-3.5 py-3 mb-2 flex items-center gap-3">
           <Bone className="w-8 h-8 rounded-lg shrink-0" />
           <div className="flex-1 min-w-0 flex flex-col gap-1.5">
             <Bone className="h-3.5 rounded-md" style={{ width: `${68 - (i % 3) * 10}%` }} />

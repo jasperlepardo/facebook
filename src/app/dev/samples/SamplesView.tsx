@@ -18,7 +18,7 @@ function toBlock(msg: Message): MessageBlock {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="px-5 py-2 text-[10px] font-semibold uppercase tracking-widest text-mist-400 dark:text-mist-600 bg-mist-50 dark:bg-mist-900/50 border-b border-mist-100 dark:border-mist-800">
+      <div className="px-5 py-2 text-[10px] font-semibold uppercase tracking-widest text-mist-400 dark:text-mist-500 liquid-glass-bar">
         {label}
       </div>
       {children}

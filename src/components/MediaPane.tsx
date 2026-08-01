@@ -48,7 +48,7 @@ export default function MediaPane({
   })
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 liquid-glass-atmosphere">
       <AppHeader
         title={<span className="text-sm font-bold truncate">Media</span>}
         onBack={onBack}

@@ -20,6 +20,7 @@ import { LockIcon } from '@/components/icons'
 import { ListPaneSkeleton, ChatDetailSkeleton } from '@/components/skeletons'
 import AvatarGroup from '@/components/AvatarGroup'
 import { defaultThreadName, participantAvatars } from '@/lib/threadDisplay'
+import { headerBtn, headerBtnActive } from '@/lib/ui'
 
 type ThreadSideView = 'details' | 'media' | 'tag' | null
 
@@ -341,21 +342,21 @@ export default function ViewerApp() {
     const hashtagSearching = section === 'hashtags' && hashtagSearchOpen
     const headerSearching = chatSearching || hashtagSearching
 
-    const iconBtn = 'w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'
+    const iconBtn = headerBtn
     const searchIcon = (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
       </svg>
     )
     const infoIcon = (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
       </svg>
     )
 
     const actions =
       section === 'chat' && thread && !chatSearching ? (
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={openChatSearch}
@@ -376,13 +377,13 @@ export default function ViewerApp() {
             }}
             title="Settings"
             aria-label="Settings"
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${threadSideView ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}
+            className={threadSideView ? headerBtnActive : iconBtn}
           >
             {infoIcon}
           </button>
         </div>
       ) : section === 'hashtags' && activeHashtagName && !hashtagSearching ? (
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={openHashtagSearch}
@@ -397,7 +398,7 @@ export default function ViewerApp() {
             onClick={() => setHashtagSideView(v => !v)}
             title="Settings"
             aria-label="Settings"
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${hashtagSideView ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}
+            className={hashtagSideView ? headerBtnActive : iconBtn}
           >
             {infoIcon}
           </button>
@@ -405,7 +406,7 @@ export default function ViewerApp() {
       ) : null
 
     // ── Search ─────────────────────────────────────────────────────────────────
-    const searchFieldCls = 'px-3.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-100 text-[13px] outline-hidden placeholder:text-mist-400 focus:bg-mist-200 dark:focus:bg-mist-700 w-full'
+    const searchFieldCls = 'liquid-glass-field'
     const search = chatSearching ? (
       <input
         ref={chatSearchRef}
@@ -444,7 +445,7 @@ export default function ViewerApp() {
           {/* Chat — empty state on desktop until thread is opened */}
           {section === 'chat' && !chatDetailOpen && (
             <div className="hidden md:flex flex-1 flex-col items-center justify-center gap-3 text-center px-8">
-              <div className="w-16 h-16 rounded-full bg-mist-100 dark:bg-mist-800 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full liquid-glass flex items-center justify-center">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-mist-400 dark:text-mist-500"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               </div>
               <p className="text-sm text-mist-400 dark:text-mist-500">Select a conversation</p>
@@ -485,7 +486,7 @@ export default function ViewerApp() {
           {/* Hashtags — empty state on desktop when none selected */}
           {section === 'hashtags' && !activeHashtagName && !hashtagCreating && (
             <div className="hidden md:flex flex-1 flex-col items-center justify-center gap-3 text-center px-8">
-              <div className="w-16 h-16 rounded-full bg-mist-100 dark:bg-mist-800 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full liquid-glass flex items-center justify-center">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-mist-400 dark:text-mist-500"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
               </div>
               <p className="text-sm text-mist-400 dark:text-mist-500">Select a hashtag</p>
@@ -614,6 +615,8 @@ export default function ViewerApp() {
             filter={threadFilter}
             onFilterChange={setThreadFilter}
             filterPlaceholder="Search Messenger"
+            onNew={isSuperAdmin ? () => { window.location.assign('/upload') } : undefined}
+            emptyMessage="No chats yet."
             onSelect={id => {
               setActiveThread(id)
               setChatDetailOpen(true)

@@ -21,7 +21,7 @@ export default function DatePickerModal({ onClose, onJump, defaultDate = '' }: D
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative bg-white dark:bg-mist-800 rounded-2xl shadow-2xl dark:shadow-black/40 px-6 py-5 w-72 flex flex-col gap-4 border border-mist-100 dark:border-mist-700">
+      <div className="relative liquid-glass rounded-2xl shadow-2xl dark:shadow-black/40 px-6 py-5 w-72 flex flex-col gap-4">
         <h2 className="text-[15px] font-semibold text-gray-900 dark:text-mist-100">Jump to date</h2>
         <input
           ref={inputRef}

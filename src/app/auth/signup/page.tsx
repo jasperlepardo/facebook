@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { field, btnPrimary, label, brandMark, linkAccent } from '@/lib/ui'
+import { field, btnPrimary, label, brandMark, linkAccent, glassPanel } from '@/lib/ui'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
@@ -35,7 +35,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="w-full max-w-sm">
+    <div className={`${glassPanel} max-w-sm`}>
       <div className="text-center mb-8">
         <div className={`${brandMark} mx-auto mb-5`}>
           <span className="text-white text-2xl font-bold">R</span>

@@ -47,7 +47,7 @@ export default function TagMessagesPane({
   const title = messageCount === 1 ? 'Tag message' : `Tag ${messageCount} messages`
 
   return (
-    <div className={`flex-1 flex flex-col min-h-0 bg-white dark:bg-mist-900 ${pbSafe} md:pb-0`}>
+    <div className={`flex-1 flex flex-col min-h-0 liquid-glass-atmosphere ${pbSafe} md:pb-0`}>
       <AppHeader title={headerTitle(title)} onBack={onClose} embedded />
       {initialSelected ? (
         <HashtagPicker

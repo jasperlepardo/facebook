@@ -44,7 +44,7 @@ export function DaySummaryView({ summary, parentArc, onJumpToMessages, onNavigat
       {summary.themes?.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-4">
           {summary.themes.map(t => (
-            <span key={t} className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-mist-100 dark:bg-mist-800 text-mist-600 dark:text-mist-300">{t}</span>
+            <span key={t} className="text-[10px] font-medium px-2 py-0.5 rounded-full liquid-glass text-mist-600 dark:text-mist-300">{t}</span>
           ))}
         </div>
       )}

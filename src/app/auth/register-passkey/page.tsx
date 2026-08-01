@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { startRegistration } from '@simplewebauthn/browser'
-import { brandMark, btnPrimary } from '@/lib/ui'
+import { brandMark, btnPrimary, glassPanel } from '@/lib/ui'
 
 function RegisterPasskeyInner() {
   const router = useRouter()
@@ -48,7 +48,7 @@ function RegisterPasskeyInner() {
   }
 
   return (
-    <div className="w-full max-w-sm text-center">
+    <div className={`${glassPanel} max-w-sm text-center`}>
       <div className={`${brandMark} mx-auto mb-4`}>
         <span className="text-white text-2xl font-bold">R</span>
       </div>
@@ -60,7 +60,7 @@ function RegisterPasskeyInner() {
       {status === 'success' ? (
         <div className="text-emerald-600 dark:text-emerald-400 font-medium">Passkey registered! Signing you in…</div>
       ) : (
-        <>
+        <div>
           <button
             onClick={handleRegister}
             disabled={status === 'loading'}
@@ -78,7 +78,7 @@ function RegisterPasskeyInner() {
           >
             Skip for now
           </button>
-        </>
+        </div>
       )}
     </div>
   )

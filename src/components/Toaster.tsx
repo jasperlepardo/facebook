@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { toastPill } from '@/lib/ui'
 
 export default function Toaster() {
   const [msg, setMsg] = useState<string | null>(null)
@@ -18,7 +19,7 @@ export default function Toaster() {
 
   if (!msg) return null
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-mist-900 dark:bg-mist-700 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none z-[400]">
+    <div className={toastPill}>
       {msg}
     </div>
   )

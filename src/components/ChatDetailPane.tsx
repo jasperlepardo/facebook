@@ -16,7 +16,7 @@ import MessageSelectionBar from './message/MessageSelectionBar'
 import ActionSheet from './ActionSheet'
 import DatePickerModal from './DatePickerModal'
 import { MessageListSkeleton } from '@/components/skeletons'
-import { pbSafe } from '@/lib/ui'
+import { pbSafe, toastPill } from '@/lib/ui'
 
 export type JumpFn = (ts: number, msgId: string | null) => Promise<void>
 
@@ -289,7 +289,7 @@ export default function ChatDetailPane({
       : `${senderIds.length} senders`
 
   return (
-    <>
+    <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
       {selection.selectedMsgs.size > 0 && !searchIdle && (
         <MessageSelectionBar
           count={selection.selectedMsgs.size}
@@ -299,14 +299,14 @@ export default function ChatDetailPane({
       )}
 
       {searchActive && filterMembers.length > 0 && (
-        <div className="relative z-30 shrink-0 px-3 py-2 border-b border-mist-100 dark:border-mist-800 bg-white dark:bg-mist-900">
+        <div className="relative z-30 shrink-0 px-3 py-2 liquid-glass-bar">
           <div ref={senderMenuRef} className="relative max-w-sm">
             <button
               type="button"
               aria-haspopup="listbox"
               aria-expanded={senderMenuOpen}
               onClick={() => setSenderMenuOpen(o => !o)}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-mist-100 dark:bg-mist-800 text-left text-sm text-gray-800 dark:text-mist-100 hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl liquid-glass text-left text-sm text-gray-800 dark:text-mist-100 transition-colors"
             >
               <span className="flex-1 min-w-0 truncate font-medium">{senderLabel}</span>
               {hasSenderFilter && (
@@ -330,7 +330,7 @@ export default function ChatDetailPane({
               <div
                 role="listbox"
                 aria-multiselectable
-                className="absolute left-0 right-0 top-full mt-1.5 z-40 max-h-64 overflow-y-auto rounded-xl border border-mist-200 dark:border-mist-700 bg-white dark:bg-mist-900 shadow-lg py-1"
+                className="absolute left-0 right-0 top-full mt-1.5 z-40 max-h-64 overflow-y-auto rounded-xl liquid-glass shadow-lg py-1"
               >
                 <button
                   type="button"
@@ -339,8 +339,8 @@ export default function ChatDetailPane({
                   onClick={clearSenders}
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${
                     !hasSenderFilter
-                      ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white'
-                      : 'text-gray-700 dark:text-mist-200 hover:bg-mist-50 dark:hover:bg-mist-800'
+                      ? 'liquid-glass-selected text-gray-900 dark:text-white'
+                      : 'text-gray-700 dark:text-mist-200 liquid-glass-hover'
                   }`}
                 >
                   <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
@@ -363,10 +363,10 @@ export default function ChatDetailPane({
                       role="option"
                       aria-selected={checked}
                       onClick={() => toggleSender(p.id!)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-[background,box-shadow] ${
                         checked
-                          ? 'bg-mist-50 dark:bg-mist-800/80 text-gray-900 dark:text-white'
-                          : 'text-gray-700 dark:text-mist-200 hover:bg-mist-50 dark:hover:bg-mist-800'
+                          ? 'liquid-glass-selected text-gray-900 dark:text-white'
+                          : 'text-gray-700 dark:text-mist-200 liquid-glass-hover'
                       }`}
                     >
                       <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
@@ -392,8 +392,8 @@ export default function ChatDetailPane({
       )}
 
       {showSearchEmpty && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 text-center px-8 pt-14 bg-white dark:bg-mist-900 pointer-events-none">
-          <div className="w-16 h-16 rounded-full bg-mist-100 dark:bg-mist-800 flex items-center justify-center">
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 text-center px-8 pt-14 bg-transparent pointer-events-none">
+          <div className="w-16 h-16 rounded-full liquid-glass flex items-center justify-center">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-mist-400 dark:text-mist-500">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
@@ -413,7 +413,7 @@ export default function ChatDetailPane({
 
       {!showSearchEmpty && (!chatVisible || jump.jumping || loader.searching) && (
         <div
-          className={`absolute inset-0 flex flex-col justify-end z-30 overflow-hidden bg-white dark:bg-mist-900 ${
+          className={`absolute inset-0 flex flex-col justify-end z-30 overflow-hidden liquid-glass-atmosphere ${
             chatVisible ? '' : 'pointer-events-none'
           }`}
           aria-busy
@@ -473,10 +473,10 @@ export default function ChatDetailPane({
         />
       )}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-mist-900 dark:bg-mist-700 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none z-[400]">
+        <div className={toastPill}>
           {toast}
         </div>
       )}
-    </>
+    </div>
   )
 }

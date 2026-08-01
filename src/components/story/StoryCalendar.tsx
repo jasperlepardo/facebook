@@ -75,8 +75,8 @@ export function StoryCalendar({ year, month, summaries, selected, isLoading, onS
               disabled={!s}
               title={s ? `${fmtDateLong(s.date)} — ${s.mood}` : undefined}
               className={`aspect-square rounded-md flex flex-col items-center justify-center gap-0.5 transition-colors
-                ${s ? 'cursor-pointer hover:bg-mist-100 dark:hover:bg-mist-800' : 'cursor-default'}
-                ${isSelected ? 'bg-mist-100 dark:bg-mist-800 ring-1 ring-mist-300 dark:ring-mist-600' : ''}
+                ${s ? 'cursor-pointer liquid-glass-hover' : 'cursor-default'}
+                ${isSelected ? 'liquid-glass-selected ring-1 ring-mist-300/60 dark:ring-mist-500/40' : ''}
               `}
             >
               <span className={`text-[11px] leading-none font-medium ${s ? 'text-gray-700 dark:text-mist-200' : 'text-mist-300 dark:text-mist-700'}`}>{day}</span>

@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { toSlug } from '@/lib/utils'
-import { btnPrimary, btnGhost, labelUpper } from '@/lib/ui'
+import { btnPrimary, btnGhost, labelUpper, headerField, glassPanel } from '@/lib/ui'
 import { LockIcon, GlobeIcon } from '@/components/icons'
 
 interface CreatePayload {
@@ -31,15 +31,15 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
     finally { setLoading(false) }
   }
 
-  const fieldCls = 'w-full px-4 py-3 rounded-xl bg-mist-50 dark:bg-mist-800 border border-mist-200 dark:border-mist-700 text-gray-900 dark:text-white placeholder:text-mist-400 outline-hidden focus:border-mist-400 dark:focus:border-mist-500 text-sm transition-colors'
+  const fieldCls = `${headerField} w-full px-4 py-3 text-sm`
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <form onSubmit={handleSubmit} className="max-w-lg mx-auto px-6 py-8 flex flex-col gap-5">
+      <form onSubmit={handleSubmit} className={`${glassPanel} max-w-lg mx-auto mt-6 mb-8 flex flex-col gap-5`}>
 
         <div className="flex flex-col gap-1.5">
           <label className={labelUpper}>Name</label>
-          <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-mist-50 dark:bg-mist-800 border border-mist-200 dark:border-mist-700 focus-within:border-mist-400 dark:focus-within:border-mist-500 transition-colors">
+          <div className={`${headerField} flex items-center gap-2 px-4 py-3`}>
             <span className="text-mist-400 font-semibold text-sm">#</span>
             <input
               autoFocus
@@ -55,7 +55,7 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
         {isSuperAdmin && (
           <div className="flex flex-col gap-1.5">
             <label className={labelUpper}>Visibility</label>
-            <div className="flex rounded-xl overflow-hidden border border-mist-200 dark:border-mist-700">
+            <div className="flex rounded-xl overflow-hidden border border-black/10 dark:border-white/12">
               {([false, true] as const).map(val => (
                 <button
                   key={String(val)}
@@ -64,7 +64,7 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
                   className={`flex-1 py-3 text-sm font-semibold transition-colors flex items-center justify-center gap-2
                     ${isPrivate === val
                       ? 'bg-blue-600 text-white'
-                      : 'bg-mist-50 dark:bg-mist-800 text-mist-500 dark:text-mist-400 hover:bg-mist-100 dark:hover:bg-mist-700'
+                      : 'bg-transparent text-mist-500 dark:text-mist-400 liquid-glass-hover'
                     }`}
                 >
                   {val

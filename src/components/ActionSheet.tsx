@@ -34,7 +34,7 @@ export default function ActionSheet({ title, actions, onClose }: ActionSheetProp
             <button
               key={i}
               onClick={() => { action.onPress(); onClose() }}
-              className={`w-full py-[14px] text-[17px] text-center border-b border-mist-100 dark:border-white/8 last:border-0 active:bg-mist-100 dark:active:bg-white/5 transition-colors ${action.destructive ? 'text-red-500' : 'text-mist-700 dark:text-mist-200'}`}
+              className={`w-full py-[14px] text-[17px] text-center border-b border-mist-100 dark:border-white/8 last:border-0 liquid-glass-hover ${action.destructive ? 'text-red-500' : 'text-mist-700 dark:text-mist-200'}`}
             >
               {action.label}
             </button>
@@ -43,7 +43,7 @@ export default function ActionSheet({ title, actions, onClose }: ActionSheetProp
         <div className="liquid-glass rounded-2xl overflow-hidden">
           <button
             onClick={onClose}
-            className="w-full py-[14px] text-[17px] font-semibold text-mist-700 dark:text-mist-200 text-center active:bg-mist-100 dark:active:bg-white/5 transition-colors"
+            className="w-full py-[14px] text-[17px] font-semibold text-mist-700 dark:text-mist-200 text-center liquid-glass-hover"
           >
             Cancel
           </button>

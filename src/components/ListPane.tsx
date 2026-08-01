@@ -2,8 +2,7 @@
 
 import { LockIcon } from '@/components/icons'
 import AvatarGroup from '@/components/AvatarGroup'
-import { pbNav } from '@/lib/ui'
-import { fieldSearch } from '@/lib/ui'
+import { pbNav, headerBtn, headerField } from '@/lib/ui'
 
 export interface ListPaneItem {
   id: string
@@ -36,15 +35,17 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
     : items
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-mist-950 md:dark:bg-mist-900 md:shadow-xl">
+    <div className="flex flex-col h-full liquid-glass-atmosphere md:shadow-xl">
       {/* Header */}
-      <div className="px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 shrink-0">
-        <div className="flex items-center justify-between mb-3">
+      <div className="liquid-glass-bar px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 shrink-0">
+        <div className="flex items-center justify-between mb-3 min-h-8">
           <h2 className="text-[22px] font-bold text-gray-900 dark:text-white">{title}</h2>
           {onNew && (
             <button
+              type="button"
               onClick={onNew}
-              className="w-8 h-8 rounded-full bg-mist-100 dark:bg-mist-800 flex items-center justify-center text-mist-600 dark:text-mist-300 hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors"
+              aria-label="New"
+              className={headerBtn}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
@@ -55,14 +56,14 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
 
         {/* Search / filter */}
         <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-mist-400 pointer-events-none" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-mist-400 pointer-events-none z-[1]" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input
             value={filter}
             onChange={e => onFilterChange(e.target.value)}
             placeholder={filterPlaceholder ?? 'Search'}
-            className={fieldSearch}
+            className={`${headerField} !pl-8`}
           />
         </div>
       </div>
@@ -79,10 +80,11 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
           return (
             <button
               key={item.id}
+              type="button"
               data-testid={`list-item-${item.id}`}
               onClick={() => onSelect(item.id)}
-              className={`w-full text-left px-2 py-1.5 flex items-center gap-3 transition-colors rounded-xl mx-1 my-0.5 ${
-                active ? 'bg-mist-100 dark:bg-mist-800' : 'hover:bg-mist-50 dark:hover:bg-mist-800'
+              className={`w-full text-left px-2 py-1.5 flex items-center gap-3 transition-[background,box-shadow] rounded-xl mx-1 my-0.5 liquid-glass-hover ${
+                active ? 'liquid-glass-selected' : ''
               }`}
               style={{ width: 'calc(100% - 8px)' }}
             >

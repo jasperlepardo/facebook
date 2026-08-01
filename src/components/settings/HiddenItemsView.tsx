@@ -66,19 +66,19 @@ export default function HiddenItemsView({ onBack }: Props) {
   useEffect(() => { load() }, [])
 
   return (
-    <div className={`flex-1 overflow-y-auto bg-mist-50 dark:bg-mist-900 ${pbNav} md:pb-0`}>
+    <div className={`flex-1 overflow-y-auto liquid-glass-atmosphere ${pbNav} md:pb-0`}>
       <div className="px-4 py-6">
         <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-mist-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
           <BackIcon /> Back
         </button>
         <h1 className="text-lg font-semibold text-gray-900 dark:text-mist-100 mb-6">Hidden items</h1>
 
-        <div className="bg-white dark:bg-mist-800 rounded-xl p-4 mb-4 space-y-3">
+        <div className="liquid-glass rounded-xl p-4 mb-4 space-y-3">
           <p className={labelUpper}>Add hidden item</p>
           <div className="flex gap-2">
             {(['message', 'uri'] as const).map(t => (
               <button key={t} onClick={() => setAddType(t)}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border-2 transition-colors ${addType === t ? 'border-blue-600 text-blue-600 bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:bg-blue-950/30' : 'border-mist-200 dark:border-mist-700 text-mist-500 dark:text-mist-400'}`}>
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${addType === t ? 'liquid-glass-selected text-blue-600 dark:text-blue-400' : 'liquid-glass text-mist-500 dark:text-mist-400 liquid-glass-hover'}`}>
                 {t === 'message' ? 'Message ID' : 'Image URI'}
               </button>
             ))}
