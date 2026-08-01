@@ -449,7 +449,7 @@ export default function ChatDetailPane({
             onUnhideUri={onUnhideDbUri}
             enabledTypes={enabledTypes}
             senderStyles={senderStyles}
-            renderRowActions={msg => (
+            renderRowActions={selection.selectedMsgs.size >= 2 ? undefined : msg => (
               <MessageRowActions
                 actions={makeActions([msg._id], {
                   isSelected: selection.selectedMsgs.has(msg._id),

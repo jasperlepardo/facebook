@@ -385,7 +385,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   onHideUri={onHideUri}
                   onUnhideUri={onUnhideUri}
                   senderStyles={senderStyles}
-                  renderRowActions={msg => (
+                  renderRowActions={selectedMsgs.size >= 2 ? undefined : msg => (
                     <MessageRowActions
                       actions={makeActions([msg._id], {
                         isSelected: selectedMsgs.has(msg._id),

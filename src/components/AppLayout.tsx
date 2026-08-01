@@ -589,7 +589,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
   }, [applyProgress, settle, hideListPane, centeredDetail])
 
   return (
-    <div className={`md:gap-3 flex-1 flex flex-col md:flex-row min-h-0 relative overflow-hidden md:pb-0 ${sheetVisible ? 'max-md:bg-black' : ''}`}>
+    <div className={`md:gap-3 flex-1 flex flex-col md:flex-row min-h-0 relative md:pb-0 ${sheetVisible ? 'max-md:bg-black' : ''}`}>
 
       <AppNav
         section={section}

@@ -1,7 +1,6 @@
 'use client'
-import { useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { headerBtn, headerChip } from '@/lib/ui'
-import { useFrostedOnScroll } from '@/hooks/useFrostedBar'
 
 interface AppHeaderProps {
   title: ReactNode
@@ -17,14 +16,12 @@ interface AppHeaderProps {
 export default function AppHeader({
   title, onBack, actions, search, embedded, searchMode,
 }: AppHeaderProps) {
-  const barRef = useRef<HTMLDivElement>(null)
-  const frosted = useFrostedOnScroll(barRef)
-
   const topPad = embedded
     ? 'pt-2.5'
     : 'pt-[calc(0.625rem+env(safe-area-inset-top))]'
 
-  const barCls = `sticky top-0 z-20 liquid-glass-bar text-gray-900 dark:text-white shrink-0${frosted ? ' liquid-glass-bar-frosted' : ''}`
+  // Center detail header: always opaque so content never shows through.
+  const barCls = 'sticky top-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-gray-900 dark:text-white shrink-0'
 
   const backButton = onBack ? (
     <button
@@ -52,7 +49,7 @@ export default function AppHeader({
 
   if (searchMode && search) {
     return (
-      <div ref={barRef} className={barCls}>
+      <div className={barCls}>
         <div className={`px-4 ${topPad} pb-2.5 flex items-center gap-3`}>
           <div className="flex-1 min-w-0">{search}</div>
           {onBack && (
@@ -70,7 +67,7 @@ export default function AppHeader({
   }
 
   return (
-    <div ref={barRef} className={barCls}>
+    <div className={barCls}>
       <div className={`px-4 ${topPad} pb-2.5`}>
         <div className="grid grid-cols-[72px_minmax(0,1fr)_72px] items-center gap-3 min-h-8">
           <div className="flex items-center justify-start">
