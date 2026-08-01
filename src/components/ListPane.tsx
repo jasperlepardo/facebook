@@ -1,6 +1,7 @@
 'use client'
 
 import { LockIcon } from '@/components/icons'
+import AvatarGroup from '@/components/AvatarGroup'
 import { pbNav } from '@/lib/ui'
 import { fieldSearch } from '@/lib/ui'
 
@@ -9,6 +10,8 @@ export interface ListPaneItem {
   label: string
   initials?: string
   color?: string
+  /** Group / member avatars — preferred over single initials when present. */
+  avatars?: { initials: string; color: string }[]
   subtitle?: string
   badge?: string
   isPrivate?: boolean
@@ -83,12 +86,14 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
               }`}
               style={{ width: 'calc(100% - 8px)' }}
             >
-              {/* Avatar — only when initials provided */}
-              {item.initials && (
+              {/* Avatar */}
+              {(item.avatars && item.avatars.length > 0) ? (
+                <AvatarGroup people={item.avatars} size="md" />
+              ) : item.initials ? (
                 <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-xl select-none ${item.color ?? ''}`}>
                   {item.initials}
                 </div>
-              )}
+              ) : null}
 
               <div className="flex-1 min-w-0">
                 {/* Title row */}

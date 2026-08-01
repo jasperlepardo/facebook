@@ -1,4 +1,13 @@
 import { getPayloadClient } from './payload-access'
+import { getCollection } from './db'
+import { defaultThreadName } from './threadDisplay'
+import {
+  backfillMessageSenderIds,
+  extractLegacyParticipantRows,
+  isLegacyEmbeddedParticipants,
+  migrateThreadParticipantsToRelations,
+  upsertParticipants,
+} from './participantUtils'
 
 interface UpsertThreadParams {
   collectionName:    string
@@ -11,7 +20,7 @@ interface UpsertThreadParams {
 }
 
 export async function upsertThread({
-  collectionName, threadName, participants, facebookThreadId, initials, color, total,
+  collectionName, threadName, participants, facebookThreadId, total,
 }: UpsertThreadParams): Promise<void> {
   try {
     const payload  = await getPayloadClient()
@@ -21,24 +30,59 @@ export async function upsertThread({
       limit: 2, depth: 0, overrideAccess: true,
     })
 
-    const data = {
-      name:             threadName,
-      collection:       collectionName,
-      initials:         initials ?? threadName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(),
-      color:            (color ?? 'bg-rose-400') as 'bg-rose-400' | 'bg-violet-400' | 'bg-amber-400' | 'bg-sky-400' | 'bg-pink-400' | 'bg-indigo-400' | 'bg-emerald-400' | 'bg-orange-400',
-      facebookThreadId: facebookThreadId ?? '',
-      participants:     participants.map(name => ({ name })),
-      messageCount:     total,
-    }
+    // Include senders present in messages but missing from the export participants list.
+    const col = await getCollection(collectionName)
+    const senderNames = (await col.distinct('sender_name') as string[]).filter(Boolean)
+    const allNames = [...new Set([...participants, ...senderNames])]
+
+    const { participants: rows } = await upsertParticipants(allNames)
+    const ids = rows.map(p => p.id)
+    const fallbackName = defaultThreadName(allNames)
+    const resolvedName = (threadName || '').trim() || fallbackName
 
     if (existing.totalDocs > 0) {
-      await payload.update({ collection: 'threads', id: existing.docs[0].id, data: { messageCount: total }, overrideAccess: true })
+      const doc = existing.docs[0]
+      // Migrate legacy embedded rows if still present (styles preserved inside migrate).
+      if (isLegacyEmbeddedParticipants(doc.participants)) {
+        await migrateThreadParticipantsToRelations(
+          String(doc.id),
+          extractLegacyParticipantRows(doc.participants),
+        )
+        await payload.update({
+          collection: 'threads',
+          id: doc.id,
+          data: { messageCount: total, participants: ids },
+          overrideAccess: true,
+        })
+      } else {
+        await payload.update({
+          collection: 'threads',
+          id: doc.id,
+          data: {
+            messageCount: total,
+            participants: ids,
+          },
+          overrideAccess: true,
+        })
+      }
       for (const dup of existing.docs.slice(1)) {
         await payload.delete({ collection: 'threads', id: dup.id, overrideAccess: true }).catch(() => {})
       }
     } else {
-      await payload.create({ collection: 'threads', data, overrideAccess: true })
+      await payload.create({
+        collection: 'threads',
+        data: {
+          name:             resolvedName,
+          collection:       collectionName,
+          facebookThreadId: facebookThreadId ?? '',
+          participants:     ids,
+          messageCount:     total,
+        },
+        overrideAccess: true,
+      })
     }
+
+    await backfillMessageSenderIds(collectionName)
   } catch (e) {
     console.error('upsertThread error:', e)
   }

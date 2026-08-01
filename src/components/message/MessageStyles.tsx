@@ -12,9 +12,9 @@ export const rowBase   = 'group/row flex items-start px-4 py-1 gap-3 cursor-poin
 export const rowSel    = 'bg-blue-50! dark:bg-blue-950/30!'
 export const rowUnsel  = '[@media(hover:hover)]:hover:bg-mist-50 dark:[@media(hover:hover)]:hover:bg-mist-800 active:bg-mist-100 dark:active:bg-mist-800/60'
 export const timeCls   = 'text-[11px] text-mist-400 dark:text-mist-500 leading-6 opacity-0 [@media(hover:hover)]:group-hover/row:opacity-100 transition-opacity'
+/** Desktop-only row chrome — mobile uses long-press ActionSheet / floating bar. */
 export const actionsCls = (sel: boolean) =>
-  `flex items-center gap-1 self-start pt-0.5 transition-opacity ${sel ? 'opacity-100' : 'opacity-0 [@media(hover:hover)]:group-hover/row:opacity-100'}`
-
+  `hidden md:flex items-center gap-1 self-start pt-0.5 transition-opacity ${sel ? 'opacity-100' : 'opacity-0 [@media(hover:hover)]:group-hover/row:opacity-100'}`
 export function StatusPill({ icon, label, sublabel }: { icon: React.ReactNode; label: string; sublabel?: string }) {
   return (
     <span className={pill}>

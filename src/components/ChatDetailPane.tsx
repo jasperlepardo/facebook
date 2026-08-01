@@ -1,17 +1,19 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { MessageBlock, LightboxState, ContextMenuState, Hashtag, DateIndex } from '@/types'
+import { MessageBlock, LightboxState, Hashtag, DateIndex, Message, ThreadParticipant } from '@/types'
 import { ContentTypeKey } from '@/lib/contentTypes'
-import { fmtDate, fmtTime } from '@/lib/format'
 import { groupMessages } from '@/lib/groupMessages'
+import { buildMessageLink, formatMessagesText } from '@/lib/messageCopy'
+import { buildMessageActions, actionsToSheet, MessageActionSurface } from '@/lib/messageActions'
 import { useMessageLoader } from '@/hooks/useMessageLoader'
 import { useMessageJump } from '@/hooks/useMessageJump'
 import { useMessageSelection } from '@/hooks/useMessageSelection'
 import { useChatScroll } from '@/hooks/useChatScroll'
 import { useChatInit } from '@/hooks/useChatInit'
 import MessageList from './message/MessageList'
+import MessageRowActions from './message/MessageRowActions'
+import MessageSelectionBar from './message/MessageSelectionBar'
 import HashtagPicker from './HashtagPicker'
-import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
 import DatePickerModal from './DatePickerModal'
 import { MessageListSkeleton } from '@/components/skeletons'
@@ -21,6 +23,7 @@ export type JumpFn = (ts: number, msgId: string | null) => Promise<void>
 
 interface Props {
   search: string
+  searchActive?: boolean
   onSearchChange: (v: string) => void
   scrollRef: React.RefObject<HTMLDivElement | null>
   hashtags: Hashtag[]
@@ -40,31 +43,45 @@ interface Props {
   onRegisterJump: (fn: JumpFn | null) => void
   onStatsChange?: (total: number, dateIndex: DateIndex | null) => void
   enabledTypes?: Set<ContentTypeKey>
-  senderColor?: string
+  senderStyles?: Record<string, { initials: string; color: string }>
+  participants?: ThreadParticipant[]
   thread?: string
 }
 
 export default function ChatDetailPane({
-  search, onSearchChange, scrollRef,
+  search, searchActive = false, onSearchChange, scrollRef,
   hashtags, onReloadHashtags,
   currentUser, isSuperAdmin, showHidden,
   hideImages, hiddenUris, hiddenMsgIds,
-  onHideUri, onHideDbUri, onUnhideDbUri,
+  onHideUri: _onHideUri, onHideDbUri, onUnhideDbUri,
   onHideMessage, onUnhideMessage,
-  onLightbox, onRegisterJump, onStatsChange, enabledTypes, senderColor,
+  onLightbox, onRegisterJump, onStatsChange, enabledTypes, senderStyles,
+  participants = [],
   thread = 'messages',
 }: Props) {
   const searchRef      = useRef('')
+  const senderIdsRef   = useRef<string[]>([])
   const showHiddenRef  = useRef(showHidden)
   const dateIndexRef   = useRef<DateIndex | null>(null)
   const blocksRef      = useRef<MessageBlock[]>([])
   const deviceId       = useRef('')
   const currentUserRef = useRef(currentUser)
+  const senderMenuRef  = useRef<HTMLDivElement>(null)
+  const [senderIds, setSenderIds] = useState<string[]>([])
+  const [senderMenuOpen, setSenderMenuOpen] = useState(false)
 
   useEffect(() => { showHiddenRef.current = showHidden }, [showHidden])
   useEffect(() => { currentUserRef.current = currentUser }, [currentUser])
+  useEffect(() => {
+    setSenderIds([])
+    senderIdsRef.current = []
+    setSenderMenuOpen(false)
+  }, [thread])
+  useEffect(() => {
+    senderIdsRef.current = senderIds
+  }, [senderIds])
 
-  const loader = useMessageLoader({ thread, searchRef, showHiddenRef, scrollRef })
+  const loader = useMessageLoader({ thread, searchRef, senderIdsRef, showHiddenRef, scrollRef })
   const jump   = useMessageJump({
     withThread: loader.withThread, scrollRef, searchRef, dateIndexRef,
     lowerOffset: loader.lowerOffset, upperOffset: loader.upperOffset,
@@ -80,16 +97,20 @@ export default function ChatDetailPane({
   const [showDatePicker, setShowDatePicker]   = useState(false)
   const [datePickerDefault, setDatePickerDefault] = useState('')
   const [chatVisible, setChatVisible]         = useState(false)
-  const [ctxMenu, setCtxMenu]                 = useState<ContextMenuState | null>(null)
+  const [sheetMsgIds, setSheetMsgIds]         = useState<string[] | null>(null)
   const [toast, setToast]                     = useState<string | null>(null)
   const toastTimer                            = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const senderIdsKey = senderIds.slice().sort().join(',')
+  const hasSenderFilter = senderIds.length > 0
+  const surface: MessageActionSurface = search.trim() || hasSenderFilter ? 'chat-search' : 'chat'
 
   const handleScroll = useChatScroll({
     scrollRef, searchRef, thread, deviceId, currentUserRef, loader,
   })
 
   useChatInit({
-    thread, search, scrollRef, searchRef, dateIndexRef,
+    thread, search, senderIdsKey, scrollRef, searchRef, senderIdsRef, dateIndexRef,
     deviceId, currentUserRef, loader, jump, setDateIndex, setChatVisible,
   })
 
@@ -100,31 +121,16 @@ export default function ChatDetailPane({
   }, [])
 
   const copyLink = useCallback((msgIds: string[]) => {
-    const threadParam = thread !== 'messages' ? `&thread=${thread}` : ''
-    const url = `${window.location.origin}${window.location.pathname}?msg=${msgIds[0]}${threadParam}`
-    navigator.clipboard.writeText(url).then(() => showToast('Link copied'))
+    if (!msgIds[0]) return
+    navigator.clipboard.writeText(buildMessageLink(msgIds[0], thread)).then(() => showToast('Link copied'))
   }, [showToast, thread])
 
   const copyText = useCallback((msgIds: string[]) => {
     const ids = new Set(msgIds)
     const msgs = loader.messagesRef.current.filter(m => ids.has(m._id))
-    if (!msgs.length) return
-    const first = msgs[0]
-    const header = `${first.sender_name} · ${fmtDate(first.timestamp_ms)} at ${fmtTime(first.timestamp_ms)}`
-    const lines = msgs.flatMap(m => {
-      const parts: string[] = []
-      if (m.content) parts.push(m.content)
-      if (m.photos?.length) parts.push('[photo]')
-      if (m.videos?.length) parts.push('[video]')
-      if (m.audio_files?.length) parts.push('[audio]')
-      if (m.gifs?.length) parts.push('[GIF]')
-      if (m.sticker) parts.push('[sticker]')
-      if (m.files?.length) parts.push('[file]')
-      if (m.share?.link) parts.push(m.share.share_text ? `${m.share.share_text} ${m.share.link}` : m.share.link)
-      if (m.call_duration != null) parts.push(m.missed ? 'Missed call' : `Call (${m.call_duration}s)`)
-      return parts
-    })
-    navigator.clipboard.writeText([header, ...lines].join('\n')).then(() => showToast('Text copied'))
+    const text = formatMessagesText(msgs)
+    if (!text) return
+    navigator.clipboard.writeText(text).then(() => showToast('Text copied'))
   }, [showToast, loader.messagesRef])
 
   useEffect(() => {
@@ -161,9 +167,9 @@ export default function ChatDetailPane({
   const handleMsgContextMenu = useCallback((e: React.MouseEvent, msgIds: string[]) => {
     e.preventDefault()
     const fromTouch = !!(e as unknown as { _fromTouch?: boolean })._fromTouch
-    const firstMsg = loader.messagesRef.current.find(m => msgIds.includes(m._id))
-    setCtxMenu({ x: e.clientX, y: e.clientY, kind: 'message', msgIds, msgTs: firstMsg?.timestamp_ms, fromTouch })
-  }, [loader.messagesRef])
+    if (!fromTouch) return
+    setSheetMsgIds(msgIds)
+  }, [])
 
   const openDatePicker = useCallback(() => {
     const el = scrollRef.current
@@ -180,31 +186,228 @@ export default function ChatDetailPane({
     setShowDatePicker(true)
   }, [scrollRef])
 
+  const resolveMsgs = useCallback((msgIds: string[]): Message[] => {
+    const ids = new Set(msgIds)
+    return loader.messagesRef.current.filter(m => ids.has(m._id))
+  }, [loader.messagesRef])
+
+  const makeActions = useCallback((msgIds: string[], opts?: { omitSelect?: boolean; isSelected?: boolean }) => {
+    const msgs = resolveMsgs(msgIds)
+    const first = msgs[0]
+    const isHidden = !!(first && hiddenMsgIds.has(first._id))
+    return buildMessageActions({
+      surface,
+      count: msgIds.length,
+      isSelected: opts?.isSelected,
+      isHidden,
+      isSuperAdmin,
+      omitSelect: opts?.omitSelect,
+      callbacks: {
+        onSelect: () => {
+          if (!first) return
+          selection.handleToggle(first._id, first.timestamp_ms, first.timestamp_ms, [first._id])
+        },
+        onGoToMessage: first
+          ? () => { jump.jumpToMessage(first.timestamp_ms, first._id) }
+          : undefined,
+        onTag: () => selection.setHashtagPicker({ msgIds }),
+        onCopyLink: () => copyLink(msgIds),
+        onCopyText: () => copyText(msgIds),
+        onHide: msgIds.length ? () => { for (const id of msgIds) onHideMessage(id) } : undefined,
+        onUnhide: msgIds.length ? () => { for (const id of msgIds) onUnhideMessage(id) } : undefined,
+      },
+    })
+  }, [surface, isSuperAdmin, hiddenMsgIds, resolveMsgs, selection, jump, copyLink, copyText, onHideMessage, onUnhideMessage])
+
+  const selectedIds = useMemo(() => [...selection.selectedMsgs.keys()], [selection.selectedMsgs])
+  const barActions = useMemo(
+    () => makeActions(selectedIds, { omitSelect: true }),
+    [makeActions, selectedIds],
+  )
+
+  const sheetActions = useMemo(
+    () => (sheetMsgIds ? makeActions(sheetMsgIds, {
+      isSelected: sheetMsgIds[0] ? selection.selectedMsgs.has(sheetMsgIds[0]) : false,
+    }) : []),
+    [sheetMsgIds, makeActions, selection.selectedMsgs],
+  )
+
+  const searchQuery = search.trim()
+  const searchIdle = searchActive && !searchQuery && !hasSenderFilter
+  const searchNoResults = searchActive && (!!searchQuery || hasSenderFilter) && !loader.searching && chatVisible && loader.messages.length === 0
+  const showSearchEmpty = searchIdle || searchNoResults
+  const showList = !showSearchEmpty && chatVisible && !jump.jumping && !loader.searching
+  const filterMembers = participants.filter(p => !!p.id)
+
+  useEffect(() => {
+    if (!searchActive) {
+      if (senderIds.length) {
+        setSenderIds([])
+        senderIdsRef.current = []
+      }
+      setSenderMenuOpen(false)
+    }
+  }, [searchActive, senderIds.length])
+
+  useEffect(() => {
+    if (!senderMenuOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (!senderMenuRef.current?.contains(e.target as Node)) setSenderMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSenderMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [senderMenuOpen])
+
+  function toggleSender(id: string) {
+    setSenderIds(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      senderIdsRef.current = next
+      return next
+    })
+  }
+
+  function clearSenders() {
+    setSenderIds([])
+    senderIdsRef.current = []
+  }
+
+  const senderLabel = !hasSenderFilter
+    ? 'All senders'
+    : senderIds.length === 1
+      ? (filterMembers.find(p => p.id === senderIds[0])?.name ?? '1 sender')
+      : `${senderIds.length} senders`
+
   return (
     <>
-      {selection.selectedMsgs.size > 0 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white rounded-full px-4 py-2 flex items-center gap-2.5 text-[13px] whitespace-nowrap shadow-xl z-20">
-          <span className="text-white/60 pr-0.5">{selection.selectedMsgs.size} selected</span>
-          <button onClick={selection.openNoteFromSelection} className="bg-white/15 hover:bg-white/25 px-3 py-1 rounded-full font-semibold transition-colors"># Tag</button>
-          <button
-            onClick={() => {
-              const firstId = [...selection.selectedMsgs.keys()][0]
-              if (firstId) copyLink([firstId])
-              selection.clearSelection()
-            }}
-            className="bg-white/15 hover:bg-white/25 px-3 py-1 rounded-full font-semibold transition-colors flex items-center gap-1.5"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-            </svg>
-            Share
-          </button>
-          <button onClick={selection.clearSelection} className="opacity-50 hover:opacity-100 transition-opacity pl-0.5">✕</button>
+      {selection.selectedMsgs.size > 0 && !searchIdle && (
+        <MessageSelectionBar
+          count={selection.selectedMsgs.size}
+          actions={barActions}
+          onClear={selection.clearSelection}
+        />
+      )}
+
+      {searchActive && filterMembers.length > 0 && (
+        <div className="relative z-30 shrink-0 px-3 py-2 border-b border-mist-100 dark:border-mist-800 bg-white dark:bg-mist-900">
+          <div ref={senderMenuRef} className="relative max-w-sm">
+            <button
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={senderMenuOpen}
+              onClick={() => setSenderMenuOpen(o => !o)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-mist-100 dark:bg-mist-800 text-left text-sm text-gray-800 dark:text-mist-100 hover:bg-mist-200 dark:hover:bg-mist-700 transition-colors"
+            >
+              <span className="flex-1 min-w-0 truncate font-medium">{senderLabel}</span>
+              {hasSenderFilter && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Clear senders"
+                  className="shrink-0 text-xs text-mist-500 hover:text-gray-800 dark:hover:text-white px-1"
+                  onClick={e => { e.stopPropagation(); clearSenders() }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); clearSenders() } }}
+                >
+                  Clear
+                </span>
+              )}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={`shrink-0 text-mist-400 transition-transform ${senderMenuOpen ? 'rotate-180' : ''}`}>
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+
+            {senderMenuOpen && (
+              <div
+                role="listbox"
+                aria-multiselectable
+                className="absolute left-0 right-0 top-full mt-1.5 z-40 max-h-64 overflow-y-auto rounded-xl border border-mist-200 dark:border-mist-700 bg-white dark:bg-mist-900 shadow-lg py-1"
+              >
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!hasSenderFilter}
+                  onClick={clearSenders}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${
+                    !hasSenderFilter
+                      ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white'
+                      : 'text-gray-700 dark:text-mist-200 hover:bg-mist-50 dark:hover:bg-mist-800'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                    !hasSenderFilter
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'border-mist-300 dark:border-mist-600'
+                  }`}>
+                    {!hasSenderFilter && (
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
+                    )}
+                  </span>
+                  All senders
+                </button>
+                {filterMembers.map(p => {
+                  const checked = senderIds.includes(p.id!)
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      role="option"
+                      aria-selected={checked}
+                      onClick={() => toggleSender(p.id!)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors ${
+                        checked
+                          ? 'bg-mist-50 dark:bg-mist-800/80 text-gray-900 dark:text-white'
+                          : 'text-gray-700 dark:text-mist-200 hover:bg-mist-50 dark:hover:bg-mist-800'
+                      }`}
+                    >
+                      <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                        checked
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'border-mist-300 dark:border-mist-600'
+                      }`}>
+                        {checked && (
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
+                        )}
+                      </span>
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white shrink-0 ${p.color || 'bg-violet-400'}`}>
+                        {p.initials || '?'}
+                      </span>
+                      <span className="truncate">{p.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {(!chatVisible || jump.jumping || loader.searching) && (
+      {showSearchEmpty && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 text-center px-8 pt-14 bg-white dark:bg-mist-900 pointer-events-none">
+          <div className="w-16 h-16 rounded-full bg-mist-100 dark:bg-mist-800 flex items-center justify-center">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-mist-400 dark:text-mist-500">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
+              {searchIdle ? 'Search this conversation' : 'No messages found'}
+            </p>
+            <p className="text-sm text-mist-400 dark:text-mist-500 mt-1">
+              {searchIdle
+                ? (filterMembers.length ? 'Choose senders above, or type to search' : 'Type to find messages')
+                : 'Try a different search or sender'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!showSearchEmpty && (!chatVisible || jump.jumping || loader.searching) && (
         <div
           className={`absolute inset-0 flex flex-col justify-end z-30 overflow-hidden bg-white dark:bg-mist-900 ${
             chatVisible ? '' : 'pointer-events-none'
@@ -220,9 +423,8 @@ export default function ChatDetailPane({
         ref={scrollRef}
         onScroll={handleScroll}
         className={`flex-1 overflow-y-auto min-h-0 ${pbSafe} md:pb-0${selection.selectedMsgs.size > 0 ? ' select-none' : ''}`}
-        style={{ visibility: chatVisible && !jump.jumping && !loader.searching ? 'visible' : 'hidden' }}
+        style={{ visibility: showList ? 'visible' : 'hidden' }}
       >
-        {/* Bottom-anchor when the thread is shorter than the viewport (avoids a dead gap below). */}
         <div className="min-h-full flex flex-col justify-end">
           <MessageList
             blocks={blocks}
@@ -242,7 +444,14 @@ export default function ChatDetailPane({
             onHideUri={onHideDbUri}
             onUnhideUri={onUnhideDbUri}
             enabledTypes={enabledTypes}
-            senderColor={senderColor}
+            senderStyles={senderStyles}
+            renderRowActions={msg => (
+              <MessageRowActions
+                actions={makeActions([msg._id], {
+                  isSelected: selection.selectedMsgs.has(msg._id),
+                })}
+              />
+            )}
           />
         </div>
       </div>
@@ -258,33 +467,15 @@ export default function ChatDetailPane({
           onApply={selection.applyHashtags}
         />
       )}
-      {ctxMenu && ctxMenu.fromTouch ? (
+      {sheetMsgIds && (
         <ActionSheet
-          onClose={() => setCtxMenu(null)}
-          actions={[
-            ...(ctxMenu.kind === 'message' && ctxMenu.msgTs != null ? [{ label: 'Go to message', onPress: () => { jump.jumpToMessage(ctxMenu.msgTs!, ctxMenu.msgIds?.[0] ?? null); setCtxMenu(null) } }] : []),
-            ...(ctxMenu.kind === 'message' && ctxMenu.msgIds ? [
-              { label: 'Copy link', onPress: () => { copyLink(ctxMenu.msgIds!); setCtxMenu(null) } },
-              { label: 'Copy text', onPress: () => { copyText(ctxMenu.msgIds!); setCtxMenu(null) } },
-              { label: '# Tag', onPress: () => { selection.setHashtagPicker({ msgIds: ctxMenu.msgIds! }); setCtxMenu(null) } },
-            ] : []),
-            ...(isSuperAdmin && ctxMenu.msgIds?.length ? [hiddenMsgIds.has(ctxMenu.msgIds[0])
-              ? { label: 'Unhide message', onPress: () => { onUnhideMessage(ctxMenu.msgIds![0]); setCtxMenu(null) } }
-              : { label: 'Hide message', destructive: true, onPress: () => { onHideMessage(ctxMenu.msgIds![0]); setCtxMenu(null) } }
-            ] : []),
-          ]}
+          onClose={() => setSheetMsgIds(null)}
+          actions={actionsToSheet(sheetActions.map(a => ({
+            ...a,
+            onPress: () => { a.onPress(); setSheetMsgIds(null) },
+          })))}
         />
-      ) : ctxMenu ? (
-        <ContextMenu
-          state={ctxMenu}
-          onClose={() => setCtxMenu(null)}
-          onJumpToMessage={(ts, msgId) => { jump.jumpToMessage(+ts, msgId); setCtxMenu(null) }}
-          onHideUri={onHideUri}
-          onTagMessages={msgIds => selection.setHashtagPicker({ msgIds })}
-          onCopyLink={copyLink}
-          onCopyText={copyText}
-        />
-      ) : null}
+      )}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-mist-900 dark:bg-mist-700 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none z-[400]">
           {toast}

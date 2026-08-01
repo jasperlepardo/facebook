@@ -184,7 +184,31 @@ export async function runImport({
       return out
     })
 
-    // ── 3. Insert messages — every URI is already confirmed in R2 ──────────
+    // ── 3. Upsert participants (after media, before messages) ──────────────
+    refreshProgress(`Saving participants (file ${fileIdx + 1} / ${totalFiles})`)
+    const senderNames = rewritten
+      .map((m: any) => String(m.sender_name ?? m.senderName ?? '').trim())
+      .filter(Boolean)
+    const participantNames = [...new Set([...selected!.participants, ...senderNames])]
+    let senderByName: Record<string, string> = {}
+    try {
+      const partRes = await fetch('/api/import/participants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ names: participantNames }),
+      })
+      if (partRes.ok) {
+        const d = await partRes.json()
+        senderByName = d.byName ?? {}
+      } else {
+        const d = await partRes.json().catch(() => ({}))
+        onError?.((d as any).error ?? 'Participant upsert failed')
+      }
+    } catch (e) {
+      onError?.(String(e))
+    }
+
+    // ── 4. Insert messages — every URI is already confirmed in R2 ──────────
     refreshProgress(`Inserting messages (file ${fileIdx + 1} / ${totalFiles})`)
     const res = await fetch('/api/import/messages', {
       method: 'POST',
@@ -194,6 +218,7 @@ export async function runImport({
         threadName: threadName || selected!.title, participants: selected!.participants,
         facebookThreadId: selected!.facebookThreadId,
         initials: inferInitials(threadName || selected!.title), color: pickColor(collectionName),
+        senderByName,
       }),
     })
     if (res.ok) {

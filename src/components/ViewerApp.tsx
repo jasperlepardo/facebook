@@ -8,7 +8,6 @@ import { useHashtagPaneState } from '@/hooks/useHashtagPaneState'
 import { useHiddenState } from '@/hooks/useHiddenState'
 import { useViewerUrlSync, initialSection, initialActiveThread, initialChatDetailOpen } from '@/hooks/useViewerUrlSync'
 import { useViewerInit } from '@/hooks/useViewerInit'
-import ChatViewSettingsModal from './ChatViewSettingsModal'
 import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
 import AppHeader from './AppHeader'
@@ -16,15 +15,19 @@ import AppLayout, { AppLayoutControls } from './AppLayout'
 import ListPane, { ListPaneItem } from './ListPane'
 import ChatDetailPane, { JumpFn } from './ChatDetailPane'
 import InAppBrowserBanner from './InAppBrowserBanner'
-import ThreadAvatar from './ThreadAvatar'
 import Toaster from './Toaster'
 import { menu, menuItem } from '@/lib/ui'
 import { LockIcon, GlobeIcon } from '@/components/icons'
 import { ListPaneSkeleton, ChatDetailSkeleton } from '@/components/skeletons'
+import AvatarGroup from '@/components/AvatarGroup'
+import { defaultThreadName, participantAvatars } from '@/lib/threadDisplay'
+
+type ThreadSideView = 'details' | 'media' | null
 
 const HashtagsPane = dynamic(() => import('./HashtagsPane'), { ssr: false })
 const StoryPane    = dynamic(() => import('./story/StoryPane'),    { ssr: false })
 const SettingsPane = dynamic(() => import('./settings/SettingsPane'), { ssr: false })
+const ThreadDetailsPane = dynamic(() => import('./ThreadDetailsPane'), { ssr: false })
 const MediaPane    = dynamic(() => import('./MediaPane'), { ssr: false })
 const Lightbox     = dynamic(() => import('./Lightbox'), { ssr: false })
 
@@ -58,6 +61,7 @@ export default function ViewerApp() {
 
   // ─── Chat / thread state ──────────────────────────────────────────────────────
   const [searchInput, setSearchInput]   = useState('')
+  const [chatSearchOpen, setChatSearchOpen] = useState(false)
   const [activeThread, setActiveThread] = useState<string>(initialActiveThread)
   const [chatDetailOpen, setChatDetailOpen] = useState(initialChatDetailOpen)
   const [threadFilter, setThreadFilter] = useState('')
@@ -69,9 +73,8 @@ export default function ViewerApp() {
 
   // ─── UI state ─────────────────────────────────────────────────────────────────
   const [hideImages, setHideImages]         = useState(false)
-  const [showMediaPane, setShowMediaPane]   = useState(false)
+  const [threadSideView, setThreadSideView] = useState<ThreadSideView>(null)
   const [enabledTypes, setEnabledTypes]     = useState<Set<ContentTypeKey>>(DEFAULT_ENABLED)
-  const [showViewSettings, setShowViewSettings] = useState(false)
   const [mediaCounts, setMediaCounts]       = useState<Record<string, number>>({})
   const [currentUser, setCurrentUser]       = useState('')
   const [isSuperAdmin, setIsSuperAdmin]     = useState(false)
@@ -81,6 +84,7 @@ export default function ViewerApp() {
 
   // ─── Refs ─────────────────────────────────────────────────────────────────────
   const chatScrollRef = useRef<HTMLDivElement>(null)
+  const chatSearchRef = useRef<HTMLInputElement>(null)
   const jumpFnRef     = useRef<JumpFn | null>(null)
   // Queued when jump is requested before ChatDetailPane has registered (section/thread remount)
   const pendingJumpRef = useRef<{ ts: number; msgId: string | null } | null>(null)
@@ -147,7 +151,7 @@ export default function ViewerApp() {
 
   useViewerInit({
     activeThread,
-    showMediaPane,
+    mediaPaneOpen: threadSideView === 'media',
     setCurrentUser,
     setIsSuperAdmin,
     setShowHidden,
@@ -160,6 +164,16 @@ export default function ViewerApp() {
     setActiveThread,
     setMediaCounts,
   })
+
+  // Close 3rd pane when leaving chat or switching threads
+  useEffect(() => {
+    setThreadSideView(null)
+  }, [activeThread, section])
+
+  const handleHideImagesChange = useCallback((v: boolean) => {
+    setHideImages(v)
+    localStorage.setItem('hideImages', v ? '1' : '0')
+  }, [])
 
   // ─── Context menu (gallery only) ─────────────────────────────────────────────
 
@@ -174,7 +188,9 @@ export default function ViewerApp() {
 
   const handleGalleryContextMenu = useCallback((e: React.MouseEvent, item: GalleryItem) => {
     e.preventDefault()
-    setGalleryCtxMenu({ x: e.clientX, y: e.clientY, kind: 'gallery', galTs: String(item.ts), galMsgId: item.msgId ?? null, mediaUri: item.uri })
+    const fromTouch = !!(e as unknown as { _fromTouch?: boolean })._fromTouch
+    if (!fromTouch) return
+    setGalleryCtxMenu({ x: e.clientX, y: e.clientY, kind: 'gallery', galTs: String(item.ts), galMsgId: item.msgId ?? null, mediaUri: item.uri, fromTouch: true })
   }, [])
 
   // ─── Content type settings ───────────────────────────────────────────────────
@@ -211,10 +227,16 @@ export default function ViewerApp() {
 
   const sectionTitle = section === 'chat' ? 'Chat' : section === 'settings' ? 'Settings' : section === 'story' ? 'Story' : activeHashtagName ? `#${activeHashtagName}` : 'Hashtags'
 
-  const threadItems = useMemo<ListPaneItem[]>(() => threads.map(t => ({
-    id: t.id, label: t.name, initials: t.initials, color: t.color,
-    subtitle: threadMeta[t.id]?.subtitle, badge: threadMeta[t.id]?.badge,
-  })), [threads, threadMeta])
+  const threadItems = useMemo<ListPaneItem[]>(() => threads.map(t => {
+    const avatars = participantAvatars(t.participants)
+    return {
+      id: t.id,
+      label: (t.name || '').trim() || defaultThreadName(t.participants ?? []),
+      avatars,
+      subtitle: threadMeta[t.id]?.subtitle,
+      badge: threadMeta[t.id]?.badge,
+    }
+  }), [threads, threadMeta])
 
   const hashtagItems = useMemo<ListPaneItem[]>(() => hashtags.map(h => ({
     id: h.id,
@@ -225,6 +247,10 @@ export default function ViewerApp() {
 
   function renderDetailPane(controls: AppLayoutControls) {
     const thread = threads.find(t => t.id === activeThread)
+    const senderStyles: Record<string, { initials: string; color: string }> = {}
+    for (const p of thread?.participants ?? []) {
+      senderStyles[p.name] = { initials: p.initials, color: p.color }
+    }
     const backFn = section === 'settings'
       ? () => { setSection(prevSection); controls.onShowList() }
       : section === 'hashtags' && activeHashtagName
@@ -238,10 +264,12 @@ export default function ViewerApp() {
 
     const title =
       section === 'chat' && thread ? (
-        <div className="flex items-center gap-2.5 min-w-0">
-          <ThreadAvatar color={thread.color} initials={thread.initials} />
-          <span className="text-sm font-bold truncate">{thread.name}</span>
-        </div>
+        <span className="flex items-center justify-center gap-2 min-w-0 max-w-full">
+          <AvatarGroup people={participantAvatars(thread.participants)} size="sm" layout="row" />
+          <span className="text-sm font-bold truncate">
+            {(thread.name || '').trim() || defaultThreadName(thread.participants ?? [])}
+          </span>
+        </span>
       ) : section === 'hashtags' && activeHashtagName ? (
         editingHashtagTitle ? (
           <input
@@ -288,33 +316,44 @@ export default function ViewerApp() {
       )
 
     // ── Actions ────────────────────────────────────────────────────────────────
+    const openChatSearch = () => {
+      setThreadSideView(null)
+      setChatSearchOpen(true)
+      requestAnimationFrame(() => chatSearchRef.current?.focus())
+    }
+    const closeChatSearch = () => {
+      setChatSearchOpen(false)
+      setSearchInput('')
+    }
+
+    const chatSearching = section === 'chat' && chatSearchOpen
+
     const actions =
-      section === 'chat' && thread ? (
-        <>
-          <div className="relative">
-            <button onClick={() => setShowHashtagMenu(v => !v)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-            </button>
-            {showHashtagMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowHashtagMenu(false)} />
-                <div className={`absolute right-0 top-full mt-1 ${menu}`}>
-                  <button onClick={() => { setShowViewSettings(true); setShowHashtagMenu(false) }} className={menuItem}>View settings</button>
-                </div>
-              </>
-            )}
-          </div>
+      section === 'chat' && thread && !chatSearching ? (
+        <div className="flex items-center gap-0.5">
           <button
-            onClick={() => setShowMediaPane(v => !v)}
-            title="Media"
-            aria-label="Media"
-            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${showMediaPane ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}
+            type="button"
+            onClick={openChatSearch}
+            title="Search"
+            aria-label="Search"
+            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setThreadSideView(v => (v === 'details' ? null : 'details'))}
+            title="Settings"
+            aria-label="Settings"
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${threadSideView ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
             </svg>
           </button>
-        </>
+        </div>
       ) : section === 'hashtags' && activeHashtagName ? (
         <div className="relative">
           <button onClick={() => setShowHashtagMenu(v => !v)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300">
@@ -356,9 +395,16 @@ export default function ViewerApp() {
       ) : null
 
     // ── Search ─────────────────────────────────────────────────────────────────
-    const search = section === 'chat' ? (
-      <input type="search" value={searchInput} onChange={e => setSearchInput(e.target.value)} placeholder="Search messages…"
-        className="px-3.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-100 text-[13px] outline-hidden placeholder:text-mist-400 focus:bg-mist-200 dark:focus:bg-mist-700 w-full" />
+    const search = chatSearching ? (
+      <input
+        ref={chatSearchRef}
+        type="search"
+        value={searchInput}
+        onChange={e => setSearchInput(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Escape') closeChatSearch() }}
+        placeholder="Search messages…"
+        className="px-3.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-100 text-[13px] outline-hidden placeholder:text-mist-400 focus:bg-mist-200 dark:focus:bg-mist-700 w-full"
+      />
     ) : section === 'hashtags' && activeHashtagName && hashtagActiveTab === 'messages' ? (
       <input type="search" value={hashtagMsgFilter} onChange={e => setHashtagMsgFilter(e.target.value)} placeholder="Search messages…"
         className="px-3.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-100 text-[13px] outline-hidden placeholder:text-mist-400 focus:bg-mist-200 dark:focus:bg-mist-700 w-full" />
@@ -369,9 +415,11 @@ export default function ViewerApp() {
         {((section === 'chat' && chatDetailOpen) || (section === 'hashtags' && (!!activeHashtagName || hashtagCreating)) || section === 'settings') && (
           <AppHeader
             title={title}
-            onBack={backFn}
+            onBack={chatSearching ? closeChatSearch : backFn}
             actions={actions}
             search={search}
+            searchMode={chatSearching}
+            centerTitle={section === 'chat' && !chatSearching}
             scrollContainerRef={chatScrollRef}
           />
         )}
@@ -392,6 +440,7 @@ export default function ViewerApp() {
             {activeThread && <ChatDetailPane
               key={activeThread}
               search={searchInput}
+              searchActive={chatSearchOpen}
               onSearchChange={setSearchInput}
               scrollRef={chatScrollRef}
               hashtags={hashtags}
@@ -411,7 +460,8 @@ export default function ViewerApp() {
               onRegisterJump={registerJump}
               onStatsChange={(total, dateIndex) => { setChatTotal(total); setChatDateIndex(dateIndex) }}
               enabledTypes={enabledTypes}
-              senderColor={thread?.color}
+              senderStyles={senderStyles}
+              participants={thread?.participants ?? []}
               thread={thread?.collection ?? activeThread}
             />}
           </div>
@@ -513,10 +563,11 @@ export default function ViewerApp() {
         initials={initials}
         name={currentUser ?? undefined}
         prevSection={prevSection}
-        detailGrow={section === 'settings' ? 4 : section === 'story' || section === 'hashtags' || !showMediaPane ? 12 : 7}
+        detailGrow={section === 'settings' ? 4 : section === 'story' || section === 'hashtags' || !threadSideView ? 12 : 7}
         listGrow={section === 'settings' ? 4 : 4}
         hideListPane={section === 'story'}
         centeredDetail={section === 'settings'}
+        onCloseMediaPane={() => setThreadSideView(null)}
         listPane={controls => section === 'hashtags' ? (
           <ListPane
             title="Hashtags"
@@ -537,44 +588,76 @@ export default function ViewerApp() {
             filter={threadFilter}
             onFilterChange={setThreadFilter}
             filterPlaceholder="Search Messenger"
-            onSelect={id => { setActiveThread(id); setChatDetailOpen(true); controls.onShowDetail() }}
+            onSelect={id => {
+              setActiveThread(id)
+              setChatDetailOpen(true)
+              setChatSearchOpen(false)
+              setSearchInput('')
+              controls.onShowDetail()
+            }}
           />
         )}
         detailPane={renderDetailPane}
-        mediaPane={section === 'chat' && showMediaPane ? (
-          <MediaPane
-            key={activeThread}
-            thread={activeThread}
-            threadName={threads.find(t => t.id === activeThread)?.name}
-            threadCollection={activeThread}
-            participants={threads.find(t => t.id === activeThread)?.participants}
-            counts={mediaCounts}
-            onLightbox={setLightbox}
-            onContextMenu={handleGalleryContextMenu}
-            hideImages={hideImages}
-            hiddenUris={allHiddenUris}
-            isSuperAdmin={isSuperAdmin}
-            onHideUri={handleHideDbUri}
-            onUnhideUri={handleUnhideDbUri}
-            onThreadDeleted={collection => {
-              setThreads(prev => prev.filter(t => t.collection !== collection))
-              setActiveThread(prev => prev === collection ? (threads.find(t => t.collection !== collection)?.id ?? 'messages') : prev)
-              setShowMediaPane(false)
-            }}
-            onClose={() => setShowMediaPane(false)}
-          />
-        ) : undefined}
+        mediaPane={section === 'chat' && threadSideView && (() => {
+          const t = threads.find(th => th.id === activeThread)
+          if (!t) return undefined
+          if (threadSideView === 'details') {
+            return (
+              <ThreadDetailsPane
+                key={`details-${activeThread}`}
+                threadName={(t.name || '').trim() || defaultThreadName(t.participants ?? [])}
+                threadCollection={t.collection ?? activeThread}
+                participants={t.participants}
+                enabledTypes={enabledTypes}
+                onContentTypeChange={handleContentTypeChange}
+                onResetContentTypes={handleResetContentTypes}
+                hideImages={hideImages}
+                onHideImagesChange={handleHideImagesChange}
+                isSuperAdmin={isSuperAdmin}
+                showHidden={showHidden}
+                onToggleShowHidden={() => setShowHidden(v => {
+                  const next = !v
+                  localStorage.setItem('showHidden', next ? '1' : '0')
+                  return next
+                })}
+                onOpenMedia={() => setThreadSideView('media')}
+                onThreadDeleted={collection => {
+                  setThreads(prev => prev.filter(th => th.collection !== collection))
+                  setActiveThread(prev => prev === collection ? (threads.find(th => th.collection !== collection)?.id ?? 'messages') : prev)
+                  setThreadSideView(null)
+                  setChatDetailOpen(false)
+                }}
+                onThreadUpdated={(collection, patch) => {
+                  setThreads(prev => prev.map(th => {
+                    if (th.collection !== collection && th.id !== collection) return th
+                    return {
+                      ...th,
+                      ...(patch.name != null ? { name: patch.name } : {}),
+                      ...(patch.participants != null ? { participants: patch.participants } : {}),
+                    }
+                  }))
+                }}
+              />
+            )
+          }
+          return (
+            <MediaPane
+              key={`media-${activeThread}`}
+              thread={activeThread}
+              counts={mediaCounts}
+              onLightbox={setLightbox}
+              onContextMenu={handleGalleryContextMenu}
+              hideImages={hideImages}
+              hiddenUris={allHiddenUris}
+              isSuperAdmin={isSuperAdmin}
+              onHideUri={handleHideDbUri}
+              onUnhideUri={handleUnhideDbUri}
+              onGoToMessage={(ts, msgId) => { void jumpToMessage(ts, msgId) }}
+              onBack={() => setThreadSideView('details')}
+            />
+          )
+        })()}
       />
-
-      {/* View settings modal */}
-      {showViewSettings && (
-        <ChatViewSettingsModal
-          enabledTypes={enabledTypes}
-          onChange={handleContentTypeChange}
-          onReset={handleResetContentTypes}
-          onClose={() => setShowViewSettings(false)}
-        />
-      )}
 
       {/* Overlays */}
       {lightbox && <Lightbox state={lightbox}
@@ -589,22 +672,23 @@ export default function ViewerApp() {
         <ActionSheet
           onClose={() => setGalleryCtxMenu(null)}
           actions={[
-            ...(galleryCtxMenu.galMsgId ? [{ label: 'Go to message', onPress: () => { jumpToMessage(Number(galleryCtxMenu.galTs), galleryCtxMenu.galMsgId!); setGalleryCtxMenu(null) } }] : []),
-            ...(galleryCtxMenu.mediaUri ? [
+            ...(galleryCtxMenu.kind === 'gallery' && galleryCtxMenu.galMsgId ? [{ label: 'Go to message', onPress: () => { jumpToMessage(Number(galleryCtxMenu.galTs), galleryCtxMenu.galMsgId!); setGalleryCtxMenu(null) } }] : []),
+            ...(galleryCtxMenu.mediaUri && isSuperAdmin ? [
               allHiddenUris.has(galleryCtxMenu.mediaUri)
                 ? { label: 'Unhide', onPress: () => { handleUnhideDbUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } }
                 : { label: 'Hide', destructive: true, onPress: () => { handleHideDbUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } }
             ] : []),
+            ...(galleryCtxMenu.kind === 'media' && galleryCtxMenu.mediaUri ? [
+              { label: 'Hide image', destructive: true, onPress: () => { hideUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } },
+            ] : []),
           ]}
         />
-      ) : galleryCtxMenu ? (
+      ) : galleryCtxMenu && galleryCtxMenu.kind === 'media' ? (
         <ContextMenu
           state={galleryCtxMenu}
           onClose={() => setGalleryCtxMenu(null)}
-          onJumpToMessage={(ts, msgId) => { jumpToMessage(+ts, msgId); setGalleryCtxMenu(null) }}
+          onJumpToMessage={() => {}}
           onHideUri={hideUri}
-          onCopyLink={() => {}}
-          onCopyText={() => {}}
         />
       ) : null}
     </div>

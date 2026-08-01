@@ -9,17 +9,20 @@ test.describe('viewer smoke', () => {
     await signIn(page)
   })
 
-  test('media pane opens Photos tab', async ({ page }) => {
+  test('settings pane opens then Media', async ({ page }) => {
     await signIn(page)
 
-    // Open first chat thread if media button not already available
-    const media = page.getByRole('button', { name: 'Media' })
-    if (!(await media.isVisible().catch(() => false))) {
+    const settings = page.getByRole('button', { name: 'Settings' })
+    if (!(await settings.isVisible().catch(() => false))) {
       await page.locator('[data-testid^="list-item-"]').first().click()
-      await expect(media).toBeVisible({ timeout: 15_000 })
+      await expect(settings).toBeVisible({ timeout: 15_000 })
     }
 
-    await media.click()
+    await settings.click()
+    await expect(page.getByRole('button', { name: 'Media, files and links' })).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByRole('button', { name: 'Chat info' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Media, files and links' }).click()
     await expect(page.getByRole('button', { name: /Photos/i }).or(page.getByText('Photos', { exact: true }))).toBeVisible({ timeout: 10_000 })
   })
 
@@ -36,7 +39,7 @@ test.describe('viewer smoke', () => {
     // Detail: Messages tab
     await page.getByRole('button', { name: 'Messages', exact: true }).click()
 
-    const jump = page.getByRole('button', { name: '→ Jump' }).first()
+    const jump = page.getByRole('button', { name: 'Go to message' }).first()
     const empty = page.getByText(/No messages tagged yet|No messages match/i)
 
     // Either tagged messages exist (jump) or empty state — both are valid smoke outcomes
@@ -45,7 +48,7 @@ test.describe('viewer smoke', () => {
     if (await jump.isVisible().catch(() => false)) {
       await jump.click()
       await expect(page).toHaveURL(/[?&]msg=/, { timeout: 15_000 })
-      await expect(page.getByRole('button', { name: 'Media' })).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible({ timeout: 10_000 })
     }
   })
 })

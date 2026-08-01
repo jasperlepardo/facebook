@@ -6,6 +6,8 @@ import { r2 } from '@/lib/format'
 import { GALLERY_LIMIT } from '@/lib/constants'
 import { GallerySkeleton } from '@/components/skeletons'
 import { pbSafe } from '@/lib/ui'
+import MessageRowActions from '@/components/message/MessageRowActions'
+import { buildMessageActions } from '@/lib/messageActions'
 
 interface GalleryProps {
   type: 'photos' | 'videos' | 'gifs' | 'stickers'
@@ -17,9 +19,48 @@ interface GalleryProps {
   isSuperAdmin?: boolean
   onHideUri?: (uri: string) => void
   onUnhideUri?: (uri: string) => void
+  onGoToMessage?: (ts: number, msgId: string) => void
 }
 
-export default function Gallery({ type, thread = 'messages', onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri }: GalleryProps) {
+function GalleryCellActions({
+  item,
+  isHidden,
+  isSuperAdmin,
+  onHideUri,
+  onUnhideUri,
+  onGoToMessage,
+}: {
+  item: GalleryItem
+  isHidden?: boolean
+  isSuperAdmin?: boolean
+  onHideUri?: (uri: string) => void
+  onUnhideUri?: (uri: string) => void
+  onGoToMessage?: (ts: number, msgId: string) => void
+}) {
+  const actions = buildMessageActions({
+    surface: 'gallery',
+    count: 1,
+    isHidden,
+    isSuperAdmin,
+    omitSelect: true,
+    callbacks: {
+      onGoToMessage: item.msgId && onGoToMessage
+        ? () => onGoToMessage(item.ts, item.msgId!)
+        : undefined,
+      onHide: onHideUri ? () => onHideUri(item.uri) : undefined,
+      onUnhide: onUnhideUri ? () => onUnhideUri(item.uri) : undefined,
+    },
+  })
+  if (!actions.length) return null
+  return (
+    <MessageRowActions
+      actions={actions}
+      className="absolute top-1.5 right-1.5 opacity-0 group-hover/cell:opacity-100 transition-opacity z-10"
+    />
+  )
+}
+
+export default function Gallery({ type, thread = 'messages', onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri, onGoToMessage }: GalleryProps) {
   const [items, setItems]     = useState<GalleryItem[]>([])
   const itemsRef    = useRef<GalleryItem[]>([])
   const [hasMore, setHasMore] = useState(true)
@@ -32,6 +73,8 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
   const saveTimer   = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const deviceId    = useRef('')
   const userNameRef = useRef('')
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const touchPos = useRef({ x: 0, y: 0 })
 
   async function load() {
     if (!hasMoreRef.current || loadingRef.current) return
@@ -165,16 +208,20 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
             <div key={i} className="aspect-square rounded-xs bg-gray-200 dark:bg-mist-700 relative flex flex-col items-center justify-center gap-1 group/cell">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hidden</span>
-              <button
-                onClick={() => onUnhideUri?.(item.uri)}
-                className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/cell:opacity-100 transition-opacity text-[11px] bg-mist-600 hover:bg-mist-700 text-white px-2 py-0.5 rounded-full"
-              >Unhide</button>
+              <GalleryCellActions
+                item={item}
+                isHidden
+                isSuperAdmin={isSuperAdmin}
+                onUnhideUri={onUnhideUri}
+                onGoToMessage={onGoToMessage}
+              />
             </div>
           )
 
           return (
             <div key={i}
               className="aspect-square overflow-hidden cursor-pointer rounded-xs bg-gray-200 dark:bg-mist-700 relative hover:opacity-85 group/cell"
+              style={{ WebkitTouchCallout: 'none' }}
               onClick={() => {
                 const mkState = (idx: number): LightboxState => ({
                   src: r2(itemsRef.current[idx].uri),
@@ -190,7 +237,20 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
                 })
                 onLightbox(mkState(i))
               }}
-              onContextMenu={e => { e.preventDefault(); onContextMenu(e, item) }}
+              onContextMenu={e => { e.preventDefault() }}
+              onTouchStart={e => {
+                if (e.touches.length !== 1) return
+                const t = e.touches[0]
+                touchPos.current = { x: t.clientX, y: t.clientY }
+                longPressTimer.current = setTimeout(() => {
+                  onContextMenu(
+                    { clientX: touchPos.current.x, clientY: touchPos.current.y, preventDefault: () => {}, _fromTouch: true } as unknown as React.MouseEvent,
+                    item,
+                  )
+                }, 500)
+              }}
+              onTouchEnd={() => clearTimeout(longPressTimer.current)}
+              onTouchMove={() => clearTimeout(longPressTimer.current)}
               data-ts={item.ts}
               data-msg-id={item.msgId}
             >
@@ -198,12 +258,12 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
                 ? <video src={r2(item.uri)} preload="none" className="absolute inset-0 w-full h-full object-cover" />
                 : <img src={r2(item.uri)} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
               }
-              {isSuperAdmin && onHideUri && (
-                <button
-                  onClick={e => { e.stopPropagation(); onHideUri(item.uri) }}
-                  className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/cell:opacity-100 transition-opacity text-[11px] bg-black/60 hover:bg-black/80 text-white px-2 py-0.5 rounded-full"
-                >Hide</button>
-              )}
+              <GalleryCellActions
+                item={item}
+                isSuperAdmin={isSuperAdmin}
+                onHideUri={onHideUri}
+                onGoToMessage={onGoToMessage}
+              />
             </div>
           )
         })}

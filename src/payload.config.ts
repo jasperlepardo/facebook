@@ -5,6 +5,7 @@ import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 import { HashtagGroups } from './collections/HashtagGroups'
 import { Hashtags } from './collections/Hashtags'
+import { Participants } from './collections/Participants'
 import { Threads } from './collections/Threads'
 import { Users } from './collections/Users'
 
@@ -19,7 +20,7 @@ export default buildConfig({
   admin: {
     user: 'users',
   },
-  collections: [Users, Hashtags, HashtagGroups, Threads],
+  collections: [Users, Hashtags, HashtagGroups, Participants, Threads],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET,
   typescript: {

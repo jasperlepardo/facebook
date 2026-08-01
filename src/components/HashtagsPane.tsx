@@ -1,13 +1,17 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Hashtag, LightboxState } from '@/types'
+import { Hashtag, LightboxState, Message } from '@/types'
 import MessageList from './message/MessageList'
+import MessageRowActions from './message/MessageRowActions'
+import MessageSelectionBar from './message/MessageSelectionBar'
 import Lightbox from './Lightbox'
 import ActionSheet from './ActionSheet'
 import HashtagCreateForm from './HashtagCreateForm'
 import Tabs from './Tabs'
 import { useHashtagMessages } from '@/hooks/useHashtagMessages'
+import { buildMessageLink, formatMessagesText } from '@/lib/messageCopy'
+import { buildMessageActions, actionsToSheet } from '@/lib/messageActions'
 import { pbSafe } from '@/lib/ui'
 
 interface HashtagsPaneProps {
@@ -37,17 +41,18 @@ interface HashtagsPaneProps {
   onMsgFilterChange: (v: string) => void
 }
 
-export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter, onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange }: HashtagsPaneProps) {
+export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter: _filter, onFilterChange: _onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange: _onMsgFilterChange }: HashtagsPaneProps) {
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [context, setContext] = useState('')
-  const [newName, setNewName] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
-  const [ctxMsgIds, setCtxMsgIds] = useState<string[] | null>(null)
-  const [jumpingMsgId, setJumpingMsgId] = useState<string | null>(null)
+  const [sheetMsgIds, setSheetMsgIds] = useState<string[] | null>(null)
+  const [selectedMsgs, setSelectedMsgs] = useState(new Map<string, { ts: number }>())
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastAnchor = useRef<{ id: string; ts: number } | null>(null)
   const [editingContext, setEditingContext] = useState(false)
   const ctxRef = useRef<HTMLTextAreaElement>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const newRef = useRef<HTMLInputElement>(null)
   const deleteRef = useRef<() => Promise<void>>(async () => {})
   const renameRef = useRef<(name: string) => Promise<void>>(async () => {})
   const restoredFromUrl = useRef(false)
@@ -67,6 +72,12 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     handleScrollToDay,
   } = useHashtagMessages({ thread, isSuperAdmin, activeTab, msgFilter })
 
+  const showToast = useCallback((msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast(msg)
+    toastTimer.current = setTimeout(() => setToast(null), 2000)
+  }, [])
+
   function setHashtagParam(id: string | null) {
     const params = new URLSearchParams(window.location.search)
     if (id) params.set('h', id); else params.delete('h')
@@ -74,12 +85,10 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
   }
 
-  // Open hashtag from list selection
   useEffect(() => {
     if (pendingSelect) openDetail(pendingSelect)
   }, [pendingSelect]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When create form is triggered while a hashtag is open, reset selection first
   useEffect(() => {
     if (creating && selected) {
       setHashtagParam(null)
@@ -89,7 +98,6 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     }
   }, [creating]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Restore selected hashtag from URL once hashtags have loaded
   useEffect(() => {
     if (restoredFromUrl.current || !hashtags.length) return
     restoredFromUrl.current = true
@@ -109,6 +117,8 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     setContext(h.context ?? '')
     onActiveTabChange('context')
     setEditingContext(false)
+    setSelectedMsgs(new Map())
+    lastAnchor.current = null
     await loadMessages(h)
   }
 
@@ -121,22 +131,18 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     }, 600)
   }
 
-  async function createHashtag() {
-    const slug = newName.trim()
-    if (!slug) return
-    await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: slug }) })
-    setNewName(''); onCreatingChange(false)
-    onReload()
-  }
-
-  async function removeGroup(messageId: string) {
-    if (!selected) return
-    await fetch('/api/hashtag-groups', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hashtagId: selected.id, messageId, thread: msgThread }),
-    })
-    setSelected(prev => prev ? { ...prev, groupCount: Math.max(0, (prev.groupCount ?? 1) - 1) } : prev)
+  async function removeGroup(messageIds: string[]) {
+    if (!selected || !messageIds.length) return
+    await Promise.all(messageIds.map(messageId =>
+      fetch('/api/hashtag-groups', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hashtagId: selected.id, messageId, thread: msgThread }),
+      }),
+    ))
+    setSelected(prev => prev ? { ...prev, groupCount: Math.max(0, (prev.groupCount ?? messageIds.length) - messageIds.length) } : prev)
+    setSelectedMsgs(new Map())
+    lastAnchor.current = null
     await loadMessages(selected)
     onReload()
   }
@@ -151,7 +157,6 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     onReload()
   }
 
-  // Keep action refs current every render so ViewerApp always calls the latest version
   deleteRef.current = deleteHashtag
   renameRef.current = async (name: string) => {
     if (!selected) return
@@ -161,7 +166,6 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     onReload()
   }
 
-  // Re-register actions whenever the selected hashtag changes
   useEffect(() => {
     if (!selected) { onActionsChange(null); return }
     onActionsChange({
@@ -171,9 +175,83 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     })
   }, [selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const filtered = filter ? hashtags.filter(h => h.name.includes(filter.toLowerCase())) : hashtags
+  const handleToggle = useCallback((id: string, ts: number, _tsEnd: number, _allIds: string[], shiftKey?: boolean) => {
+    if (shiftKey && lastAnchor.current) {
+      const flat = blocks.flatMap(b => b.msgs)
+      const aIdx = flat.findIndex(m => m._id === lastAnchor.current!.id)
+      const cIdx = flat.findIndex(m => m._id === id)
+      if (aIdx !== -1 && cIdx !== -1) {
+        const [start, end] = aIdx < cIdx ? [aIdx, cIdx] : [cIdx, aIdx]
+        setSelectedMsgs(prev => {
+          const next = new Map(prev)
+          for (let i = start; i <= end; i++) next.set(flat[i]._id, { ts: flat[i].timestamp_ms })
+          return next
+        })
+        return
+      }
+    }
+    lastAnchor.current = { id, ts }
+    setSelectedMsgs(prev => {
+      const next = new Map(prev)
+      if (next.has(id)) next.delete(id)
+      else next.set(id, { ts })
+      return next
+    })
+  }, [blocks])
 
-  // ─── Detail view ───────────────────────────────────────────────────────────
+  const clearSelection = useCallback(() => {
+    setSelectedMsgs(new Map())
+    lastAnchor.current = null
+  }, [])
+
+  const copyLink = useCallback((msgIds: string[]) => {
+    if (!msgIds[0]) return
+    navigator.clipboard.writeText(buildMessageLink(msgIds[0], msgThread)).then(() => showToast('Link copied'))
+  }, [msgThread, showToast])
+
+  const copyText = useCallback((msgIds: string[]) => {
+    const ids = new Set(msgIds)
+    const msgs = allMsgsRef.current.filter(m => ids.has(m._id))
+    const text = formatMessagesText(msgs)
+    if (!text) return
+    navigator.clipboard.writeText(text).then(() => showToast('Text copied'))
+  }, [allMsgsRef, showToast])
+
+  const makeActions = useCallback((msgIds: string[], opts?: { omitSelect?: boolean; isSelected?: boolean }) => {
+    const msgs: Message[] = allMsgsRef.current.filter(m => msgIds.includes(m._id))
+    const first = msgs[0]
+    return buildMessageActions({
+      surface: 'hashtag',
+      count: msgIds.length,
+      isSelected: opts?.isSelected,
+      omitSelect: opts?.omitSelect,
+      callbacks: {
+        onSelect: () => {
+          if (!first) return
+          handleToggle(first._id, first.timestamp_ms, first.timestamp_ms, [first._id])
+        },
+        onGoToMessage: first
+          ? () => { void onJumpToMessage(first.timestamp_ms, first._id, msgThread) }
+          : undefined,
+        onCopyLink: () => copyLink(msgIds),
+        onCopyText: () => copyText(msgIds),
+        onRemove: () => { void removeGroup(msgIds) },
+      },
+    })
+  }, [allMsgsRef, handleToggle, onJumpToMessage, msgThread, copyLink, copyText]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const selectedIds = useMemo(() => [...selectedMsgs.keys()], [selectedMsgs])
+  const barActions = useMemo(
+    () => makeActions(selectedIds, { omitSelect: true }),
+    [makeActions, selectedIds],
+  )
+  const sheetActions = useMemo(
+    () => (sheetMsgIds ? makeActions(sheetMsgIds, {
+      isSelected: sheetMsgIds[0] ? selectedMsgs.has(sheetMsgIds[0]) : false,
+    }) : []),
+    [sheetMsgIds, makeActions, selectedMsgs],
+  )
+
   if (!selected) {
     if (creating) {
       return <HashtagCreateForm
@@ -207,7 +285,6 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
   return (
     <>
       <div className="flex flex-col h-full min-h-0 bg-white dark:bg-mist-900">
-        {/* Tabs */}
         <Tabs
           tabs={[
             { key: 'context',  label: 'Context' },
@@ -217,11 +294,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
           onChange={onActiveTabChange}
         />
 
-
-        {/* Tab content */}
         <div className="flex-1 min-h-0 relative">
-
-          {/* Context tab */}
           {activeTab === 'context' && (
             <div className={`absolute inset-0 overflow-y-auto ${pbSafe} md:pb-0`}>
               {editingContext ? (
@@ -263,10 +336,16 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
             </div>
           )}
 
-          {/* Messages tab */}
           {activeTab === 'messages' && (
             <div className="absolute inset-0 flex flex-col">
-              <div ref={msgsScrollRef} className={`flex-1 overflow-y-auto ${pbSafe} md:pb-0`}>
+              {selectedMsgs.size > 0 && (
+                <MessageSelectionBar
+                  count={selectedMsgs.size}
+                  actions={barActions}
+                  onClear={clearSelection}
+                />
+              )}
+              <div ref={msgsScrollRef} className={`flex-1 overflow-y-auto ${pbSafe} md:pb-0${selectedMsgs.size > 0 ? ' select-none' : ''}`}>
                 <div className="min-h-full flex flex-col justify-end">
                 {allMsgs.length === 0 && (
                   <p className="text-xs text-gray-400 dark:text-mist-500 text-center py-8">No messages tagged yet.</p>
@@ -279,7 +358,12 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   blocks={blocks}
                   onLightbox={setLightbox}
                   onJumpTo={handleScrollToDay}
-                  onContextMenu={(e, msgIds) => { if ((e as unknown as { _fromTouch?: boolean })._fromTouch) setCtxMsgIds(msgIds) }}
+                  selectedMsgIds={selectedMsgs}
+                  onToggle={handleToggle}
+                  onContextMenu={(e, msgIds) => {
+                    e.preventDefault()
+                    if ((e as unknown as { _fromTouch?: boolean })._fromTouch) setSheetMsgIds(msgIds)
+                  }}
                   isSuperAdmin={isSuperAdmin}
                   hideImages={hideImages}
                   hiddenUris={hiddenUris}
@@ -289,27 +373,11 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   onHideUri={onHideUri}
                   onUnhideUri={onUnhideUri}
                   renderRowActions={msg => (
-                    <>
-                      <button
-                        disabled={jumpingMsgId === msg._id}
-                        onClick={async e => {
-                          e.stopPropagation()
-                          setJumpingMsgId(msg._id)
-                          try { await onJumpToMessage(msg.timestamp_ms, msg._id, msgThread) }
-                          finally { setJumpingMsgId(null) }
-                        }}
-                        className="text-[11px] bg-white dark:bg-mist-800 border border-gray-200 dark:border-mist-600 rounded-sm px-1.5 py-0.5 text-mist-600 dark:text-mist-400 shadow-xs hover:bg-mist-50 dark:hover:bg-mist-900/30 disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {jumpingMsgId === msg._id
-                          ? <><svg className="animate-spin w-2.5 h-2.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>…</>
-                          : '→ Jump'
-                        }
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); removeGroup(msg._id) }}
-                        className="text-[11px] bg-white dark:bg-mist-800 border border-gray-200 dark:border-mist-600 rounded-sm px-1.5 py-0.5 text-red-500 shadow-xs hover:bg-red-50 dark:hover:bg-red-900/30"
-                      >× Remove</button>
-                    </>
+                    <MessageRowActions
+                      actions={makeActions([msg._id], {
+                        isSelected: selectedMsgs.has(msg._id),
+                      })}
+                    />
                   )}
                 />
                 {hasMore && <div ref={botSentinelRef} className="h-8" />}
@@ -317,24 +385,23 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
               </div>
             </div>
           )}
-
         </div>
       </div>
     {lightbox && <Lightbox state={lightbox} onClose={() => setLightbox(null)} />}
-    {ctxMsgIds && (() => {
-      const msg = allMsgsRef.current.find(m => ctxMsgIds.includes(m._id))
-      if (!msg) return null
-      return (
-        <ActionSheet
-          onClose={() => setCtxMsgIds(null)}
-          actions={[
-            { label: 'Go to message', onPress: () => { onJumpToMessage(msg.timestamp_ms, msg._id, msgThread); setCtxMsgIds(null) } },
-            { label: 'Remove', destructive: true, onPress: () => { removeGroup(msg._id); setCtxMsgIds(null) } },
-          ]}
-        />
-      )
-    })()}
+    {sheetMsgIds && (
+      <ActionSheet
+        onClose={() => setSheetMsgIds(null)}
+        actions={actionsToSheet(sheetActions.map(a => ({
+          ...a,
+          onPress: () => { a.onPress(); setSheetMsgIds(null) },
+        })))}
+      />
+    )}
+    {toast && (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-mist-900 dark:bg-mist-700 text-white text-sm px-4 py-2 rounded-full shadow-lg pointer-events-none z-[400]">
+        {toast}
+      </div>
+    )}
     </>
   )
-
 }

@@ -24,7 +24,7 @@ interface MessageListProps {
   onHideUri?: (uri: string) => void
   onUnhideUri?: (uri: string) => void
   enabledTypes?: Set<ContentTypeKey>
-  senderColor?: string
+  senderStyles?: Record<string, { initials: string; color: string }>
 }
 
 const noop = () => {}
@@ -33,7 +33,7 @@ const MessageList = memo(function MessageList({
   blocks, onLightbox, selectedMsgIds, onToggle, onContextMenu,
   dateIndex, onJumpTo, onOpenDatePicker, renderRowActions,
   hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds,
-  onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, enabledTypes, senderColor,
+  onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, enabledTypes, senderStyles,
 }: MessageListProps) {
   const uid = useId()
 
@@ -88,7 +88,7 @@ const MessageList = memo(function MessageList({
                 onUnhideUri={onUnhideUri}
                 enabledTypes={enabledTypes}
                 renderRowActions={renderRowActions}
-                senderColor={senderColor}
+                senderStyles={senderStyles}
               />
             ))}
           </div>

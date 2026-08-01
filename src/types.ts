@@ -2,6 +2,8 @@ export interface Message {
   _id: string
   timestamp_ms: number
   sender_name: string
+  /** Global Participant document id (stamped on import / backfill). */
+  senderId?: string
   blockId?: string
   content?: string
   type?: 'link' | 'media' | 'text' | 'placeholder'
@@ -73,13 +75,20 @@ export interface ContextMenuState {
 
 export type Section = 'chat' | 'hashtags' | 'settings' | 'story'
 
-export interface Thread {
-  id: string
+export interface ThreadParticipant {
+  id?: string
   name: string
   initials: string
   color: string
+}
+
+export interface Thread {
+  id: string
+  name: string
   collection: string
-  participants?: string[]
+  participants?: ThreadParticipant[]
+  facebookThreadId?: string | null
+  messageCount?: number
 }
 
 export interface LinkedDate {

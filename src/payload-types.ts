@@ -69,6 +69,7 @@ export interface Config {
     users: User;
     hashtags: Hashtag;
     'hashtag-groups': HashtagGroup;
+    participants: Participant;
     threads: Thread;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -79,6 +80,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     hashtags: HashtagsSelect<false> | HashtagsSelect<true>;
     'hashtag-groups': HashtagGroupsSelect<false> | HashtagGroupsSelect<true>;
+    participants: ParticipantsSelect<false> | ParticipantsSelect<true>;
     threads: ThreadsSelect<false> | ThreadsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -203,6 +205,73 @@ export interface HashtagGroup {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "participants".
+ */
+export interface Participant {
+  id: string;
+  /**
+   * Facebook display name — matches message sender_name
+   */
+  name: string;
+  /**
+   * Lowercased alphanumerics for dedup lookup
+   */
+  normalizedName: string;
+  /**
+   * Avatar initials (1-2 chars)
+   */
+  initials?: string | null;
+  color?:
+    | (
+        | 'bg-rose-400'
+        | 'bg-rose-500'
+        | 'bg-red-400'
+        | 'bg-red-500'
+        | 'bg-orange-400'
+        | 'bg-orange-500'
+        | 'bg-amber-400'
+        | 'bg-amber-500'
+        | 'bg-yellow-400'
+        | 'bg-yellow-500'
+        | 'bg-lime-400'
+        | 'bg-lime-500'
+        | 'bg-green-400'
+        | 'bg-green-500'
+        | 'bg-emerald-400'
+        | 'bg-emerald-500'
+        | 'bg-teal-400'
+        | 'bg-teal-500'
+        | 'bg-cyan-400'
+        | 'bg-cyan-500'
+        | 'bg-sky-400'
+        | 'bg-sky-500'
+        | 'bg-blue-400'
+        | 'bg-blue-500'
+        | 'bg-indigo-400'
+        | 'bg-indigo-500'
+        | 'bg-violet-400'
+        | 'bg-violet-500'
+        | 'bg-purple-400'
+        | 'bg-purple-500'
+        | 'bg-fuchsia-400'
+        | 'bg-fuchsia-500'
+        | 'bg-pink-400'
+        | 'bg-pink-500'
+        | 'bg-stone-400'
+        | 'bg-stone-500'
+        | 'bg-slate-400'
+        | 'bg-slate-500'
+        | 'bg-zinc-400'
+        | 'bg-zinc-500'
+        | 'bg-gray-400'
+        | 'bg-gray-500'
+      )
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "threads".
  */
 export interface Thread {
@@ -212,22 +281,6 @@ export interface Thread {
    */
   name: string;
   /**
-   * Avatar initials (1-2 chars)
-   */
-  initials?: string | null;
-  color?:
-    | (
-        | 'bg-rose-400'
-        | 'bg-violet-400'
-        | 'bg-amber-400'
-        | 'bg-sky-400'
-        | 'bg-pink-400'
-        | 'bg-indigo-400'
-        | 'bg-emerald-400'
-        | 'bg-orange-400'
-      )
-    | null;
-  /**
    * MongoDB collection name — do not change after import
    */
   collection: string;
@@ -235,12 +288,10 @@ export interface Thread {
    * Facebook thread ID from export folder name
    */
   facebookThreadId?: string | null;
-  participants?:
-    | {
-        name?: string | null;
-        id?: string | null;
-      }[]
-    | null;
+  /**
+   * Members — global Participant docs
+   */
+  participants?: (string | Participant)[] | null;
   /**
    * Updated after each import
    */
@@ -266,6 +317,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'hashtag-groups';
         value: string | HashtagGroup;
+      } | null)
+    | ({
+        relationTo: 'participants';
+        value: string | Participant;
       } | null)
     | ({
         relationTo: 'threads';
@@ -375,20 +430,25 @@ export interface HashtagGroupsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "participants_select".
+ */
+export interface ParticipantsSelect<T extends boolean = true> {
+  name?: T;
+  normalizedName?: T;
+  initials?: T;
+  color?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "threads_select".
  */
 export interface ThreadsSelect<T extends boolean = true> {
   name?: T;
-  initials?: T;
-  color?: T;
   collection?: T;
   facebookThreadId?: T;
-  participants?:
-    | T
-    | {
-        name?: T;
-        id?: T;
-      };
+  participants?: T;
   messageCount?: T;
   updatedAt?: T;
   createdAt?: T;

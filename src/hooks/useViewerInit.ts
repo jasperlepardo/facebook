@@ -9,7 +9,8 @@ type HiddenItem = { _id: string; type: 'message' | 'uri'; value: string }
 
 interface UseViewerInitParams {
   activeThread: string
-  showMediaPane: boolean
+  /** Lazy-load media tab counts when the media child of the 3rd pane is open. */
+  mediaPaneOpen: boolean
   setCurrentUser: Dispatch<SetStateAction<string>>
   setIsSuperAdmin: Dispatch<SetStateAction<boolean>>
   setShowHidden: Dispatch<SetStateAction<boolean>>
@@ -26,7 +27,7 @@ interface UseViewerInitParams {
 /** Mount init, active-thread reload, and lazy media counts. */
 export function useViewerInit({
   activeThread,
-  showMediaPane,
+  mediaPaneOpen,
   setCurrentUser,
   setIsSuperAdmin,
   setShowHidden,
@@ -118,7 +119,7 @@ export function useViewerInit({
 
   // Lazy media counts — only when MediaPane is open
   useEffect(() => {
-    if (!showMediaPane || !activeThread) return
+    if (!mediaPaneOpen || !activeThread) return
     let cancelled = false
     fetch(`/api/init?thread=${activeThread}&mediaOnly=1`)
       .then(r => r.ok ? r.json() : null)
@@ -127,5 +128,5 @@ export function useViewerInit({
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [showMediaPane, activeThread])
+  }, [mediaPaneOpen, activeThread])
 }

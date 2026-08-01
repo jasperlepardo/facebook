@@ -2,7 +2,9 @@
 import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import type { FoundThread, ImportProgress, StoredSource } from '@/lib/import/types'
-import { inferInitials, pickColor } from '@/lib/import/utils'
+import { inferInitials, pickColor, djb2 } from '@/lib/import/utils'
+import { defaultThreadName } from '@/lib/threadDisplay'
+import AvatarGroup from '@/components/AvatarGroup'
 import { openSource, readDirEntry } from '@/lib/import/virtualFs'
 import { mergeThreads, parseSource } from '@/lib/import/parseExport'
 import { runImport } from '@/lib/import/runImport'
@@ -150,7 +152,10 @@ export default function UploadPage() {
   }, [handleSources])
 
   const onSelect = (t: FoundThread) => {
-    setSelected(t); setThreadName(t.title); setDone(null); setProgress(null)
+    setSelected(t)
+    setThreadName(defaultThreadName(t.participants) || t.title)
+    setDone(null)
+    setProgress(null)
   }
 
   const handleImport = async () => {
@@ -178,7 +183,12 @@ export default function UploadPage() {
   }
 
   const filtered = search
-    ? threads.filter(t => t.title.toLowerCase().includes(search.toLowerCase()))
+    ? threads.filter(t => {
+        const q = search.toLowerCase()
+        const label = defaultThreadName(t.participants) || t.title
+        return label.toLowerCase().includes(q) || t.title.toLowerCase().includes(q)
+          || t.participants.some(p => p.toLowerCase().includes(q))
+      })
     : threads
 
   return (
@@ -288,7 +298,14 @@ export default function UploadPage() {
             </div>
 
             <div className="max-h-72 overflow-y-auto divide-y divide-mist-100 dark:divide-mist-800">
-              {filtered.map(t => (
+              {filtered.map(t => {
+                const label = defaultThreadName(t.participants) || t.title
+                const avatars = t.participants.map(name => ({
+                  name,
+                  initials: inferInitials(name) || '?',
+                  color: pickColor('thread_' + djb2(name)),
+                }))
+                return (
                 <button
                   key={t.key}
                   onClick={() => onSelect(t)}
@@ -298,12 +315,10 @@ export default function UploadPage() {
                       : 'hover:bg-mist-50 dark:hover:bg-mist-800'
                     }`}
                 >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold ${pickColor(t.key)}`}>
-                    {inferInitials(t.title)}
-                  </div>
+                  <AvatarGroup people={avatars} size="md" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">{t.title}</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">{label}</span>
                       <span className="text-xs text-mist-400 shrink-0">~{t.messageCount.toLocaleString()} msgs</span>
                     </div>
                     <div className="text-xs text-mist-400 truncate">{t.participants.join(', ')}</div>
@@ -312,7 +327,8 @@ export default function UploadPage() {
                     {t.format === 'native' ? 'FB export' : 'scraped'}
                   </span>
                 </button>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}

@@ -73,6 +73,10 @@ export async function GET(req: NextRequest) {
   const showHidden = searchParams.get('showHidden') === '1'
   const thread     = searchParams.get('thread') ?? 'messages'
   const wantTotal  = searchParams.get('total') === '1'
+  const senderIds  = (searchParams.get('senderId') ?? '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
 
   if (!isSafeCollectionName(thread)) {
     return NextResponse.json({ error: 'Invalid thread' }, { status: 400, headers: CORS })
@@ -82,6 +86,8 @@ export async function GET(req: NextRequest) {
     const session = await getSession()
     const msgs    = await getCollection(thread)
     const filter  = await buildFilter(!!session?.superAdmin, showHidden)
+    if (senderIds.length === 1) Object.assign(filter, { senderId: senderIds[0] })
+    else if (senderIds.length > 1) Object.assign(filter, { senderId: { $in: senderIds } })
 
     const tsFrom = searchParams.get('tsFrom')
     const tsTo   = searchParams.get('tsTo')
@@ -105,11 +111,9 @@ export async function GET(req: NextRequest) {
 
     if (q) {
       const filt = { ...filter, $text: { $search: q } }
-      // Search: limit+1 for has_more; count only when needed (first page or explicit)
+      // Chronological (oldest → newest); limit+1 for has_more
       const [pagePlus, total] = await Promise.all([
-        msgs.find(filt, { projection: { score: { $meta: 'textScore' } } })
-          .sort({ score: { $meta: 'textScore' }, timestamp_ms: 1 })
-          .skip(off).limit(limit + 1).toArray(),
+        msgs.find(filt).sort({ timestamp_ms: 1 }).skip(off).limit(limit + 1).toArray(),
         (off === 0 || wantTotal) ? msgs.countDocuments(filt) : Promise.resolve(undefined as number | undefined),
       ])
       const has_more = pagePlus.length > limit

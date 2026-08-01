@@ -26,7 +26,7 @@ interface MessageGroupProps {
   onUnhideUri?: (uri: string) => void
   enabledTypes?: Set<ContentTypeKey>
   renderRowActions?: (msg: Message) => React.ReactNode
-  senderColor?: string
+  senderStyles?: Record<string, { initials: string; color: string }>
 }
 
 interface RowSharedProps {
@@ -46,12 +46,16 @@ interface RowSharedProps {
   onHideUri?: (uri: string) => void
   onUnhideUri?: (uri: string) => void
   renderRowActions?: (msg: Message) => React.ReactNode
-  senderColor?: string
+  senderStyles?: Record<string, { initials: string; color: string }>
   longPressTimer: React.RefObject<ReturnType<typeof setTimeout> | undefined>
   touchPos: React.RefObject<{ x: number; y: number }>
 }
 
+import { PARTICIPANT_TEXT_COLORS } from '@/lib/participantColors'
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const AVATAR_TEXT = PARTICIPANT_TEXT_COLORS
 
 function isBlankMsg(m: Message): boolean {
   if (m.media_failed || m.content_unavailable || m.is_unsent || m.is_unsent_image_by_messenger_kid_parent) return false
@@ -77,12 +81,18 @@ function isPhotoOnlyMsg(m: Message): boolean {
 const MessageRow = memo(function MessageRow({
   m, block, isFirst, isSel, isSuperAdmin, hiddenMsgIds, hideImages, hiddenUris,
   enabledTypes, onToggle, onLightbox, onContextMenu,
-  onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, renderRowActions, senderColor,
+  onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, renderRowActions, senderStyles,
   longPressTimer, touchPos,
 }: RowSharedProps & { m: Message }) {
   const show = (k: ContentTypeKey) => !enabledTypes || enabledTypes.has(k)
   const isHidden = !!isSuperAdmin && !!m._id && !!hiddenMsgIds?.has(m._id)
   const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
+  const style = senderStyles?.[block.sender]
+  const avatarColor = style?.color ?? 'bg-violet-400'
+  const avatarInitials = style?.initials
+    || (block.sender || '?').split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
+    || '?'
+  const senderNameClass = AVATAR_TEXT[avatarColor] ?? 'text-violet-600 dark:text-violet-400'
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('a,button,audio,video,img')) return
@@ -113,7 +123,7 @@ const MessageRow = memo(function MessageRow({
     >
       <div className="w-8 shrink-0 flex items-center justify-end">
         {isFirst
-          ? <ThreadAvatar color={block.mine ? 'bg-blue-600' : (senderColor ?? 'bg-violet-500')} initials={(block.sender || '?')[0].toUpperCase()} />
+          ? <ThreadAvatar color={avatarColor} initials={avatarInitials} />
           : <span className={timeCls}>{fmtTimeShort(m.timestamp_ms)}</span>
         }
       </div>
@@ -121,7 +131,7 @@ const MessageRow = memo(function MessageRow({
       <div className={`flex-1 min-w-0${isHidden ? ' opacity-40' : ''}`}>
         {isFirst && (
           <div className="flex items-baseline gap-2 mb-0.5">
-            <span className={`text-sm font-semibold ${block.mine ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-mist-100'}`}>{block.sender}</span>
+            <span className={`text-sm font-semibold ${senderNameClass}`}>{block.sender}</span>
             <span className="text-[11px] text-mist-400 dark:text-mist-500">{fmtTime(m.timestamp_ms)}</span>
           </div>
         )}
@@ -164,7 +174,7 @@ const MessageRow = memo(function MessageRow({
 const MessageGroup = memo(function MessageGroup({
   block, selectedMsgIds, onToggle, onLightbox, onContextMenu,
   hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds,
-  onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, enabledTypes, renderRowActions, senderColor,
+  onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, enabledTypes, renderRowActions, senderStyles,
 }: MessageGroupProps) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const touchPos = useRef({ x: 0, y: 0 })
@@ -194,7 +204,7 @@ const MessageGroup = memo(function MessageGroup({
   const shared: Omit<RowSharedProps, 'isFirst' | 'isSel'> = {
     block, isSuperAdmin, hiddenMsgIds, hideImages, hiddenUris, enabledTypes,
     onToggle, onLightbox, onContextMenu,
-    onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, renderRowActions, senderColor,
+    onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, renderRowActions, senderStyles,
     longPressTimer, touchPos,
   }
 

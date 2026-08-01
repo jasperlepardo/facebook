@@ -40,6 +40,7 @@ export async function getCollection(collectionName: string) {
       col.createIndex({ timestamp_ms: 1 }),
       col.createIndex({ blockId: 1, timestamp_ms: 1 }),
       col.createIndex({ content: 'text', sender_name: 'text' }),
+      col.createIndex({ senderId: 1, timestamp_ms: 1 }),
       col.createIndex({ timestamp_ms: 1 }, { partialFilterExpression: { photos: { $exists: true } }, name: 'photos_ts' }),
       col.createIndex({ timestamp_ms: 1 }, { partialFilterExpression: { videos: { $exists: true } }, name: 'videos_ts' }),
       col.createIndex({ timestamp_ms: 1 }, { partialFilterExpression: { gifs: { $exists: true } }, name: 'gifs_ts' }),

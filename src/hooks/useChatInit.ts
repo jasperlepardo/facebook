@@ -24,8 +24,10 @@ interface JumpInitApi {
 interface UseChatInitParams {
   thread: string
   search: string
+  senderIdsKey: string
   scrollRef: React.RefObject<HTMLDivElement | null>
   searchRef: React.MutableRefObject<string>
+  senderIdsRef: React.MutableRefObject<string[]>
   dateIndexRef: React.MutableRefObject<DateIndex | null>
   deviceId: React.MutableRefObject<string>
   currentUserRef: React.MutableRefObject<string>
@@ -37,7 +39,7 @@ interface UseChatInitParams {
 
 /** Mount restore (URL msg / bookmark), date-index fetch, and debounced search. */
 export function useChatInit({
-  thread, search, scrollRef, searchRef, dateIndexRef,
+  thread, search, senderIdsKey, scrollRef, searchRef, senderIdsRef, dateIndexRef,
   deviceId, currentUserRef, loader, jump, setDateIndex, setChatVisible,
 }: UseChatInitParams) {
   useEffect(() => {
@@ -137,9 +139,26 @@ export function useChatInit({
       }
       searchRef.current = trimmed
       loader.lowerOffset.current = 0; loader.upperOffset.current = 0
-      loader.setSearching(!!trimmed)
+      loader.setSearching(!!trimmed || (senderIdsRef.current?.length ?? 0) > 0)
       await loader.loadMessages('fresh')
       loader.setSearching(false)
     }, 350)
   }, [search]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const senderEffectMounted = useRef(false)
+  useEffect(() => {
+    if (!senderEffectMounted.current) { senderEffectMounted.current = true; return }
+    let cancelled = false
+    ;(async () => {
+      loader.lowerOffset.current = 0
+      loader.upperOffset.current = 0
+      loader.setSearching(true)
+      try {
+        await loader.loadMessages('fresh')
+      } finally {
+        if (!cancelled) loader.setSearching(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [senderIdsKey]) // eslint-disable-line react-hooks/exhaustive-deps
 }

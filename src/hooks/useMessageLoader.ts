@@ -8,11 +8,12 @@ import { toast } from '@/lib/toast'
 interface UseMessageLoaderParams {
   thread: string
   searchRef: React.RefObject<string>
+  senderIdsRef: React.RefObject<string[]>
   showHiddenRef: React.RefObject<boolean>
   scrollRef: React.RefObject<HTMLDivElement | null>
 }
 
-export function useMessageLoader({ thread, searchRef, showHiddenRef, scrollRef }: UseMessageLoaderParams) {
+export function useMessageLoader({ thread, searchRef, senderIdsRef, showHiddenRef, scrollRef }: UseMessageLoaderParams) {
   const [messages, setMessages]   = useState<Message[]>([])
   const messagesRef               = useRef<Message[]>([])
   const [total, setTotal]         = useState(0)
@@ -38,11 +39,14 @@ export function useMessageLoader({ thread, searchRef, showHiddenRef, scrollRef }
     const offset = mode === 'prepend' ? lowerOffset.current : upperOffset.current
     const params = new URLSearchParams({ offset: String(mode === 'fresh' ? lowerOffset.current : offset), limit: String(LIMIT), asc: '1' })
     const q = searchRef.current
+    const senderIds = senderIdsRef.current ?? []
     if (q) { params.delete('asc'); params.set('offset', '0'); params.set('search', q) }
+    if (senderIds.length > 0) params.set('senderId', senderIds.join(','))
     if (showHiddenRef.current) params.set('showHidden', '1')
 
     const data = await apiFetch<{ messages: Message[]; total?: number; has_more: boolean }>(withThread('/api/messages?' + params))
     if (typeof data.total === 'number') setTotal(data.total)
+    // Text search returns a single page; sender-only filter still paginates.
     hasMoreRef.current = !!(data.has_more && !q)
     setHasMore(hasMoreRef.current)
 

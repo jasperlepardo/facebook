@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ObjectId, Long } from 'mongodb'
+import { Long } from 'mongodb'
 import { getCollection } from '@/lib/db'
 import { requireSuperAdmin } from '@/lib/auth'
 import { recomputeBlockIds } from '@/lib/blockIds'
 import { upsertThread } from '@/lib/threadUtils'
 import { invalidateThreadMessageCount } from '@/lib/threadCount'
 import { invalidateDateIndex } from '@/lib/dateIndex'
+import { upsertParticipants } from '@/lib/participantUtils'
 
 export const maxDuration = 300
 export const dynamic     = 'force-dynamic'
@@ -30,6 +31,7 @@ export async function POST(req: NextRequest) {
       facebookThreadId,
       initials,
       color,
+      senderByName:     senderByNameIn,
       skipBlockIds = false,
     } = await req.json()
 
@@ -39,12 +41,28 @@ export async function POST(req: NextRequest) {
 
     const col = await getCollection(collectionName)
 
+    // Resolve senderId map — prefer client map from /api/import/participants; fill gaps.
+    let senderByName: Record<string, string> =
+      senderByNameIn && typeof senderByNameIn === 'object' && !Array.isArray(senderByNameIn)
+        ? { ...senderByNameIn as Record<string, string> }
+        : {}
+
+    const missingNames = new Set<string>()
+    for (const m of incoming) {
+      const name = String(('senderName' in m ? m.senderName : m.sender_name) ?? '').trim()
+      if (name && !senderByName[name]) missingNames.add(name)
+    }
+    if (missingNames.size > 0) {
+      const filled = await upsertParticipants([...missingNames])
+      Object.assign(senderByName, filled.byName)
+    }
+
     // ── skipBlockIds: upsert per message (dedup by sender+ts), no recompute ───
     if (skipBlockIds) {
       let inserted = 0
       const MEDIA_FIELDS = ['photos', 'videos', 'gifs', 'audio_files', 'files'] as const
       for (let i = 0; i < incoming.length; i += BATCH) {
-        const docs = incoming.slice(i, i + BATCH).map(m => mapToDbSchema(m))
+        const docs = incoming.slice(i, i + BATCH).map(m => mapToDbSchema(m, senderByName))
         const ops = docs.map(doc => {
           // Non-empty media fields go into $set so they're restored on existing docs
           // that had their URIs stripped by a failed upload.
@@ -53,6 +71,9 @@ export async function POST(req: NextRequest) {
             const arr = (doc as Record<string, unknown>)[field]
             if (Array.isArray(arr) && arr.length > 0) mediaSet[field] = arr
           }
+          // Always restamp senderId on match so re-imports backfill older rows.
+          if (doc.senderId) mediaSet.senderId = doc.senderId
+
           const insertDoc = { ...doc }
           for (const f of Object.keys(mediaSet)) delete (insertDoc as Record<string, unknown>)[f]
 
@@ -83,7 +104,7 @@ export async function POST(req: NextRequest) {
         const ts = m.timestamp_ms ?? m.timestamp
         return typeof ts === 'number' && ts > maxTs
       })
-      .map(m => mapToDbSchema(m))
+      .map(m => mapToDbSchema(m, senderByName))
       .sort((a, b) => Number(a.timestamp_ms) - Number(b.timestamp_ms))
 
     if (toInsert.length === 0) {
@@ -135,17 +156,21 @@ export async function POST(req: NextRequest) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function mapToDbSchema(m: Record<string, unknown>) {
+function mapToDbSchema(m: Record<string, unknown>, senderByName: Record<string, string> = {}) {
   // Handle both native FB format and scraped format
   const isScraped = 'senderName' in m
+  const senderName = String((isScraped ? m.senderName : m.sender_name) ?? '')
 
   const base: Record<string, unknown> = {
-    sender_name:                       isScraped ? m.senderName  : m.sender_name,
+    sender_name:                       senderName,
     timestamp_ms:                      Long.fromNumber(Number(isScraped ? m.timestamp : m.timestamp_ms)),
     content:                           isScraped ? (m.text ?? '') : (m.content ?? ''),
     is_geoblocked_for_viewer:          m.is_geoblocked_for_viewer ?? false,
     is_unsent_image_by_messenger_kid_parent: isScraped ? !!(m.isUnsent) : !!(m.is_unsent_image_by_messenger_kid_parent),
   }
+
+  const senderId = senderByName[senderName]
+  if (senderId) base.senderId = senderId
 
   if (isScraped) {
     // Map media[] → split by extension into photos/videos/gifs/audio_files/files
@@ -191,4 +216,3 @@ function mapToDbSchema(m: Record<string, unknown>) {
 
   return base
 }
-
