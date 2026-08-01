@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     const col = await getCollection(collectionName)
 
     // Resolve senderId map — prefer client map from /api/import/participants; fill gaps.
-    let senderByName: Record<string, string> =
+    const senderByName: Record<string, string> =
       senderByNameIn && typeof senderByNameIn === 'object' && !Array.isArray(senderByNameIn)
         ? { ...senderByNameIn as Record<string, string> }
         : {}
