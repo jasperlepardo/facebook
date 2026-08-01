@@ -1,44 +1,20 @@
 'use client'
-import { useRef, useState, useEffect, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 interface AppHeaderProps {
   title: ReactNode
   onBack?: () => void
   actions?: ReactNode
   search?: ReactNode
-  scrollContainerRef?: React.RefObject<HTMLDivElement | null>
   /** Side pane / sheet: no safe-area inset, always back chevron (not desktop X). */
   embedded?: boolean
   /** Replace title/actions with a full-width search field (plus Cancel). */
   searchMode?: boolean
-  /** Center the title between back and actions (e.g. chat thread). */
-  centerTitle?: boolean
 }
 
 export default function AppHeader({
-  title, onBack, actions, search, scrollContainerRef, embedded, searchMode, centerTitle,
+  title, onBack, actions, search, embedded, searchMode,
 }: AppHeaderProps) {
-  const lastScrollY = useRef(0)
-  const [searchVisible, setSearchVisible] = useState(true)
-
-  useEffect(() => {
-    setSearchVisible(true)
-    lastScrollY.current = 0
-  }, [search])
-
-  useEffect(() => {
-    const el = scrollContainerRef?.current
-    if (!el || searchMode) return
-    const handler = () => {
-      const cur = el.scrollTop
-      if (cur === 0) { setSearchVisible(true); lastScrollY.current = 0; return }
-      const delta = cur - lastScrollY.current
-      if (Math.abs(delta) > 8) { setSearchVisible(delta < 0); lastScrollY.current = cur }
-    }
-    el.addEventListener('scroll', handler, { passive: true })
-    return () => el.removeEventListener('scroll', handler)
-  }, [scrollContainerRef, searchMode]) // eslint-disable-line react-hooks/exhaustive-deps
-
   const topPad = embedded
     ? 'pt-2.5'
     : 'pt-[calc(0.625rem+env(safe-area-inset-top))]'
@@ -86,57 +62,23 @@ export default function AppHeader({
     )
   }
 
-  if (centerTitle) {
-    return (
-      <div className="sticky top-0 z-20 bg-white dark:bg-mist-900 text-gray-900 dark:text-white shrink-0">
-        <div className={`px-4 ${topPad} pb-2.5`}>
-          <div className="relative flex items-center min-h-8">
-            <div className="relative z-10 flex items-center min-w-[4.5rem] shrink-0">
-              {backButton}
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="pointer-events-auto min-w-0 max-w-[calc(100%-9rem)] truncate text-center">
-                {title}
-              </div>
-            </div>
-            <div className="relative z-10 flex items-center gap-1 ml-auto min-w-[4.5rem] justify-end shrink-0">
-              {actions}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="sticky top-0 z-20 bg-white dark:bg-mist-900 text-gray-900 dark:text-white shrink-0">
-      <div className={`px-4 ${topPad} pb-2.5 flex items-center gap-2.5 md:grid md:grid-cols-3 md:gap-4`}>
-
-        {/* Left: back + title */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          {backButton}
-          <div className="min-w-0 flex-1">{title}</div>
-        </div>
-
-        {/* Center: search (desktop) */}
-        <div className="hidden md:flex items-center justify-center">
-          {search}
-        </div>
-
-        {/* Right: actions */}
-        <div className="flex items-center gap-1 ml-auto md:ml-0 justify-end">
-          {actions}
-        </div>
-      </div>
-
-      {/* Search: mobile collapsible */}
-      {search && (
-        <div className={`md:hidden grid transition-[grid-template-rows] duration-200 ease-in-out ${searchVisible ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-          <div className="overflow-hidden">
-            <div className="px-4 pb-2.5">{search}</div>
+      <div className={`px-4 ${topPad} pb-2.5`}>
+        <div className="relative flex items-center min-h-8">
+          <div className="relative z-10 flex items-center min-w-[4.5rem] shrink-0">
+            {backButton}
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="pointer-events-auto min-w-0 max-w-[calc(100%-9rem)] truncate text-center">
+              {title}
+            </div>
+          </div>
+          <div className="relative z-10 flex items-center gap-1 ml-auto min-w-[4.5rem] justify-end shrink-0">
+            {actions}
           </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

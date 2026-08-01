@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { Hashtag } from '@/types'
 import { apiFetch } from '@/lib/utils'
 
@@ -10,12 +10,20 @@ export function useHashtagPaneState() {
   const [activeHashtagName, setActiveHashtagName] = useState<string | null>(null)
   const [hashtagActiveTab, setHashtagActiveTab]   = useState<'context' | 'messages'>('context')
   const [hashtagMsgFilter, setHashtagMsgFilter]   = useState('')
-  const [showHashtagMenu, setShowHashtagMenu]     = useState(false)
-  const [editingHashtagTitle, setEditingHashtagTitle] = useState(false)
-  const [hashtagTitleInput, setHashtagTitleInput]     = useState('')
+  /** Keep URL `h` alive across refresh until HashtagsPane finishes restore. */
+  const [pendingUrlHashtagId, setPendingUrlHashtagId] = useState<string | null>(null)
+  const [hashtagRestoreDone, setHashtagRestoreDone] = useState(false)
 
-  const hashtagActionsRef     = useRef<{ back: () => void; delete: () => void; rename: (name: string) => Promise<void> } | null>(null)
-  const hashtagTitleInputRef  = useRef<HTMLInputElement>(null)
+  const hashtagActionsRef = useRef<{ back: () => void; delete: () => void; rename: (name: string) => Promise<void> } | null>(null)
+
+  // Read deep-link params after mount so SSR HTML matches the client.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    const id = p.get('h')
+    if (id) setPendingUrlHashtagId(id)
+    else setHashtagRestoreDone(true)
+    if (p.get('tab') === 'messages') setHashtagActiveTab('messages')
+  }, [])
 
   const reloadHashtags = useCallback(async () => {
     const d = await apiFetch<{ docs: Hashtag[] }>('/api/hashtags?limit=200&sort=firstMsgTs&depth=0')
@@ -24,10 +32,15 @@ export function useHashtagPaneState() {
 
   const selectActiveHashtag = useCallback((name: string | null) => {
     setActiveHashtagName(name)
-    if (name) {
-      setHashtagActiveTab('context')
-      setHashtagMsgFilter('')
+    if (!name) {
+      setPendingUrlHashtagId(null)
+      setHashtagRestoreDone(true)
     }
+  }, [])
+
+  const resolveUrlHashtag = useCallback((id: string | null) => {
+    setPendingUrlHashtagId(id)
+    setHashtagRestoreDone(true)
   }, [])
 
   return {
@@ -38,11 +51,10 @@ export function useHashtagPaneState() {
     activeHashtagName, setActiveHashtagName,
     hashtagActiveTab, setHashtagActiveTab,
     hashtagMsgFilter, setHashtagMsgFilter,
-    showHashtagMenu, setShowHashtagMenu,
-    editingHashtagTitle, setEditingHashtagTitle,
-    hashtagTitleInput, setHashtagTitleInput,
+    pendingUrlHashtagId,
+    hashtagRestoreDone,
+    resolveUrlHashtag,
     hashtagActionsRef,
-    hashtagTitleInputRef,
     reloadHashtags,
     selectActiveHashtag,
   }

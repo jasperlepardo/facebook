@@ -27,6 +27,9 @@ interface HashtagsPaneProps {
   onActionsChange: (actions: { back: () => void; delete: () => void; rename: (name: string) => Promise<void> } | null) => void
   onNavigateBack?: () => void
   pendingSelect?: Hashtag | null
+  /** Id from URL while restore is in flight — kept so sync does not wipe `h` on refresh. */
+  pendingUrlHashtagId?: string | null
+  onResolveUrlHashtag?: (id: string | null) => void
   isSuperAdmin?: boolean
   hideImages?: boolean
   hiddenUris?: Set<string>
@@ -41,7 +44,7 @@ interface HashtagsPaneProps {
   onMsgFilterChange: (v: string) => void
 }
 
-export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter: _filter, onFilterChange: _onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange: _onMsgFilterChange }: HashtagsPaneProps) {
+export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter: _filter, onFilterChange: _onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, pendingUrlHashtagId, onResolveUrlHashtag, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange: _onMsgFilterChange }: HashtagsPaneProps) {
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [context, setContext] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -78,20 +81,22 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     toastTimer.current = setTimeout(() => setToast(null), 2000)
   }, [])
 
-  function setHashtagParam(id: string | null) {
-    const params = new URLSearchParams(window.location.search)
-    if (id) params.set('h', id); else params.delete('h')
-    const qs = params.toString()
-    window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-  }
-
   useEffect(() => {
     if (pendingSelect) openDetail(pendingSelect)
   }, [pendingSelect]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (!selected) return
+    const fresh = hashtags.find(h => h.id === selected.id)
+    if (fresh && (fresh.name !== selected.name || fresh.isPrivate !== selected.isPrivate || fresh.context !== selected.context)) {
+      setSelected(fresh)
+      if (fresh.name !== selected.name) onActiveHashtagChange(fresh.name)
+      if (fresh.context !== selected.context) setContext(fresh.context ?? '')
+    }
+  }, [hashtags]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     if (creating && selected) {
-      setHashtagParam(null)
       setSelected(null)
       onActiveHashtagChange(null)
       onActionsChange(null)
@@ -101,24 +106,31 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
   useEffect(() => {
     if (restoredFromUrl.current || !hashtags.length) return
     restoredFromUrl.current = true
-    const params = new URLSearchParams(window.location.search)
-    const id = params.get('h')
-    if (!id) return
+    const id = pendingUrlHashtagId ?? new URLSearchParams(window.location.search).get('h')
+    if (!id) {
+      onResolveUrlHashtag?.(null)
+      return
+    }
     const h = hashtags.find(h => h.id === id)
-    if (h) openDetail(h).then(() => {
-      if (params.get('tab') === 'messages') onActiveTabChange('messages')
-    })
+    if (!h) {
+      onResolveUrlHashtag?.(null)
+      return
+    }
+    const wantMessages = new URLSearchParams(window.location.search).get('tab') === 'messages'
+      || activeTab === 'messages'
+    void openDetail(h, { tab: wantMessages ? 'messages' : 'context' })
   }, [hashtags]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function openDetail(h: Hashtag) {
-    setHashtagParam(h.id)
+  async function openDetail(h: Hashtag, opts?: { tab?: 'context' | 'messages' }) {
     setSelected(h)
     onActiveHashtagChange(h.name)
+    onResolveUrlHashtag?.(h.id)
     setContext(h.context ?? '')
-    onActiveTabChange('context')
+    onActiveTabChange(opts?.tab ?? 'context')
     setEditingContext(false)
     setSelectedMsgs(new Map())
     lastAnchor.current = null
+    _onMsgFilterChange('')
     await loadMessages(h)
   }
 
@@ -150,7 +162,6 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
   async function deleteHashtag() {
     if (!selected || !confirm(`Delete #${selected.name}?`)) return
     await fetch(`/api/hashtags/${selected.id}`, { method: 'DELETE' })
-    setHashtagParam(null)
     setSelected(null)
     onActiveHashtagChange(null)
     onActionsChange(null)
@@ -169,7 +180,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
   useEffect(() => {
     if (!selected) { onActionsChange(null); return }
     onActionsChange({
-      back:   () => { setHashtagParam(null); setSelected(null); onActiveHashtagChange(null); onActionsChange(null); onNavigateBack?.() },
+      back:   () => { setSelected(null); onActiveHashtagChange(null); onActionsChange(null); onNavigateBack?.() },
       delete: () => deleteRef.current(),
       rename: (name: string) => renameRef.current(name),
     })
@@ -346,7 +357,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                 />
               )}
               <div ref={msgsScrollRef} className={`flex-1 overflow-y-auto ${pbSafe} md:pb-0${selectedMsgs.size > 0 ? ' select-none' : ''}`}>
-                <div className="min-h-full flex flex-col justify-end">
+                <div className="min-h-full flex flex-col">
                 {allMsgs.length === 0 && (
                   <p className="text-xs text-gray-400 dark:text-mist-500 text-center py-8">No messages tagged yet.</p>
                 )}

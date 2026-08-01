@@ -54,6 +54,7 @@ function sheetScrollAtTop(root: HTMLElement) {
 }
 
 export default function AppLayout({ section, onSectionChange, initials, name, prevSection, listPane, detailPane, mediaPane, onCloseMediaPane, listGrow = 4, detailGrow = 7, hideListPane = false, centeredDetail = false }: AppLayoutProps) {
+  // SSR-safe defaults — deep links open the detail pane in useEffect after hydrate
   const [mobileShowList, setMobileShowList] = useState(
     section === 'chat' || section === 'hashtags'
   )
@@ -449,7 +450,8 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
   useEffect(() => {
     if (localStorage.getItem('navExpanded') === '1') setNavExpanded(true)
     reduceMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (new URLSearchParams(window.location.search).get('msg')) {
+    const p = new URLSearchParams(window.location.search)
+    if (p.get('msg') || p.get('thread') || p.get('h')) {
       progressRef.current = 0
       setMobileShowList(false)
       requestAnimationFrame(() => applyProgress(0, false))

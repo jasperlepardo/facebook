@@ -6,7 +6,7 @@ import { toast } from '@/lib/toast'
 import { ContentTypeKey, ALL_CONTENT_TYPE_KEYS, DEFAULT_ENABLED } from '@/lib/contentTypes'
 import { useHashtagPaneState } from '@/hooks/useHashtagPaneState'
 import { useHiddenState } from '@/hooks/useHiddenState'
-import { useViewerUrlSync, initialSection, initialActiveThread, initialChatDetailOpen } from '@/hooks/useViewerUrlSync'
+import { useViewerUrlSync } from '@/hooks/useViewerUrlSync'
 import { useViewerInit } from '@/hooks/useViewerInit'
 import ContextMenu from './ContextMenu'
 import ActionSheet from './ActionSheet'
@@ -16,8 +16,7 @@ import ListPane, { ListPaneItem } from './ListPane'
 import ChatDetailPane, { JumpFn } from './ChatDetailPane'
 import InAppBrowserBanner from './InAppBrowserBanner'
 import Toaster from './Toaster'
-import { menu, menuItem } from '@/lib/ui'
-import { LockIcon, GlobeIcon } from '@/components/icons'
+import { LockIcon } from '@/components/icons'
 import { ListPaneSkeleton, ChatDetailSkeleton } from '@/components/skeletons'
 import AvatarGroup from '@/components/AvatarGroup'
 import { defaultThreadName, participantAvatars } from '@/lib/threadDisplay'
@@ -28,12 +27,13 @@ const HashtagsPane = dynamic(() => import('./HashtagsPane'), { ssr: false })
 const StoryPane    = dynamic(() => import('./story/StoryPane'),    { ssr: false })
 const SettingsPane = dynamic(() => import('./settings/SettingsPane'), { ssr: false })
 const ThreadDetailsPane = dynamic(() => import('./ThreadDetailsPane'), { ssr: false })
+const HashtagDetailsPane = dynamic(() => import('./HashtagDetailsPane'), { ssr: false })
 const MediaPane    = dynamic(() => import('./MediaPane'), { ssr: false })
 const Lightbox     = dynamic(() => import('./Lightbox'), { ssr: false })
 
 export default function ViewerApp() {
-  // Navigation — default to 'chat' for SSR, then correct from URL after hydration
-  const [section, setSection]         = useState<Section>(initialSection)
+  // Navigation — SSR-safe defaults; URL restored in useViewerUrlSync after mount
+  const [section, setSection]         = useState<Section>('chat')
   const [prevSection, setPrevSection] = useState<'chat' | 'hashtags' | 'story'>('chat')
   // ─── Hidden state ────────────────────────────────────────────────────────────
   const {
@@ -51,10 +51,10 @@ export default function ViewerApp() {
     activeHashtagName, setActiveHashtagName,
     hashtagActiveTab, setHashtagActiveTab,
     hashtagMsgFilter, setHashtagMsgFilter,
-    showHashtagMenu, setShowHashtagMenu,
-    editingHashtagTitle, setEditingHashtagTitle,
-    hashtagTitleInput, setHashtagTitleInput,
-    hashtagActionsRef, hashtagTitleInputRef,
+    pendingUrlHashtagId,
+    hashtagRestoreDone,
+    resolveUrlHashtag,
+    hashtagActionsRef,
     reloadHashtags, selectActiveHashtag,
     setHashtags,
   } = useHashtagPaneState()
@@ -62,8 +62,9 @@ export default function ViewerApp() {
   // ─── Chat / thread state ──────────────────────────────────────────────────────
   const [searchInput, setSearchInput]   = useState('')
   const [chatSearchOpen, setChatSearchOpen] = useState(false)
-  const [activeThread, setActiveThread] = useState<string>(initialActiveThread)
-  const [chatDetailOpen, setChatDetailOpen] = useState(initialChatDetailOpen)
+  const [hashtagSearchOpen, setHashtagSearchOpen] = useState(false)
+  const [activeThread, setActiveThread] = useState('')
+  const [chatDetailOpen, setChatDetailOpen] = useState(false)
   const [threadFilter, setThreadFilter] = useState('')
   const [threadMeta, setThreadMeta]     = useState<Record<string, { subtitle: string; badge: string }>>({})
   const [chatTotal, setChatTotal]       = useState(0)
@@ -74,6 +75,7 @@ export default function ViewerApp() {
   // ─── UI state ─────────────────────────────────────────────────────────────────
   const [hideImages, setHideImages]         = useState(false)
   const [threadSideView, setThreadSideView] = useState<ThreadSideView>(null)
+  const [hashtagSideView, setHashtagSideView] = useState(false)
   const [enabledTypes, setEnabledTypes]     = useState<Set<ContentTypeKey>>(DEFAULT_ENABLED)
   const [mediaCounts, setMediaCounts]       = useState<Record<string, number>>({})
   const [currentUser, setCurrentUser]       = useState('')
@@ -85,6 +87,7 @@ export default function ViewerApp() {
   // ─── Refs ─────────────────────────────────────────────────────────────────────
   const chatScrollRef = useRef<HTMLDivElement>(null)
   const chatSearchRef = useRef<HTMLInputElement>(null)
+  const hashtagSearchRef = useRef<HTMLInputElement>(null)
   const jumpFnRef     = useRef<JumpFn | null>(null)
   // Queued when jump is requested before ChatDetailPane has registered (section/thread remount)
   const pendingJumpRef = useRef<{ ts: number; msgId: string | null } | null>(null)
@@ -107,8 +110,10 @@ export default function ViewerApp() {
     // Put msg in the URL before switching section so a remounted ChatDetailPane can restore it
     if (msgId) {
       const params = new URLSearchParams(window.location.search)
+      params.set('s', 'chat')
       params.set('msg', msgId)
-      params.delete('s')
+      params.delete('h')
+      params.delete('tab')
       const t = targetThread ?? activeThread
       if (t) params.set('thread', t)
       window.history.replaceState(null, '', `?${params}`)
@@ -147,6 +152,11 @@ export default function ViewerApp() {
     section, setSection,
     activeThread, setActiveThread,
     chatDetailOpen, setChatDetailOpen,
+    hashtagId: section === 'hashtags'
+      ? (hashtags.find(h => h.name === activeHashtagName)?.id ?? pendingUrlHashtagId)
+      : null,
+    hashtagTab: hashtagActiveTab,
+    hashtagRestoreDone,
   })
 
   useViewerInit({
@@ -165,10 +175,20 @@ export default function ViewerApp() {
     setMediaCounts,
   })
 
-  // Close 3rd pane when leaving chat or switching threads
+  // Close 3rd pane when leaving chat/hashtag detail or switching selection
   useEffect(() => {
     setThreadSideView(null)
   }, [activeThread, section])
+
+  useEffect(() => {
+    setHashtagSideView(false)
+  }, [activeHashtagName, section])
+
+  // Reset hashtag search when leaving the hashtag detail
+  useEffect(() => {
+    setHashtagSearchOpen(false)
+    setHashtagMsgFilter('')
+  }, [activeHashtagName, section, setHashtagMsgFilter])
 
   const handleHideImagesChange = useCallback((v: boolean) => {
     setHideImages(v)
@@ -245,6 +265,8 @@ export default function ViewerApp() {
     author: h.createdBy ?? undefined,
   })), [hashtags])
 
+  const activeHashtag = hashtags.find(h => h.name === activeHashtagName)
+
   function renderDetailPane(controls: AppLayoutControls) {
     const thread = threads.find(t => t.id === activeThread)
     const senderStyles: Record<string, { initials: string; color: string }> = {}
@@ -260,7 +282,6 @@ export default function ViewerApp() {
         : () => { setChatDetailOpen(false); controls.onShowList() }
 
     // ── Title ──────────────────────────────────────────────────────────────────
-    const activeHashtag = hashtags.find(h => h.name === activeHashtagName)
 
     const title =
       section === 'chat' && thread ? (
@@ -271,46 +292,12 @@ export default function ViewerApp() {
           </span>
         </span>
       ) : section === 'hashtags' && activeHashtagName ? (
-        editingHashtagTitle ? (
-          <input
-            ref={hashtagTitleInputRef}
-            value={hashtagTitleInput}
-            onChange={e => setHashtagTitleInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-            onKeyDown={async e => {
-              if (e.key === 'Enter') {
-                const name = hashtagTitleInput.trim()
-                if (name) { await hashtagActionsRef.current?.rename?.(name); setActiveHashtagName(name) }
-                setEditingHashtagTitle(false)
-              }
-              if (e.key === 'Escape') setEditingHashtagTitle(false)
-            }}
-            onBlur={async () => {
-              const name = hashtagTitleInput.trim()
-              if (name) { await hashtagActionsRef.current?.rename?.(name); setActiveHashtagName(name) }
-              setEditingHashtagTitle(false)
-            }}
-            className="text-sm font-bold bg-transparent border-b border-mist-300 dark:border-mist-600 outline-hidden text-gray-900 dark:text-white w-40"
-            autoFocus
-          />
-        ) : (
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              onClick={() => { setHashtagTitleInput(activeHashtagName); setEditingHashtagTitle(true) }}
-              className="text-sm font-bold hover:underline decoration-mist-400 flex items-center gap-1 group truncate"
-            >
-              {sectionTitle}
-              <svg className="opacity-0 group-hover:opacity-60 transition-opacity shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-            </button>
-            {activeHashtag?.isPrivate && (
-              <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                <LockIcon size={10} /> Private
-              </span>
-            )}
-          </div>
-        )
+        <span className="inline-flex items-center justify-center gap-1.5 min-w-0 max-w-full text-sm font-bold">
+          {activeHashtag?.isPrivate && (
+            <LockIcon size={12} className="shrink-0 text-amber-600 dark:text-amber-400" />
+          )}
+          <span className="truncate">{sectionTitle}</span>
+        </span>
       ) : (
         <span className={`text-sm font-bold ${section === 'story' ? 'font-display text-base font-medium' : ''}`}>{section === 'hashtags' && hashtagCreating ? 'Create New Hashtag' : sectionTitle}</span>
       )
@@ -325,8 +312,32 @@ export default function ViewerApp() {
       setChatSearchOpen(false)
       setSearchInput('')
     }
+    const openHashtagSearch = () => {
+      setHashtagSideView(false)
+      setHashtagActiveTab('messages')
+      setHashtagSearchOpen(true)
+      requestAnimationFrame(() => hashtagSearchRef.current?.focus())
+    }
+    const closeHashtagSearch = () => {
+      setHashtagSearchOpen(false)
+      setHashtagMsgFilter('')
+    }
 
     const chatSearching = section === 'chat' && chatSearchOpen
+    const hashtagSearching = section === 'hashtags' && hashtagSearchOpen
+    const headerSearching = chatSearching || hashtagSearching
+
+    const iconBtn = 'w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'
+    const searchIcon = (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+    )
+    const infoIcon = (
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+      </svg>
+    )
 
     const actions =
       section === 'chat' && thread && !chatSearching ? (
@@ -336,11 +347,9 @@ export default function ViewerApp() {
             onClick={openChatSearch}
             title="Search"
             aria-label="Search"
-            className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300"
+            className={iconBtn}
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
+            {searchIcon}
           </button>
           <button
             type="button"
@@ -349,52 +358,34 @@ export default function ViewerApp() {
             aria-label="Settings"
             className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${threadSideView ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-            </svg>
+            {infoIcon}
           </button>
         </div>
-      ) : section === 'hashtags' && activeHashtagName ? (
-        <div className="relative">
-          <button onClick={() => setShowHashtagMenu(v => !v)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+      ) : section === 'hashtags' && activeHashtagName && !hashtagSearching ? (
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={openHashtagSearch}
+            title="Search"
+            aria-label="Search"
+            className={iconBtn}
+          >
+            {searchIcon}
           </button>
-          {showHashtagMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowHashtagMenu(false)} />
-              <div className={`absolute right-0 top-full mt-1 ${menu}`}>
-                {isSuperAdmin && activeHashtag && (
-                  <button
-                    onClick={async () => {
-                      await fetch(`/api/hashtags/${activeHashtag.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isPrivate: !activeHashtag.isPrivate }) })
-                      await reloadHashtags()
-                      setShowHashtagMenu(false)
-                    }}
-                    className={`${menuItem} inline-flex items-center gap-2`}
-                  >
-                    {activeHashtag.isPrivate
-                      ? <><GlobeIcon size={12} /> Make Public</>
-                      : <><LockIcon size={12} /> Make Private</>}
-                  </button>
-                )}
-                {activeHashtag && (
-                  <button
-                    onClick={() => {
-                      const url = `${window.location.origin}${window.location.pathname}?s=hashtags&h=${activeHashtag.id}&tab=${hashtagActiveTab}`
-                      navigator.clipboard.writeText(url)
-                      setShowHashtagMenu(false)
-                    }}
-                    className={menuItem}
-                  >Copy link</button>
-                )}
-                <button onClick={() => { hashtagActionsRef.current?.delete(); setShowHashtagMenu(false) }} className={`${menuItem} text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20`}>Delete</button>
-              </div>
-            </>
-          )}
+          <button
+            type="button"
+            onClick={() => setHashtagSideView(v => !v)}
+            title="Settings"
+            aria-label="Settings"
+            className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${hashtagSideView ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}
+          >
+            {infoIcon}
+          </button>
         </div>
       ) : null
 
     // ── Search ─────────────────────────────────────────────────────────────────
+    const searchFieldCls = 'px-3.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-100 text-[13px] outline-hidden placeholder:text-mist-400 focus:bg-mist-200 dark:focus:bg-mist-700 w-full'
     const search = chatSearching ? (
       <input
         ref={chatSearchRef}
@@ -403,11 +394,18 @@ export default function ViewerApp() {
         onChange={e => setSearchInput(e.target.value)}
         onKeyDown={e => { if (e.key === 'Escape') closeChatSearch() }}
         placeholder="Search messages…"
-        className="px-3.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-100 text-[13px] outline-hidden placeholder:text-mist-400 focus:bg-mist-200 dark:focus:bg-mist-700 w-full"
+        className={searchFieldCls}
       />
-    ) : section === 'hashtags' && activeHashtagName && hashtagActiveTab === 'messages' ? (
-      <input type="search" value={hashtagMsgFilter} onChange={e => setHashtagMsgFilter(e.target.value)} placeholder="Search messages…"
-        className="px-3.5 py-1.5 rounded-full bg-mist-100 dark:bg-mist-800 text-gray-700 dark:text-mist-100 text-[13px] outline-hidden placeholder:text-mist-400 focus:bg-mist-200 dark:focus:bg-mist-700 w-full" />
+    ) : hashtagSearching ? (
+      <input
+        ref={hashtagSearchRef}
+        type="search"
+        value={hashtagMsgFilter}
+        onChange={e => setHashtagMsgFilter(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Escape') closeHashtagSearch() }}
+        placeholder="Search messages…"
+        className={searchFieldCls}
+      />
     ) : null
 
     return (
@@ -415,12 +413,10 @@ export default function ViewerApp() {
         {((section === 'chat' && chatDetailOpen) || (section === 'hashtags' && (!!activeHashtagName || hashtagCreating)) || section === 'settings') && (
           <AppHeader
             title={title}
-            onBack={chatSearching ? closeChatSearch : backFn}
+            onBack={chatSearching ? closeChatSearch : hashtagSearching ? closeHashtagSearch : backFn}
             actions={actions}
             search={search}
-            searchMode={chatSearching}
-            centerTitle={section === 'chat' && !chatSearching}
-            scrollContainerRef={chatScrollRef}
+            searchMode={headerSearching}
           />
         )}
         <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden [animation:fade-up_220ms_ease-out]">
@@ -495,6 +491,8 @@ export default function ViewerApp() {
               onMsgFilterChange={setHashtagMsgFilter}
               onNavigateBack={controls.onShowList}
               pendingSelect={pendingHashtag}
+              pendingUrlHashtagId={pendingUrlHashtagId}
+              onResolveUrlHashtag={resolveUrlHashtag}
               isSuperAdmin={isSuperAdmin}
               hideImages={hideImages}
               hiddenUris={allHiddenUris}
@@ -563,11 +561,19 @@ export default function ViewerApp() {
         initials={initials}
         name={currentUser ?? undefined}
         prevSection={prevSection}
-        detailGrow={section === 'settings' ? 4 : section === 'story' || section === 'hashtags' || !threadSideView ? 12 : 7}
+        detailGrow={
+          section === 'settings' ? 4
+            : section === 'story' ? 12
+              : (section === 'chat' && threadSideView) || (section === 'hashtags' && hashtagSideView) ? 7
+                : 12
+        }
         listGrow={section === 'settings' ? 4 : 4}
         hideListPane={section === 'story'}
         centeredDetail={section === 'settings'}
-        onCloseMediaPane={() => setThreadSideView(null)}
+        onCloseMediaPane={() => {
+          if (section === 'hashtags') setHashtagSideView(false)
+          else setThreadSideView(null)
+        }}
         listPane={controls => section === 'hashtags' ? (
           <ListPane
             title="Hashtags"
@@ -598,7 +604,7 @@ export default function ViewerApp() {
           />
         )}
         detailPane={renderDetailPane}
-        mediaPane={section === 'chat' && threadSideView && (() => {
+        mediaPane={(section === 'chat' && threadSideView && (() => {
           const t = threads.find(th => th.id === activeThread)
           if (!t) return undefined
           if (threadSideView === 'details') {
@@ -656,7 +662,24 @@ export default function ViewerApp() {
               onBack={() => setThreadSideView('details')}
             />
           )
-        })()}
+        })()) || (section === 'hashtags' && hashtagSideView && activeHashtag && (
+          <HashtagDetailsPane
+            key={`hashtag-details-${activeHashtag.id}`}
+            hashtag={activeHashtag}
+            activeTab={hashtagActiveTab}
+            isSuperAdmin={isSuperAdmin}
+            onRenamed={name => {
+              setActiveHashtagName(name)
+              void reloadHashtags()
+            }}
+            onPrivacyChanged={() => { void reloadHashtags() }}
+            onDeleted={() => {
+              setHashtagSideView(false)
+              void reloadHashtags()
+              hashtagActionsRef.current?.back()
+            }}
+          />
+        )) || undefined}
       />
 
       {/* Overlays */}

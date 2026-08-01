@@ -144,14 +144,20 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
       }
     }
     init()
-  }, [type]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [type, thread]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Attach after the grid mounts — skeleton render has no galleryRef/sentinelRef.
   useEffect(() => {
-    if (!sentinelRef.current || !galleryRef.current) return
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) load() }, { root: galleryRef.current, rootMargin: '300px' })
-    io.observe(sentinelRef.current)
+    if (!hasMore || items.length === 0) return
+    const root = galleryRef.current
+    const sentinel = sentinelRef.current
+    if (!root || !sentinel) return
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) void load()
+    }, { root, rootMargin: '300px' })
+    io.observe(sentinel)
     return () => io.disconnect()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [hasMore, items.length, type, thread]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (hideImages) return (
     <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-white dark:bg-mist-900 pb-12">

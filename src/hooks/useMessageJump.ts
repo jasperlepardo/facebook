@@ -71,6 +71,7 @@ export function useMessageJump({
       searchRef.current = ''; onSearchChange('')
       if (msgId) {
         const params = new URLSearchParams(window.location.search)
+        params.set('s', 'chat')
         params.set('msg', msgId)
         window.history.replaceState(null, '', `?${params}`)
       } else {

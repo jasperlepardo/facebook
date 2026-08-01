@@ -2,8 +2,9 @@ import { Message } from '@/types'
 import { fmtDate, fmtTime } from '@/lib/format'
 
 export function buildMessageLink(msgId: string, thread = 'messages'): string {
-  const threadParam = thread !== 'messages' ? `&thread=${thread}` : ''
-  return `${window.location.origin}${window.location.pathname}?msg=${msgId}${threadParam}`
+  const params = new URLSearchParams({ s: 'chat', msg: msgId })
+  if (thread) params.set('thread', thread)
+  return `${window.location.origin}${window.location.pathname}?${params}`
 }
 
 export function formatMessagesText(msgs: Message[]): string {

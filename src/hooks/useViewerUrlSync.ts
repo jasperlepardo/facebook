@@ -1,23 +1,6 @@
 import { useRef, useEffect, Dispatch, SetStateAction } from 'react'
 import { Section } from '@/types'
 
-export function initialSection(): Section {
-  if (typeof window === 'undefined') return 'chat'
-  const s = new URLSearchParams(window.location.search).get('s')
-  return (s === 'hashtags' || s === 'settings' || s === 'story') ? s as Section : 'chat'
-}
-
-export function initialActiveThread(): string {
-  if (typeof window === 'undefined') return ''
-  return new URLSearchParams(window.location.search).get('thread') ?? ''
-}
-
-export function initialChatDetailOpen(): boolean {
-  if (typeof window === 'undefined') return false
-  const p = new URLSearchParams(window.location.search)
-  return !!(p.get('msg') || p.get('thread'))
-}
-
 interface UseViewerUrlSyncParams {
   section: Section
   setSection: Dispatch<SetStateAction<Section>>
@@ -25,41 +8,68 @@ interface UseViewerUrlSyncParams {
   setActiveThread: Dispatch<SetStateAction<string>>
   chatDetailOpen: boolean
   setChatDetailOpen: Dispatch<SetStateAction<boolean>>
+  /** Resolved hashtag id (active or pending from URL). */
+  hashtagId?: string | null
+  hashtagTab?: 'context' | 'messages'
+  /** False until URL hashtag restore finished (success or miss). */
+  hashtagRestoreDone?: boolean
 }
 
-/** Sync section + open-chat thread (+ msg) to/from the URL query string. */
+/** Sync section, chat thread/msg, and hashtag id/tab to/from the URL query string. */
 export function useViewerUrlSync({
   section, setSection,
   activeThread, setActiveThread,
   chatDetailOpen, setChatDetailOpen,
+  hashtagId = null,
+  hashtagTab = 'context',
+  hashtagRestoreDone = true,
 }: UseViewerUrlSyncParams) {
   const mountedRef = useRef(false)
+  /** Deep-link `h` captured on first mount — kept until restore completes. */
+  const pendingHRef = useRef<string | null>(null)
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (!mountedRef.current) {
       mountedRef.current = true
       const s = params.get('s')
-      if (s === 'hashtags' || s === 'settings' || s === 'story') setSection(s)
+      if (s === 'chat' || s === 'hashtags' || s === 'settings' || s === 'story') setSection(s)
+      else if (params.get('h')) setSection('hashtags')
       if (params.get('msg')) setChatDetailOpen(true)
       const thread = params.get('thread')
       if (thread) {
         setActiveThread(thread)
-        if (!params.get('s')) setChatDetailOpen(true)
+        if ((!params.get('s') || params.get('s') === 'chat') && !params.get('h')) {
+          setChatDetailOpen(true)
+        }
       }
+      pendingHRef.current = params.get('h')
       return
     }
-    if (section === 'chat') {
-      params.delete('s')
-    } else {
-      params.set('s', section)
-      params.delete('msg')
-    }
-    // Only put thread in the URL when the user opened a chat (or a deep link restored it).
-    // Auto-selecting the first conversation on load must not rewrite `/` → `/?thread=…`.
-    if (chatDetailOpen && activeThread) params.set('thread', activeThread)
-    else params.delete('thread')
+
+    params.set('s', section)
     if (section !== 'chat') params.delete('msg')
+
+    if (section === 'chat' && chatDetailOpen && activeThread) params.set('thread', activeThread)
+    else params.delete('thread')
+
+    const effectiveH = section === 'hashtags'
+      ? (hashtagId ?? (hashtagRestoreDone ? null : pendingHRef.current))
+      : null
+
+    if (hashtagId) pendingHRef.current = hashtagId
+    if (section !== 'hashtags' || (hashtagRestoreDone && !hashtagId)) pendingHRef.current = null
+
+    if (effectiveH) {
+      params.set('h', effectiveH)
+      if (hashtagTab === 'messages') params.set('tab', 'messages')
+      else params.delete('tab')
+    } else {
+      params.delete('h')
+      params.delete('tab')
+    }
+
     const qs = params.toString()
     window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname)
-  }, [section, activeThread, chatDetailOpen])
+  }, [section, activeThread, chatDetailOpen, hashtagId, hashtagTab, hashtagRestoreDone])
 }
