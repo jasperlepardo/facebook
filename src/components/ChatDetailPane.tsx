@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { MessageBlock, LightboxState, Hashtag, DateIndex, Message, ThreadParticipant } from '@/types'
+import { MessageBlock, LightboxState, DateIndex, Message, ThreadParticipant } from '@/types'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import { groupMessages } from '@/lib/groupMessages'
 import { buildMessageLink, formatMessagesText } from '@/lib/messageCopy'
@@ -13,7 +13,6 @@ import { useChatInit } from '@/hooks/useChatInit'
 import MessageList from './message/MessageList'
 import MessageRowActions from './message/MessageRowActions'
 import MessageSelectionBar from './message/MessageSelectionBar'
-import HashtagPicker from './HashtagPicker'
 import ActionSheet from './ActionSheet'
 import DatePickerModal from './DatePickerModal'
 import { MessageListSkeleton } from '@/components/skeletons'
@@ -26,8 +25,6 @@ interface Props {
   searchActive?: boolean
   onSearchChange: (v: string) => void
   scrollRef: React.RefObject<HTMLDivElement | null>
-  hashtags: Hashtag[]
-  onReloadHashtags: () => void
   currentUser: string
   isSuperAdmin: boolean
   showHidden: boolean
@@ -46,11 +43,14 @@ interface Props {
   senderStyles?: Record<string, { initials: string; color: string }>
   participants?: ThreadParticipant[]
   thread?: string
+  /** Open tag UI in the chat settings/side pane. */
+  onOpenTag?: (msgIds: string[]) => void
+  /** Parent registers clearSelection so tag apply can clear. */
+  onRegisterClearSelection?: (fn: (() => void) | null) => void
 }
 
 export default function ChatDetailPane({
   search, searchActive = false, onSearchChange, scrollRef,
-  hashtags, onReloadHashtags,
   currentUser, isSuperAdmin, showHidden,
   hideImages, hiddenUris, hiddenMsgIds,
   onHideUri: _onHideUri, onHideDbUri, onUnhideDbUri,
@@ -58,6 +58,8 @@ export default function ChatDetailPane({
   onLightbox, onRegisterJump, onStatsChange, enabledTypes, senderStyles,
   participants = [],
   thread = 'messages',
+  onOpenTag,
+  onRegisterClearSelection,
 }: Props) {
   const searchRef      = useRef('')
   const senderIdsRef   = useRef<string[]>([])
@@ -88,11 +90,13 @@ export default function ChatDetailPane({
     onSearchChange, loadMessages: loader.loadMessages, onLightbox,
   })
   const selection = useMessageSelection({
-    thread, withThread: loader.withThread,
-    hashtags, onReloadHashtags,
+    withThread: loader.withThread,
     messagesRef: loader.messagesRef, blocksRef,
   })
-
+  useEffect(() => {
+    onRegisterClearSelection?.(selection.clearSelection)
+    return () => onRegisterClearSelection?.(null)
+  }, [onRegisterClearSelection, selection.clearSelection])
   const [dateIndex, setDateIndex]             = useState<DateIndex | null>(null)
   const [showDatePicker, setShowDatePicker]   = useState(false)
   const [datePickerDefault, setDatePickerDefault] = useState('')
@@ -210,14 +214,14 @@ export default function ChatDetailPane({
         onGoToMessage: first
           ? () => { jump.jumpToMessage(first.timestamp_ms, first._id) }
           : undefined,
-        onTag: () => selection.setHashtagPicker({ msgIds }),
+        onTag: onOpenTag ? () => onOpenTag(msgIds) : undefined,
         onCopyLink: () => copyLink(msgIds),
         onCopyText: () => copyText(msgIds),
         onHide: msgIds.length ? () => { for (const id of msgIds) onHideMessage(id) } : undefined,
         onUnhide: msgIds.length ? () => { for (const id of msgIds) onUnhideMessage(id) } : undefined,
       },
     })
-  }, [surface, isSuperAdmin, hiddenMsgIds, resolveMsgs, selection, jump, copyLink, copyText, onHideMessage, onUnhideMessage])
+  }, [surface, isSuperAdmin, hiddenMsgIds, resolveMsgs, selection, jump, copyLink, copyText, onHideMessage, onUnhideMessage, onOpenTag])
 
   const selectedIds = useMemo(() => [...selection.selectedMsgs.keys()], [selection.selectedMsgs])
   const barActions = useMemo(
@@ -458,14 +462,6 @@ export default function ChatDetailPane({
 
       {showDatePicker && (
         <DatePickerModal defaultDate={datePickerDefault} onClose={() => setShowDatePicker(false)} onJump={jump.handleChatJump} />
-      )}
-      {selection.hashtagPicker && (
-        <HashtagPicker
-          hashtags={hashtags}
-          initialSelected={selection.preloadedHashtagIds ?? undefined}
-          onClose={() => selection.setHashtagPicker(null)}
-          onApply={selection.applyHashtags}
-        />
       )}
       {sheetMsgIds && (
         <ActionSheet

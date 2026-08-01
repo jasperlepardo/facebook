@@ -8,7 +8,7 @@ import AppHeader from './AppHeader'
 import ThreadAvatar from './ThreadAvatar'
 import AvatarGroup from './AvatarGroup'
 import ChatViewSettingsList from './ChatViewSettingsList'
-import { participantAvatars } from '@/lib/threadDisplay'
+import { defaultThreadName, participantAvatars } from '@/lib/threadDisplay'
 import { PARTICIPANT_COLOR_OPTIONS } from '@/lib/participantColors'
 
 type Page = 'hub' | 'chatInfo'
@@ -92,18 +92,26 @@ export default function ThreadDetailsPane({
   }, [threadName, threadCollection])
 
   const canDelete = !!threadCollection && threadCollection !== 'messages' && !!onThreadDeleted
-  const infoDirty = nameInput.trim() !== threadName
   const memberList = (participants ?? []).map((p): ThreadParticipant => ({
     id: p.id,
     name: p.name,
     initials: p.initials || (p.name.split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase() || '?'),
     color: p.color || 'bg-violet-400',
   }))
+  // Default title from members — clearing a custom name restores this.
+  const participantName = defaultThreadName(memberList)
+  const trimmedName = nameInput.trim()
+  const resolvedName = trimmedName || participantName
+  const infoDirty = resolvedName !== threadName
+
+  function restoreParticipantName() {
+    setNameInput(participantName)
+    setInfoError(null)
+  }
 
   async function handleSaveInfo() {
     if (!threadCollection || !isSuperAdmin || !onThreadUpdated) return
-    const name = nameInput.trim()
-    if (!name) { setInfoError('Name is required'); return }
+    const name = nameInput.trim() || participantName
     setInfoSaving(true)
     setInfoError(null)
     setInfoSaved(false)
@@ -116,6 +124,7 @@ export default function ThreadDetailsPane({
       const d = await res.json()
       if (!res.ok) { setInfoError(d.error ?? 'Failed to save'); return }
       onThreadUpdated(threadCollection, { name: d.thread.name })
+      setNameInput(d.thread.name)
       setInfoSaved(true)
       setTimeout(() => setInfoSaved(false), 1500)
     } catch (e) {
@@ -213,6 +222,8 @@ export default function ThreadDetailsPane({
                         id="thread-name"
                         value={nameInput}
                         onChange={e => setNameInput(e.target.value)}
+                        onBlur={() => { if (!nameInput.trim()) restoreParticipantName() }}
+                        placeholder={participantName}
                         className={fieldQuiet}
                         autoComplete="off"
                       />

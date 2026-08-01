@@ -21,14 +21,15 @@ import { ListPaneSkeleton, ChatDetailSkeleton } from '@/components/skeletons'
 import AvatarGroup from '@/components/AvatarGroup'
 import { defaultThreadName, participantAvatars } from '@/lib/threadDisplay'
 
-type ThreadSideView = 'details' | 'media' | null
+type ThreadSideView = 'details' | 'media' | 'tag' | null
 
 const HashtagsPane = dynamic(() => import('./HashtagsPane'), { ssr: false })
 const StoryPane    = dynamic(() => import('./story/StoryPane'),    { ssr: false })
 const SettingsPane = dynamic(() => import('./settings/SettingsPane'), { ssr: false })
 const ThreadDetailsPane = dynamic(() => import('./ThreadDetailsPane'), { ssr: false })
 const HashtagDetailsPane = dynamic(() => import('./HashtagDetailsPane'), { ssr: false })
-const MediaPane    = dynamic(() => import('./MediaPane'), { ssr: false })
+const MediaPane = dynamic(() => import('./MediaPane'), { ssr: false })
+const TagMessagesPane = dynamic(() => import('./TagMessagesPane'), { ssr: false })
 const Lightbox     = dynamic(() => import('./Lightbox'), { ssr: false })
 
 export default function ViewerApp() {
@@ -75,6 +76,8 @@ export default function ViewerApp() {
   // ─── UI state ─────────────────────────────────────────────────────────────────
   const [hideImages, setHideImages]         = useState(false)
   const [threadSideView, setThreadSideView] = useState<ThreadSideView>(null)
+  const [tagMsgIds, setTagMsgIds] = useState<string[] | null>(null)
+  const clearChatSelectionRef = useRef<(() => void) | null>(null)
   const [hashtagSideView, setHashtagSideView] = useState(false)
   const [enabledTypes, setEnabledTypes]     = useState<Set<ContentTypeKey>>(DEFAULT_ENABLED)
   const [mediaCounts, setMediaCounts]       = useState<Record<string, number>>({})
@@ -178,8 +181,19 @@ export default function ViewerApp() {
   // Close 3rd pane when leaving chat/hashtag detail or switching selection
   useEffect(() => {
     setThreadSideView(null)
+    setTagMsgIds(null)
   }, [activeThread, section])
 
+  const closeThreadSideView = useCallback(() => {
+    setThreadSideView(null)
+    setTagMsgIds(null)
+  }, [])
+
+  const openTagPane = useCallback((msgIds: string[]) => {
+    if (!msgIds.length) return
+    setTagMsgIds(msgIds)
+    setThreadSideView('tag')
+  }, [])
   useEffect(() => {
     setHashtagSideView(false)
   }, [activeHashtagName, section])
@@ -304,7 +318,7 @@ export default function ViewerApp() {
 
     // ── Actions ────────────────────────────────────────────────────────────────
     const openChatSearch = () => {
-      setThreadSideView(null)
+      closeThreadSideView()
       setChatSearchOpen(true)
       requestAnimationFrame(() => chatSearchRef.current?.focus())
     }
@@ -353,7 +367,13 @@ export default function ViewerApp() {
           </button>
           <button
             type="button"
-            onClick={() => setThreadSideView(v => (v === 'details' ? null : 'details'))}
+            onClick={() => {
+              if (threadSideView === 'details') closeThreadSideView()
+              else {
+                setTagMsgIds(null)
+                setThreadSideView('details')
+              }
+            }}
             title="Settings"
             aria-label="Settings"
             className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors ${threadSideView ? 'bg-mist-100 dark:bg-mist-800 text-gray-900 dark:text-white' : 'hover:bg-mist-100 dark:hover:bg-mist-800 text-gray-500 dark:text-mist-300'}`}
@@ -439,8 +459,6 @@ export default function ViewerApp() {
               searchActive={chatSearchOpen}
               onSearchChange={setSearchInput}
               scrollRef={chatScrollRef}
-              hashtags={hashtags}
-              onReloadHashtags={reloadHashtags}
               currentUser={currentUser}
               isSuperAdmin={isSuperAdmin}
               showHidden={showHidden}
@@ -459,6 +477,8 @@ export default function ViewerApp() {
               senderStyles={senderStyles}
               participants={thread?.participants ?? []}
               thread={thread?.collection ?? activeThread}
+              onOpenTag={openTagPane}
+              onRegisterClearSelection={fn => { clearChatSelectionRef.current = fn }}
             />}
           </div>
 
@@ -572,7 +592,7 @@ export default function ViewerApp() {
         centeredDetail={section === 'settings'}
         onCloseMediaPane={() => {
           if (section === 'hashtags') setHashtagSideView(false)
-          else setThreadSideView(null)
+          else closeThreadSideView()
         }}
         listPane={controls => section === 'hashtags' ? (
           <ListPane
@@ -607,6 +627,23 @@ export default function ViewerApp() {
         mediaPane={(section === 'chat' && threadSideView && (() => {
           const t = threads.find(th => th.id === activeThread)
           if (!t) return undefined
+          if (threadSideView === 'tag' && tagMsgIds) {
+            return (
+              <TagMessagesPane
+                key={`tag-${activeThread}-${tagMsgIds.join(',')}`}
+                hashtags={hashtags}
+                thread={t.collection ?? activeThread}
+                messageIds={tagMsgIds}
+                messageCount={tagMsgIds.length}
+                onClose={closeThreadSideView}
+                onReloadHashtags={reloadHashtags}
+                onApplied={() => {
+                  clearChatSelectionRef.current?.()
+                  closeThreadSideView()
+                }}
+              />
+            )
+          }
           if (threadSideView === 'details') {
             return (
               <ThreadDetailsPane
@@ -626,11 +663,11 @@ export default function ViewerApp() {
                   localStorage.setItem('showHidden', next ? '1' : '0')
                   return next
                 })}
-                onOpenMedia={() => setThreadSideView('media')}
+                onOpenMedia={() => { setTagMsgIds(null); setThreadSideView('media') }}
                 onThreadDeleted={collection => {
                   setThreads(prev => prev.filter(th => th.collection !== collection))
                   setActiveThread(prev => prev === collection ? (threads.find(th => th.collection !== collection)?.id ?? 'messages') : prev)
-                  setThreadSideView(null)
+                  closeThreadSideView()
                   setChatDetailOpen(false)
                 }}
                 onThreadUpdated={(collection, patch) => {
@@ -646,6 +683,7 @@ export default function ViewerApp() {
               />
             )
           }
+          if (threadSideView !== 'media') return undefined
           return (
             <MediaPane
               key={`media-${activeThread}`}
@@ -659,7 +697,7 @@ export default function ViewerApp() {
               onHideUri={handleHideDbUri}
               onUnhideUri={handleUnhideDbUri}
               onGoToMessage={(ts, msgId) => { void jumpToMessage(ts, msgId) }}
-              onBack={() => setThreadSideView('details')}
+              onBack={() => { setTagMsgIds(null); setThreadSideView('details') }}
             />
           )
         })()) || (section === 'hashtags' && hashtagSideView && activeHashtag && (
