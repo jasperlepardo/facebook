@@ -1,5 +1,20 @@
-/** Public CDN base when set (custom domain). Otherwise media is served via authenticated `/api/media`. */
-const R2_DIRECT = process.env.NEXT_PUBLIC_R2_URL?.replace(/\/$/, '') ?? ''
+/**
+ * Optional custom CDN (not Cloudflare’s rate-limited `*.r2.dev` public host).
+ * If unset or still pointing at r2.dev, media is served via authenticated `/api/media`.
+ */
+function publicMediaBase(): string {
+  const raw = process.env.NEXT_PUBLIC_R2_URL?.replace(/\/$/, '') ?? ''
+  if (!raw) return ''
+  try {
+    const host = new URL(raw).hostname
+    if (host.endsWith('.r2.dev')) return ''
+  } catch {
+    return ''
+  }
+  return raw
+}
+
+const R2_DIRECT = publicMediaBase()
 
 export const r2 = (uri: string) => {
   if (R2_DIRECT) {
