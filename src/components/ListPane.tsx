@@ -1,8 +1,10 @@
 'use client'
 
+import { useRef } from 'react'
 import { LockIcon } from '@/components/icons'
 import AvatarGroup from '@/components/AvatarGroup'
 import { pbNav, headerBtn, headerField } from '@/lib/ui'
+import { useFrostedOnScroll } from '@/hooks/useFrostedBar'
 
 export interface ListPaneItem {
   id: string
@@ -30,6 +32,8 @@ interface Props {
 }
 
 export default function ListPane({ title, items, activeId, filter, onFilterChange, filterPlaceholder, onNew, onSelect, emptyMessage }: Props) {
+  const barRef = useRef<HTMLDivElement>(null)
+  const frosted = useFrostedOnScroll(barRef)
   const filtered = filter
     ? items.filter(i => i.label.toLowerCase().includes(filter.toLowerCase()))
     : items
@@ -37,7 +41,7 @@ export default function ListPane({ title, items, activeId, filter, onFilterChang
   return (
     <div className="flex flex-col h-full liquid-glass-atmosphere md:shadow-xl">
       {/* Header */}
-      <div className="liquid-glass-bar px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 shrink-0">
+      <div ref={barRef} className={`liquid-glass-bar px-4 pt-[calc(1rem+env(safe-area-inset-top))] pb-3 shrink-0${frosted ? ' liquid-glass-bar-frosted' : ''}`}>
         <div className="flex items-center justify-between mb-3 min-h-8">
           <h2 className="text-[22px] font-bold text-gray-900 dark:text-white">{title}</h2>
           {onNew && (

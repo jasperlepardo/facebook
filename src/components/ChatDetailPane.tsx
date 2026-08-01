@@ -299,7 +299,7 @@ export default function ChatDetailPane({
       )}
 
       {searchActive && filterMembers.length > 0 && (
-        <div className="relative z-30 shrink-0 px-3 py-2 liquid-glass-bar">
+        <div className="relative z-30 shrink-0 px-3 py-2 liquid-glass-bar liquid-glass-bar-frosted">
           <div ref={senderMenuRef} className="relative max-w-sm">
             <button
               type="button"

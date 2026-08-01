@@ -7,6 +7,7 @@ import { ContentTypeKey } from '@/lib/contentTypes'
 import OgLinkCard from '@/components/OgLinkCard'
 import { pill, pillIcon, pillLabel, pillSub, iconWell, card } from './MessageStyles'
 import { renderCallPill } from './MessageCallPill'
+import { mapFbEmoji } from '@/lib/fbEmoji'
 
 export function imgCtx(e: React.MouseEvent, uri: string) {
   e.preventDefault(); e.stopPropagation()
@@ -190,7 +191,10 @@ export function renderMedia({
       {show('reactions') && !!m.reactions?.length && (
         <div className="flex gap-1 flex-wrap mt-1">
           {Object.entries(
-            m.reactions.reduce((c, r) => ({ ...c, [r.reaction]: (c[r.reaction] ?? 0) + 1 }), {} as Record<string, number>)
+            m.reactions.reduce((c, r) => {
+              const key = mapFbEmoji(r.reaction)
+              return { ...c, [key]: (c[key] ?? 0) + 1 }
+            }, {} as Record<string, number>)
           ).map(([r, n]) => (
             <span key={r} className="bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full px-1.5 py-0.5 text-xs">{r}{n > 1 ? ` ${n}` : ''}</span>
           ))}

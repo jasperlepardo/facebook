@@ -2,6 +2,7 @@
 import { memo, useRef } from 'react'
 import { Message, MessageBlock, LightboxState } from '@/types'
 import { fmtTime, fmtTimeShort } from '@/lib/format'
+import { mapFbEmoji } from '@/lib/fbEmoji'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import ThreadAvatar from '@/components/ThreadAvatar'
 import { rowBase, rowSel, rowUnsel, timeCls, actionsCls } from './MessageStyles'
@@ -131,7 +132,7 @@ const MessageRow = memo(function MessageRow({
       <div className={`flex-1 min-w-0${isHidden ? ' opacity-40' : ''}`}>
         {isFirst && (
           <div className="flex items-baseline gap-2 mb-0.5">
-            <span className={`text-sm font-semibold ${senderNameClass}`}>{block.sender}</span>
+            <span className={`text-sm font-semibold ${senderNameClass}`}>{mapFbEmoji(block.sender)}</span>
             <span className="text-[11px] text-mist-400 dark:text-mist-500">{fmtTime(m.timestamp_ms)}</span>
           </div>
         )}

@@ -23,7 +23,7 @@ export function renderContent(
   if (m.is_unsent_image_by_messenger_kid_parent || m.is_unsent) return !show('removed') ? null : (
     <StatusPill
       icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>}
-      label={`${m.sender_name} deleted a message`}
+      label={`${mapFbEmoji(m.sender_name)} deleted a message`}
     />
   )
 
@@ -37,7 +37,7 @@ export function renderContent(
   if (m.ip && !hasMedia && !m.content) return !show('location') ? null : (
     <StatusPill
       icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>}
-      label={`${m.sender_name} shared their location`}
+      label={`${mapFbEmoji(m.sender_name)} shared their location`}
     />
   )
 

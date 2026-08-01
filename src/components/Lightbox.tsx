@@ -1,6 +1,7 @@
 'use client'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { LightboxState } from '@/types'
+import { headerBtn, headerChip } from '@/lib/ui'
 
 function CloseIcon() {
   return (
@@ -189,19 +190,28 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
       aria-label="Media viewer"
     >
       {/* Top bar */}
-      <div className="shrink-0 flex items-center justify-between gap-3 px-3 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2 bg-gradient-to-b from-black/70 to-transparent relative z-20">
-        <div className="min-w-0 flex-1">
-          {counter && <p className="text-white/80 text-[13px] font-medium tabular-nums">{counter}</p>}
-          <p className="text-white/45 text-[11px] truncate">{typeLabel}</p>
+      <div className="sticky top-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-white shrink-0">
+        <div className="px-3 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2.5">
+          <div className="grid grid-cols-[72px_minmax(0,1fr)_72px] items-center gap-3 min-h-8">
+            <div className="flex items-center justify-start min-w-0">
+              <div className="min-w-0">
+                {counter && <p className="text-white/90 text-[13px] font-medium tabular-nums">{counter}</p>}
+                <p className="text-white/50 text-[11px] truncate">{typeLabel}</p>
+              </div>
+            </div>
+            <div />
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={onClose}
+                className={`${headerBtn} !text-white`}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+          </div>
         </div>
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="w-11 h-11 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
-        >
-          <CloseIcon />
-        </button>
       </div>
 
       {/* Media stage */}
@@ -219,7 +229,7 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
           aria-label="Previous"
           disabled={!canPrev}
           onClick={() => state.onPrev?.()}
-          className={`hidden md:flex absolute left-[max(0.25rem,env(safe-area-inset-left))] top-1/2 -translate-y-1/2 z-10 w-11 h-11 items-center justify-center rounded-full bg-white/10 text-white transition-opacity ${canPrev ? 'opacity-70 hover:opacity-100 hover:bg-white/20' : 'opacity-20 cursor-default'}`}
+          className={`hidden md:flex absolute left-[max(0.25rem,env(safe-area-inset-left))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} !text-white ${canPrev ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
         >
           <ChevronIcon dir="left" />
         </button>
@@ -228,7 +238,7 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
           aria-label="Next"
           disabled={!canNext}
           onClick={() => state.onNext?.()}
-          className={`hidden md:flex absolute right-[max(0.25rem,env(safe-area-inset-right))] top-1/2 -translate-y-1/2 z-10 w-11 h-11 items-center justify-center rounded-full bg-white/10 text-white transition-opacity ${canNext ? 'opacity-70 hover:opacity-100 hover:bg-white/20' : 'opacity-20 cursor-default'}`}
+          className={`hidden md:flex absolute right-[max(0.25rem,env(safe-area-inset-right))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} !text-white ${canNext ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
         >
           <ChevronIcon dir="right" />
         </button>
@@ -246,9 +256,9 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
             <button
               type="button"
               onClick={() => { setRetry(r => r + 1); setStatus('loading') }}
-              className="mt-2 text-[13px] text-white bg-white/15 hover:bg-white/25 px-3 py-1.5 rounded-full transition-colors"
+              className={`mt-2 ${headerChip} !h-8 !text-white`}
             >
-              Try again
+              <span>Try again</span>
             </button>
           </div>
         )}
@@ -279,7 +289,7 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
                   ? <iframe
                       src={viewerSrc}
                       title={state.caption || 'Document'}
-                      className="w-full flex-1 min-h-0 rounded-sm bg-white"
+                      className="w-full flex-1 min-h-0 rounded-sm liquid-glass"
                       onLoad={() => setStatus('ready')}
                     />
                   : (
@@ -308,40 +318,42 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
       </div>
 
       {/* Bottom chrome */}
-      <div className="shrink-0 px-4 pt-3 pb-[calc(0.75rem+var(--resibo-safe-bottom))] bg-gradient-to-t from-black/80 via-black/50 to-transparent relative z-20">
-        <div className="flex items-end gap-3 max-w-3xl mx-auto">
-          <div className="flex-1 min-w-0">
-            {state.caption && (
-              <p className="text-white/85 text-[13px] leading-snug truncate">{state.caption}</p>
-            )}
-            {zoomed && isImage && (
-              <button type="button" onClick={resetZoom} className="text-white/45 text-[11px] mt-1 hover:text-white/80 transition-colors">
-                Reset zoom
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {state.type === 'file' && (
-              <a
-                href={state.src}
-                download
-                target="_blank"
-                rel="noopener"
-                className="h-10 px-3.5 flex items-center rounded-full bg-white/10 hover:bg-white/20 text-white text-[13px] font-medium transition-colors"
-              >
-                Download
-              </a>
-            )}
-            {onJumpToMessage && state.ts != null && (
-              <button
-                type="button"
-                onClick={() => { onJumpToMessage(state.ts!, state.msgId ?? null); onClose() }}
-                className="h-10 px-3.5 flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-medium transition-colors"
-              >
-                <ChatIcon />
-                View in chat
-              </button>
-            )}
+      <div className="sticky bottom-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-white shrink-0 border-b-0 border-t border-black/10 dark:border-white/10">
+        <div className="px-4 pt-3 pb-[calc(0.75rem+var(--resibo-safe-bottom))]">
+          <div className="flex items-end gap-3 max-w-3xl mx-auto">
+            <div className="flex-1 min-w-0">
+              {state.caption && (
+                <p className="text-white/90 text-[13px] leading-snug truncate">{state.caption}</p>
+              )}
+              {zoomed && isImage && (
+                <button type="button" onClick={resetZoom} className="text-white/50 text-[11px] mt-1 hover:text-white/90 transition-colors">
+                  Reset zoom
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {state.type === 'file' && (
+                <a
+                  href={state.src}
+                  download
+                  target="_blank"
+                  rel="noopener"
+                  className={`${headerChip} !h-10 !text-white`}
+                >
+                  <span>Download</span>
+                </a>
+              )}
+              {onJumpToMessage && state.ts != null && (
+                <button
+                  type="button"
+                  onClick={() => { onJumpToMessage(state.ts!, state.msgId ?? null); onClose() }}
+                  className="h-10 px-3.5 flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-medium transition-colors"
+                >
+                  <ChatIcon />
+                  View in chat
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

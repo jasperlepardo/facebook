@@ -14,7 +14,7 @@ interface TabsProps<T extends string> {
 
 export default function Tabs<T extends string>({ tabs, active, onChange, scrollable }: TabsProps<T>) {
   return (
-    <div className={`flex border-b border-black/8 dark:border-white/10 shrink-0 liquid-glass-bar ${scrollable ? 'overflow-x-auto scrollbar-none' : ''}`}>
+    <div className={`flex shrink-0 liquid-glass-bar liquid-glass-bar-frosted ${scrollable ? 'overflow-x-auto scrollbar-none' : ''}`}>
       {tabs.map(t => (
         <button
           key={t.key}

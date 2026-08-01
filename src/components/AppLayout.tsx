@@ -666,8 +666,10 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
                 aria-modal
                 className="relative z-10 flex flex-col flex-1 min-h-0 w-full rounded-t-[1.25rem] overflow-hidden liquid-glass-atmosphere shadow-[0_-8px_40px_rgba(0,0,0,0.25)] dark:shadow-[0_-8px_40px_rgba(0,0,0,0.55)] pointer-events-auto [animation:sheet-up_340ms_cubic-bezier(0.32,0.72,0,1)] md:h-full md:rounded-2xl md:shadow-none md:animate-none will-change-transform"
               >
-                <div className="flex justify-center pt-2.5 pb-1 shrink-0 md:hidden" aria-hidden>
-                  <div className="w-9 h-1 rounded-full bg-mist-300 dark:bg-mist-600" />
+                <div className="sticky top-0 z-20 liquid-glass-bar liquid-glass-bar-frosted shrink-0 md:hidden" aria-hidden>
+                  <div className="flex justify-center pt-2.5 pb-1">
+                    <div className="w-9 h-1 rounded-full bg-black/20 dark:bg-white/25" />
+                  </div>
                 </div>
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   {mediaPane ?? sheetContentRef.current}

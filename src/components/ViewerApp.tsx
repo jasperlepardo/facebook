@@ -356,7 +356,7 @@ export default function ViewerApp() {
 
     const actions =
       section === 'chat' && thread && !chatSearching ? (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={openChatSearch}
@@ -383,7 +383,7 @@ export default function ViewerApp() {
           </button>
         </div>
       ) : section === 'hashtags' && activeHashtagName && !hashtagSearching ? (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={openHashtagSearch}

@@ -1,6 +1,7 @@
 'use client'
-import type { ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { headerBtn, headerChip } from '@/lib/ui'
+import { useFrostedOnScroll } from '@/hooks/useFrostedBar'
 
 interface AppHeaderProps {
   title: ReactNode
@@ -16,9 +17,14 @@ interface AppHeaderProps {
 export default function AppHeader({
   title, onBack, actions, search, embedded, searchMode,
 }: AppHeaderProps) {
+  const barRef = useRef<HTMLDivElement>(null)
+  const frosted = useFrostedOnScroll(barRef)
+
   const topPad = embedded
     ? 'pt-2.5'
     : 'pt-[calc(0.625rem+env(safe-area-inset-top))]'
+
+  const barCls = `sticky top-0 z-20 liquid-glass-bar text-gray-900 dark:text-white shrink-0${frosted ? ' liquid-glass-bar-frosted' : ''}`
 
   const backButton = onBack ? (
     <button
@@ -46,8 +52,8 @@ export default function AppHeader({
 
   if (searchMode && search) {
     return (
-      <div className="sticky top-0 z-20 liquid-glass-bar text-gray-900 dark:text-white shrink-0">
-        <div className={`px-4 ${topPad} pb-2.5 flex items-center gap-2`}>
+      <div ref={barRef} className={barCls}>
+        <div className={`px-4 ${topPad} pb-2.5 flex items-center gap-3`}>
           <div className="flex-1 min-w-0">{search}</div>
           {onBack && (
             <button
@@ -64,18 +70,16 @@ export default function AppHeader({
   }
 
   return (
-    <div className="sticky top-0 z-20 liquid-glass-bar text-gray-900 dark:text-white shrink-0">
+    <div ref={barRef} className={barCls}>
       <div className={`px-4 ${topPad} pb-2.5`}>
-        <div className="relative flex items-center min-h-8">
-          <div className="relative z-10 flex items-center min-w-8 shrink-0">
+        <div className="grid grid-cols-[72px_minmax(0,1fr)_72px] items-center gap-3 min-h-8">
+          <div className="flex items-center justify-start">
             {backButton}
           </div>
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="pointer-events-auto min-w-0 max-w-[calc(100%-7.5rem)] truncate text-center">
-              {title}
-            </div>
+          <div className="min-w-0 truncate text-center">
+            {title}
           </div>
-          <div className="relative z-10 flex items-center gap-1.5 ml-auto min-w-8 justify-end shrink-0">
+          <div className="flex items-center justify-end gap-2">
             {actions}
           </div>
         </div>

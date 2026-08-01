@@ -4,6 +4,7 @@ import { Message, MessageBlock, LightboxState, DateIndex } from '@/types'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import MessageGroup from './MessageGroup'
 import DateMenu from '@/components/DateMenu'
+import StickyFrostedBar from '@/components/StickyFrostedBar'
 
 interface MessageListProps {
   blocks: MessageBlock[]
@@ -49,7 +50,7 @@ const MessageList = memo(function MessageList({
         const iso = new Date(day.blocks[0].msgs[0].timestamp_ms).toISOString().split('T')[0]
         return (
           <div key={day.date + day.blocks[0].msgs[0]._id} id={`${uid}-${iso}`} data-day-iso={iso} className="flex flex-col">
-            <div className="dsep sticky top-0 z-10 flex items-center justify-center py-2.5 px-4 liquid-glass-bar !border-b-0">
+            <StickyFrostedBar className="dsep flex items-center justify-center py-2.5 px-4 !border-b-0">
               <span className="flex-1 border-t border-black/8 dark:border-white/10" />
               <span className="mx-3 flex-shrink-0">
                 {onJumpTo ? (
@@ -69,7 +70,7 @@ const MessageList = memo(function MessageList({
                 )}
               </span>
               <span className="flex-1 border-t border-black/8 dark:border-white/10" />
-            </div>
+            </StickyFrostedBar>
             {day.blocks.map((block, i) => (
               <MessageGroup
                 key={block.msgs[0]._id ?? i}
