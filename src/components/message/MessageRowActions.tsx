@@ -16,10 +16,10 @@ const ICONS: Record<MessageActionId, (p: { size?: number }) => React.ReactNode> 
   remove:      p => <RemoveIcon {...p} />,
 }
 
-const btnBase =
-  'liquid-glass-btn !w-7 !h-7 text-mist-600 dark:text-mist-300'
-
-const btnDanger = `${btnBase} !text-red-500 dark:!text-red-400`
+const iconBtn =
+  'inline-flex items-center justify-center w-7 h-7 rounded-full text-mist-600 dark:text-mist-300 liquid-glass-hover transition-colors'
+const iconBtnDanger =
+  `${iconBtn} !text-red-500 dark:!text-red-400`
 
 interface MessageRowActionsProps {
   actions: MessageActionDesc[]
@@ -33,10 +33,14 @@ export function MessageActionIcon({ id, size = 14 }: { id: MessageActionId; size
   return <>{ICONS[id]({ size })}</>
 }
 
+/** Grouped floating glass capsule for inline message / gallery actions. */
 export default function MessageRowActions({ actions, className = '', alwaysVisible }: MessageRowActionsProps) {
   if (!actions.length) return null
   return (
-    <div className={`${alwaysVisible ? 'flex' : 'hidden md:flex'} items-center gap-1 ${className}`}>
+    <div
+      className={`${alwaysVisible ? 'flex' : 'hidden md:flex'} items-center gap-0.5 liquid-glass rounded-full p-0.5 shadow-lg ${className}`}
+      role="toolbar"
+    >
       {actions.map(a => (
         <button
           key={a.id}
@@ -44,7 +48,7 @@ export default function MessageRowActions({ actions, className = '', alwaysVisib
           title={a.label}
           aria-label={a.label}
           onClick={e => { e.stopPropagation(); a.onPress() }}
-          className={a.destructive ? btnDanger : btnBase}
+          className={a.destructive ? iconBtnDanger : iconBtn}
         >
           <MessageActionIcon id={a.iconKey} />
         </button>
@@ -53,7 +57,7 @@ export default function MessageRowActions({ actions, className = '', alwaysVisib
   )
 }
 
-/** Dark floating-bar variant of icon buttons. */
+/** Selection-bar variant of icon buttons. */
 export function MessageBarIconButton({
   action,
 }: {
@@ -65,7 +69,7 @@ export function MessageBarIconButton({
       title={action.label}
       aria-label={action.label}
       onClick={action.onPress}
-      className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors liquid-glass-btn !w-8 !h-8 ${
+      className={`inline-flex items-center justify-center liquid-glass-btn !w-8 !h-8 ${
         action.destructive
           ? '!text-red-500 dark:!text-red-300'
           : ''

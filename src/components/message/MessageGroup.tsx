@@ -142,7 +142,7 @@ const MessageRow = memo(function MessageRow({
 
       <div className={actionsCls(isSel)} onClick={e => e.stopPropagation()}>
         {renderRowActions ? renderRowActions(m) : (
-          <>
+          <div className="hidden md:flex items-center gap-0.5 liquid-glass rounded-full p-0.5 shadow-lg">
             {isSuperAdmin && m._id && (
               <button
                 onClick={e => {
@@ -150,7 +150,7 @@ const MessageRow = memo(function MessageRow({
                   if (isHidden) onUnhideMessage?.(m._id)
                   else onHideMessage?.(m._id)
                 }}
-                className={`text-[11px] font-medium px-1.5 py-0.5 rounded ${isHidden ? 'text-mist-400 hover:text-mist-600' : 'text-red-400 hover:text-red-600'}`}
+                className={`inline-flex items-center justify-center h-7 px-2 rounded-full text-[11px] font-medium liquid-glass-hover ${isHidden ? 'text-mist-400' : 'text-red-400'}`}
               >
                 {isHidden ? 'Unhide' : 'Hide'}
               </button>
@@ -160,10 +160,10 @@ const MessageRow = memo(function MessageRow({
               checked={isSel}
               onChange={() => {}}
               onClick={e => { e.stopPropagation(); onToggle(m._id, m.timestamp_ms, m.timestamp_ms, [m._id], e.shiftKey) }}
-              className="w-4 h-4 cursor-pointer accent-blue-600 shrink-0"
+              className="w-4 h-4 mx-1.5 cursor-pointer accent-blue-600 shrink-0"
               aria-label="Select message"
             />
-          </>
+          </div>
         )}
       </div>
     </div>
