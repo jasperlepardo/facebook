@@ -27,7 +27,7 @@ interface UseViewerUrlSyncParams {
   setChatDetailOpen: Dispatch<SetStateAction<boolean>>
 }
 
-/** Sync section + thread (+ msg open) to/from the URL query string. */
+/** Sync section + open-chat thread (+ msg) to/from the URL query string. */
 export function useViewerUrlSync({
   section, setSection,
   activeThread, setActiveThread,
@@ -54,7 +54,9 @@ export function useViewerUrlSync({
       params.set('s', section)
       params.delete('msg')
     }
-    if (activeThread) params.set('thread', activeThread)
+    // Only put thread in the URL when the user opened a chat (or a deep link restored it).
+    // Auto-selecting the first conversation on load must not rewrite `/` → `/?thread=…`.
+    if (chatDetailOpen && activeThread) params.set('thread', activeThread)
     else params.delete('thread')
     if (section !== 'chat') params.delete('msg')
     const qs = params.toString()
