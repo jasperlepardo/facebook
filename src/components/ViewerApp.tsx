@@ -522,6 +522,7 @@ export default function ViewerApp() {
               onUnhideMessage={handleUnhideMessage}
               onHideUri={handleHideDbUri}
               onUnhideUri={handleUnhideDbUri}
+              senderStyles={senderStyles}
             />
           </div>
 

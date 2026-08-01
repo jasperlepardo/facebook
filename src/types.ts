@@ -57,6 +57,9 @@ export interface LightboxState {
   /** 1-based index when browsing a set */
   index?: number
   total?: number
+  /** Full-size neighbor URLs — prefetched only after current image is ready */
+  prevSrc?: string
+  nextSrc?: string
   onPrev?: () => void
   onNext?: () => void
 }

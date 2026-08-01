@@ -16,11 +16,15 @@ function publicMediaBase(): string {
 
 const R2_DIRECT = publicMediaBase()
 
-export const r2 = (uri: string) => {
+export const r2 = (uri: string, opts?: { w?: number }) => {
   if (R2_DIRECT) {
     return `${R2_DIRECT}/${uri.split('/').map(encodeURIComponent).join('/')}`
   }
-  return `/api/media?key=${encodeURIComponent(uri)}`
+  const params = new URLSearchParams({ key: uri })
+  if (opts?.w != null && Number.isFinite(opts.w)) {
+    params.set('w', String(Math.round(opts.w)))
+  }
+  return `/api/media?${params.toString()}`
 }
 
 export const fmtTime = (ts: number) =>

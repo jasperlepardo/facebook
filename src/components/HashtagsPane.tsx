@@ -42,9 +42,10 @@ interface HashtagsPaneProps {
   onActiveTabChange: (tab: 'context' | 'messages') => void
   msgFilter: string
   onMsgFilterChange: (v: string) => void
+  senderStyles?: Record<string, { initials: string; color: string }>
 }
 
-export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter: _filter, onFilterChange: _onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, pendingUrlHashtagId, onResolveUrlHashtag, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange: _onMsgFilterChange }: HashtagsPaneProps) {
+export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter: _filter, onFilterChange: _onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, pendingUrlHashtagId, onResolveUrlHashtag, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange: _onMsgFilterChange, senderStyles }: HashtagsPaneProps) {
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [context, setContext] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -383,6 +384,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   onUnhideMessage={onUnhideMessage}
                   onHideUri={onHideUri}
                   onUnhideUri={onUnhideUri}
+                  senderStyles={senderStyles}
                   renderRowActions={msg => (
                     <MessageRowActions
                       actions={makeActions([msg._id], {

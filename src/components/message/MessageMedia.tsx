@@ -63,16 +63,14 @@ export function renderMedia({
     <>
       {m.photos && show('photos') && !hideImages && (() => {
         const photos = m.photos!
-        const visibleCount = photos.filter(p => !hiddenUris?.has(p.uri) || isSuperAdmin).length
-        const gridCols = visibleCount >= 5 ? 'grid-cols-3' : visibleCount >= 2 ? 'grid-cols-2' : 'grid-cols-1'
-        const cellSize = visibleCount === 1 ? 'w-[160px] aspect-square' : 'aspect-square'
         return (
-          <div className={`mt-1 grid ${gridCols} gap-1 max-w-[300px]`}>
+          <div className="mt-1 max-w-full flex gap-1 overflow-x-auto overscroll-x-contain no-scrollbar">
             {photos.map((p, i) => {
               const hidden = hiddenUris?.has(p.uri)
               if (hidden && !isSuperAdmin) return null
+              const cellCls = 'relative group/img shrink-0 w-[160px] aspect-square overflow-hidden rounded-sm'
               if (hidden && isSuperAdmin) return (
-                <div key={i} className={`relative group/img ${cellSize} overflow-hidden rounded-sm`}>
+                <div key={i} className={cellCls}>
                   <div className="w-full h-full rounded-sm bg-gray-200 dark:bg-mist-700 flex flex-col items-center justify-center gap-1 border border-dashed border-gray-400 dark:border-mist-600">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hidden</span>
@@ -81,10 +79,18 @@ export function renderMedia({
                 </div>
               )
               return (
-                <div key={i} className={`relative group/img ${cellSize} overflow-hidden rounded-sm`}>
-                  <img src={r2(p.uri)} alt="" loading="lazy"
+                <div key={i} className={cellCls}>
+                  <img src={r2(p.uri, { w: 480 })} alt="" loading="lazy"
                     className="w-full h-full object-cover block cursor-pointer hover:opacity-90"
-                    onClick={() => onLightbox({ src: r2(p.uri), uri: p.uri, type: 'photo', mediaType: 'photos', caption: '', msgId: m._id, ts: m.timestamp_ms })}
+                    onClick={() => onLightbox({
+                      src: r2(p.uri),
+                      uri: p.uri,
+                      type: 'photo',
+                      mediaType: 'photos',
+                      caption: '',
+                      msgId: m._id,
+                      ts: m.timestamp_ms,
+                    })}
                     onContextMenu={e => imgCtx(e, p.uri)}
                     onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                   {isSuperAdmin && onHideUri && (

@@ -229,18 +229,26 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
               className="aspect-square overflow-hidden cursor-pointer rounded-xs bg-gray-200 dark:bg-mist-700 relative hover:opacity-85 group/cell"
               style={{ WebkitTouchCallout: 'none' }}
               onClick={() => {
-                const mkState = (idx: number): LightboxState => ({
-                  src: r2(itemsRef.current[idx].uri),
-                  uri: itemsRef.current[idx].uri,
-                  type: type === 'videos' ? 'video' : type === 'gifs' ? 'gif' : 'photo',
-                  caption: `${new Date(itemsRef.current[idx].ts).toLocaleDateString()} · ${itemsRef.current[idx].sender}`,
-                  msgId: itemsRef.current[idx].msgId,
-                  ts: itemsRef.current[idx].ts,
-                  index: idx + 1,
-                  total: itemsRef.current.length,
-                  onPrev: idx > 0                           ? () => onLightbox(mkState(idx - 1)) : undefined,
-                  onNext: idx < itemsRef.current.length - 1 ? () => onLightbox(mkState(idx + 1)) : undefined,
-                })
+                const mkState = (idx: number): LightboxState => {
+                  const items = itemsRef.current
+                  const prev = idx > 0 ? items[idx - 1] : undefined
+                  const next = idx < items.length - 1 ? items[idx + 1] : undefined
+                  const kind = type === 'videos' ? 'video' as const : type === 'gifs' ? 'gif' as const : 'photo' as const
+                  return {
+                    src: r2(items[idx].uri),
+                    uri: items[idx].uri,
+                    type: kind,
+                    caption: `${new Date(items[idx].ts).toLocaleDateString()} · ${items[idx].sender}`,
+                    msgId: items[idx].msgId,
+                    ts: items[idx].ts,
+                    index: idx + 1,
+                    total: items.length,
+                    prevSrc: prev ? r2(prev.uri) : undefined,
+                    nextSrc: next ? r2(next.uri) : undefined,
+                    onPrev: idx > 0                           ? () => onLightbox(mkState(idx - 1)) : undefined,
+                    onNext: idx < items.length - 1 ? () => onLightbox(mkState(idx + 1)) : undefined,
+                  }
+                }
                 onLightbox(mkState(i))
               }}
               onContextMenu={e => { e.preventDefault() }}
@@ -262,7 +270,7 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
             >
               {type === 'videos'
                 ? <video src={r2(item.uri)} preload="none" className="absolute inset-0 w-full h-full object-cover" />
-                : <img src={r2(item.uri)} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                : <img src={r2(item.uri, { w: 480 })} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
               }
               <GalleryCellActions
                 item={item}

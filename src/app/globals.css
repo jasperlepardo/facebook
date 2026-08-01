@@ -42,6 +42,17 @@
   --resibo-nav-clearance: calc(var(--resibo-nav-pill) + var(--resibo-nav-gap) + var(--resibo-safe-bottom));
 }
 
+/* ── Scroll strips (horizontal media rows, tab bars) ──────────────────────── */
+.no-scrollbar,
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── Liquid Glass (iOS 26 style) ─────────────────────────────────────────── */
 @layer components {
   .liquid-glass {

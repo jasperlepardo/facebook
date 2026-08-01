@@ -74,7 +74,23 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
       const officeExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
       if (ext !== 'pdf' && !officeExts.includes(ext)) setStatus('ready')
     }
-  }, [state.src, state.type, state.caption, resetZoom, retry])
+  }, [state.src, state.type, resetZoom, retry])
+
+  // Prefetch neighbors only once the clicked image is on screen — first paint keeps the bandwidth.
+  useEffect(() => {
+    if (!isImage || status !== 'ready') return
+    const urls = [state.prevSrc, state.nextSrc].filter((u): u is string => !!u && u !== state.src)
+    if (!urls.length) return
+    const idle = window.requestAnimationFrame(() => {
+      urls.forEach(src => {
+        const img = new Image()
+        img.decoding = 'async'
+        img.fetchPriority = 'low'
+        img.src = src
+      })
+    })
+    return () => window.cancelAnimationFrame(idle)
+  }, [isImage, status, state.prevSrc, state.nextSrc, state.src])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -306,6 +322,8 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
             src={state.src}
             alt={state.caption || ''}
             draggable={false}
+            fetchPriority="high"
+            decoding="async"
             className={`max-w-full max-h-full rounded-sm object-contain origin-center transition-opacity ${status === 'ready' ? 'opacity-100' : 'opacity-0'}`}
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
