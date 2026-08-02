@@ -36,6 +36,12 @@ const DISMISS_RATIO = 0.22
 const DISMISS_VELOCITY = 0.55 // px/ms
 const DISMISS_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 const DISMISS_MS = 340
+/** Horizontal pager — follow finger, then slide off-screen. */
+const SLIDE_RATIO = 0.25
+const SLIDE_VELOCITY = 0.4 // px/ms
+const SLIDE_MS = 280
+const SLIDE_EASE = DISMISS_EASE
+const SLIDE_RUBBER = 0.35
 
 type TouchMode = 'none' | 'swipe' | 'pan' | 'pinch' | 'dismiss'
 
@@ -235,9 +241,13 @@ export default function Lightbox({
   const menuRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const slideViewportRef = useRef<HTMLDivElement>(null)
+  const slideTrackRef = useRef<HTMLDivElement>(null)
   const scaleRef = useRef(1)
   const panRef = useRef({ x: 0, y: 0 })
   const dismissYRef = useRef(0)
+  const slideXRef = useRef(0)
+  const slideBusyRef = useRef(false)
   const closingRef = useRef(false)
   const touchRef = useRef<{
     mode: TouchMode
@@ -247,18 +257,87 @@ export default function Lightbox({
     startDist: number
     startScale: number
     lastTap: number
+    lastX: number
     lastY: number
     startT: number
     lastT: number
   }>({
     mode: 'none', startX: 0, startY: 0, startPan: { x: 0, y: 0 },
-    startDist: 0, startScale: 1, lastTap: 0, lastY: 0, startT: 0, lastT: 0,
+    startDist: 0, startScale: 1, lastTap: 0, lastX: 0, lastY: 0, startT: 0, lastT: 0,
   })
 
   const canPrev = !!state.onPrev
   const canNext = !!state.onNext
+  const onPrev = state.onPrev
+  const onNext = state.onNext
   const isImage = state.type === 'photo' || state.type === 'gif'
+  const useSlidePager = isImage
   const zoomed = scale > 1.05
+  const slidePagerActive = useSlidePager && !zoomed
+
+  const getStageWidth = useCallback(() => {
+    return slideViewportRef.current?.clientWidth || window.innerWidth
+  }, [])
+
+  const applySlideTransform = useCallback((offsetPx: number, animate: boolean) => {
+    const track = slideTrackRef.current
+    if (!track) return
+    const w = getStageWidth()
+    slideXRef.current = offsetPx
+    const base = -w
+    const ms = animate ? SLIDE_MS : 0
+    track.style.transition = ms > 0 ? `transform ${ms}ms ${SLIDE_EASE}` : 'none'
+    track.style.transform = `translate3d(${base + offsetPx}px,0,0)`
+  }, [getStageWidth])
+
+  const resetSlideTrack = useCallback((animate = false) => {
+    applySlideTransform(0, animate)
+  }, [applySlideTransform])
+
+  const layoutSlideTrack = useCallback(() => {
+    const viewport = slideViewportRef.current
+    const track = slideTrackRef.current
+    if (!viewport || !track) return
+    const w = viewport.clientWidth
+    for (const child of track.children) {
+      (child as HTMLElement).style.width = `${w}px`
+    }
+    track.style.width = `${w * 3}px`
+    applySlideTransform(slideXRef.current, false)
+  }, [applySlideTransform])
+
+  const rubberBandSlide = useCallback((dx: number) => {
+    if (dx > 0 && !canPrev) return Math.pow(dx, 0.72) * SLIDE_RUBBER
+    if (dx < 0 && !canNext) return -Math.pow(-dx, 0.72) * SLIDE_RUBBER
+    return dx
+  }, [canPrev, canNext])
+
+  const commitSlide = useCallback((dir: 'prev' | 'next') => {
+    if (slideBusyRef.current) return
+    if (dir === 'prev' && !canPrev) return
+    if (dir === 'next' && !canNext) return
+    slideBusyRef.current = true
+    const w = getStageWidth()
+    applySlideTransform(dir === 'prev' ? w : -w, true)
+    window.setTimeout(() => {
+      if (dir === 'prev') onPrev?.()
+      else onNext?.()
+      slideBusyRef.current = false
+      resetSlideTrack(false)
+    }, SLIDE_MS)
+  }, [applySlideTransform, canNext, canPrev, getStageWidth, onNext, onPrev, resetSlideTrack])
+
+  const navigatePrev = useCallback(() => {
+    if (!canPrev || slideBusyRef.current) return
+    if (slidePagerActive) commitSlide('prev')
+    else onPrev?.()
+  }, [canPrev, commitSlide, onPrev, slidePagerActive])
+
+  const navigateNext = useCallback(() => {
+    if (!canNext || slideBusyRef.current) return
+    if (slidePagerActive) commitSlide('next')
+    else onNext?.()
+  }, [canNext, commitSlide, onNext, slidePagerActive])
   const showStrip = !!(
     state.total && state.total > 1
     && state.index != null
@@ -320,6 +399,8 @@ export default function Lightbox({
     setStatus('loading')
     resetZoom()
     dismissYRef.current = 0
+    slideBusyRef.current = false
+    resetSlideTrack(false)
     const panel = panelRef.current
     const scrim = scrimRef.current
     if (panel) {
@@ -335,7 +416,15 @@ export default function Lightbox({
       const officeExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
       if (ext !== 'pdf' && !officeExts.includes(ext)) setStatus('ready')
     }
-  }, [state.src, state.type, state.caption, resetZoom, retry])
+  }, [state.src, state.type, state.caption, resetZoom, resetSlideTrack, retry])
+
+  useLayoutEffect(() => {
+    if (!useSlidePager) return
+    layoutSlideTrack()
+    const onResize = () => layoutSlideTrack()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [layoutSlideTrack, useSlidePager, state.src, state.prevSrc, state.nextSrc])
 
   // Prefetch neighbors only once the clicked image is on screen — first paint keeps the bandwidth.
   useEffect(() => {
@@ -361,13 +450,13 @@ export default function Lightbox({
         requestClose()
         return
       }
-      if (e.key === 'ArrowLeft') state.onPrev?.()
-      if (e.key === 'ArrowRight') state.onNext?.()
+      if (e.key === 'ArrowLeft') navigatePrev()
+      if (e.key === 'ArrowRight') navigateNext()
       if (e.key === '0') resetZoom()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [requestClose, state, resetZoom, menuOpen, sheetOpen])
+  }, [requestClose, state, resetZoom, menuOpen, sheetOpen, navigatePrev, navigateNext])
 
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -427,6 +516,7 @@ export default function Lightbox({
     }
     t.startX = touch.clientX
     t.startY = touch.clientY
+    t.lastX = touch.clientX
     t.lastY = touch.clientY
     t.startT = nowPerf
     t.lastT = nowPerf
@@ -464,10 +554,16 @@ export default function Lightbox({
       if (t.mode === 'swipe') {
         if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.15 && dy > 0) {
           t.mode = 'dismiss'
+          if (slidePagerActive && slideXRef.current !== 0) resetSlideTrack(true)
           t.startY = touch.clientY
           t.startT = performance.now()
         } else if (isImage && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
-          // horizontal — keep swipe (images only)
+          if (slidePagerActive) {
+            e.preventDefault()
+            t.lastX = touch.clientX
+            t.lastT = performance.now()
+            applySlideTransform(rubberBandSlide(dx), false)
+          }
         } else {
           return
         }
@@ -505,9 +601,20 @@ export default function Lightbox({
       return
     }
     if (isImage && t.mode === 'swipe' && e.changedTouches[0]) {
-      const dx = e.changedTouches[0].clientX - t.startX
-      if (dx > SWIPE_THRESHOLD) state.onPrev?.()
-      else if (dx < -SWIPE_THRESHOLD) state.onNext?.()
+      const touch = e.changedTouches[0]
+      const dx = touch.clientX - t.startX
+      if (slidePagerActive) {
+        const w = getStageWidth()
+        const elapsed = Math.max(1, t.lastT - t.startT)
+        const velocity = (t.lastX - t.startX) / elapsed
+        const commit = Math.abs(dx) > w * SLIDE_RATIO || Math.abs(velocity) > SLIDE_VELOCITY
+        if (commit && dx > 0 && canPrev) commitSlide('prev')
+        else if (commit && dx < 0 && canNext) commitSlide('next')
+        else resetSlideTrack(true)
+      } else {
+        if (dx > SWIPE_THRESHOLD) onPrev?.()
+        else if (dx < -SWIPE_THRESHOLD) onNext?.()
+      }
     }
     t.mode = 'none'
     setDragging(false)
@@ -658,13 +765,18 @@ export default function Lightbox({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
-        onTouchCancel={() => { touchRef.current.mode = 'none'; setDragging(false); resetDismiss() }}
+        onTouchCancel={() => {
+          touchRef.current.mode = 'none'
+          setDragging(false)
+          resetDismiss()
+          if (slidePagerActive) resetSlideTrack(true)
+        }}
       >
         <button
           type="button"
           aria-label="Previous"
           disabled={!canPrev}
-          onClick={() => state.onPrev?.()}
+          onClick={navigatePrev}
           className={`hidden md:flex absolute left-[max(0.25rem,env(safe-area-inset-left))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} ${canPrev ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
         >
           <ChevronIcon dir="left" />
@@ -673,7 +785,7 @@ export default function Lightbox({
           type="button"
           aria-label="Next"
           disabled={!canNext}
-          onClick={() => state.onNext?.()}
+          onClick={navigateNext}
           className={`hidden md:flex absolute right-[max(0.25rem,env(safe-area-inset-right))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} ${canNext ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
         >
           <ChevronIcon dir="right" />
@@ -737,23 +849,57 @@ export default function Lightbox({
             )
           })()
         ) : status !== 'error' ? (
-          // Archive media is served via same-origin /api/media — next/image is intentionally unused.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={`${state.src}-${retry}`}
-            src={state.src}
-            alt={state.caption || ''}
-            draggable={false}
-            fetchPriority="high"
-            decoding="async"
-            className={`max-w-full max-h-full rounded-sm object-contain origin-center transition-opacity ${status === 'ready' ? 'opacity-100' : 'opacity-0'}`}
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-              transition: dragging ? undefined : 'transform 180ms ease-out',
-            }}
-            onLoad={() => setStatus('ready')}
-            onError={() => setStatus('error')}
-          />
+          <div ref={slideViewportRef} className="relative w-full h-full overflow-hidden flex items-center justify-center">
+            <div
+              ref={slideTrackRef}
+              className="flex h-full items-center shrink-0 will-change-transform"
+              style={{ transform: 'translate3d(0,0,0)' }}
+            >
+              <div className="h-full flex items-center justify-center shrink-0">
+                {state.prevSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={state.prevSrc}
+                    alt=""
+                    draggable={false}
+                    decoding="async"
+                    className="max-w-full max-h-full rounded-sm object-contain"
+                  />
+                ) : null}
+              </div>
+              <div className="h-full flex items-center justify-center shrink-0">
+                {/* Archive media is served via same-origin /api/media — next/image is intentionally unused. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  key={`${state.src}-${retry}`}
+                  src={state.src}
+                  alt={state.caption || ''}
+                  draggable={false}
+                  fetchPriority="high"
+                  decoding="async"
+                  className={`max-w-full max-h-full rounded-sm object-contain origin-center transition-opacity ${status === 'ready' ? 'opacity-100' : 'opacity-0'}`}
+                  style={{
+                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+                    transition: dragging ? undefined : 'transform 180ms ease-out',
+                  }}
+                  onLoad={() => setStatus('ready')}
+                  onError={() => setStatus('error')}
+                />
+              </div>
+              <div className="h-full flex items-center justify-center shrink-0">
+                {state.nextSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={state.nextSrc}
+                    alt=""
+                    draggable={false}
+                    decoding="async"
+                    className="max-w-full max-h-full rounded-sm object-contain"
+                  />
+                ) : null}
+              </div>
+            </div>
+          </div>
         ) : null}
       </div>
 
