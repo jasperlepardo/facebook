@@ -77,8 +77,8 @@ const MessageRow = memo(function MessageRow({
   m, block, isFirst, isSel, isSuperAdmin, hiddenMsgIds, hideImages, hiddenUris,
   enabledTypes, onToggle, onLightbox, onContextMenu,
   onHideUri, onUnhideUri, senderStyles,
-  longPressTimer, touchPos,
-}: RowSharedProps & { m: Message }) {
+  longPressTimer, touchPos, mergedMsgIds,
+}: RowSharedProps & { m: Message; mergedMsgIds?: string[] }) {
   const show = (k: ContentTypeKey) => !enabledTypes || enabledTypes.has(k)
   const isHidden = !!isSuperAdmin && !!m._id && !!hiddenMsgIds?.has(m._id)
   const hasMedia = !!(m.photos?.length || m.videos?.length || m.audio_files?.length || m.gifs?.length || m.sticker || m.files?.length || m.share?.link)
@@ -88,6 +88,7 @@ const MessageRow = memo(function MessageRow({
     || (block.sender || '?').split(' ').map(w => w[0]).filter(Boolean).join('').slice(0, 2).toUpperCase()
     || '?'
   const senderNameClass = AVATAR_TEXT[avatarColor] ?? 'text-violet-600 dark:text-violet-400'
+  const extraMsgIds = mergedMsgIds?.filter(id => id && id !== m._id) ?? []
 
   const handleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('a,button,audio,video,img')) return
@@ -117,6 +118,10 @@ const MessageRow = memo(function MessageRow({
       onTouchEnd={() => clearTimeout(longPressTimer.current)}
       onTouchMove={() => clearTimeout(longPressTimer.current)}
     >
+      {/* Anchors so gallery jumps to absorbed photo-only msgs still find this row */}
+      {extraMsgIds.map(id => (
+        <span key={id} id={`msg-${id}`} className="sr-only" aria-hidden />
+      ))}
       <div className="w-8 shrink-0 flex items-center justify-end">
         {isFirst
           ? <ThreadAvatar color={avatarColor} initials={avatarInitials} />
@@ -161,20 +166,26 @@ const MessageGroup = memo(function MessageGroup({
 
   const canGroup = (!enabledTypes || enabledTypes.has('photos')) && !hideImages
 
-  // Merge consecutive photo-only messages into one augmented message for compact grid display
-  const msgs: Message[] = []
+  // Merge consecutive photo-only messages into one augmented message for compact grid display.
+  // Track every absorbed _id so gallery "Go to message" can still scroll to this row.
+  const msgs: { msg: Message; mergedMsgIds?: string[] }[] = []
   let i = 0
   while (i < block.msgs.length) {
     const m = block.msgs[i]
     if (canGroup && isPhotoOnlyMsg(m)) {
       const photos = [...(m.photos ?? [])]
+      const mergedMsgIds = m._id ? [m._id] : []
       while (i + 1 < block.msgs.length && isPhotoOnlyMsg(block.msgs[i + 1])) {
         i++
         photos.push(...(block.msgs[i].photos ?? []))
+        if (block.msgs[i]._id) mergedMsgIds.push(block.msgs[i]._id)
       }
-      msgs.push({ ...m, photos })
+      msgs.push({
+        msg: { ...m, photos },
+        mergedMsgIds: mergedMsgIds.length > 1 ? mergedMsgIds : undefined,
+      })
     } else {
-      msgs.push(m)
+      msgs.push({ msg: m })
     }
     i++
   }
@@ -188,15 +199,16 @@ const MessageGroup = memo(function MessageGroup({
 
   return (
     <div data-id={block.msgs[0]._id} className="msg-group flex flex-col py-0.5">
-      {msgs.map((m, idx) => {
+      {msgs.map(({ msg: m, mergedMsgIds }, idx) => {
         if (isBlankMsg(m)) return null
         return (
           <MessageRow
             key={m._id ?? idx}
             m={m}
+            {...shared}
             isFirst={idx === 0}
             isSel={!!selectedMsgIds?.has(m._id)}
-            {...shared}
+            mergedMsgIds={mergedMsgIds}
           />
         )
       })}

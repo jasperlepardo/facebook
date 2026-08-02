@@ -26,11 +26,15 @@ export function useMessageJump({
   const pendingScrollBottom   = useRef(false)
 
   function scrollToMsg(msgId: string): boolean {
-    const row   = document.getElementById(`msg-${msgId}`)
-    const group = row?.closest<HTMLElement>('.msg-group') ??
+    const el = document.getElementById(`msg-${msgId}`)
+    const group = el?.closest<HTMLElement>('.msg-group') ??
       document.querySelector<HTMLElement>(`[data-id="${msgId}"]`)
     if (!group || !group.offsetParent) return false
-    const target = row ?? group
+    // Prefer the message row (direct child of .msg-group). Merged photo-only
+    // msgs render as sr-only #msg-{id} anchors inside that row.
+    const target = (el && group.contains(el)
+      ? el.closest<HTMLElement>('.msg-group > *')
+      : null) ?? el ?? group
     const scroller = scrollRef.current
     if (!scroller) return false
 
