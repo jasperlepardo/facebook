@@ -27,11 +27,15 @@ function MoreIcon() {
 }
 
 const SWIPE_THRESHOLD = 56
-const DISMISS_THRESHOLD = 96
 const PINCH_MIN = 1
 const PINCH_MAX = 4
 const STRIP_PAGE = 24
 const STRIP_RADIUS = 12
+/** Match AppLayout sheet dismiss — whole page slides down. */
+const DISMISS_RATIO = 0.22
+const DISMISS_VELOCITY = 0.55 // px/ms
+const DISMISS_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
+const DISMISS_MS = 340
 
 type TouchMode = 'none' | 'swipe' | 'pan' | 'pinch' | 'dismiss'
 
@@ -224,13 +228,15 @@ export default function Lightbox({
   const [scale, setScale] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
-  const [dismissY, setDismissY] = useState(0)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const scrimRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const scaleRef = useRef(1)
   const panRef = useRef({ x: 0, y: 0 })
   const dismissYRef = useRef(0)
+  const closingRef = useRef(false)
   const touchRef = useRef<{
     mode: TouchMode
     startX: number
@@ -239,7 +245,13 @@ export default function Lightbox({
     startDist: number
     startScale: number
     lastTap: number
-  }>({ mode: 'none', startX: 0, startY: 0, startPan: { x: 0, y: 0 }, startDist: 0, startScale: 1, lastTap: 0 })
+    lastY: number
+    startT: number
+    lastT: number
+  }>({
+    mode: 'none', startX: 0, startY: 0, startPan: { x: 0, y: 0 },
+    startDist: 0, startScale: 1, lastTap: 0, lastY: 0, startT: 0, lastT: 0,
+  })
 
   const canPrev = !!state.onPrev
   const canNext = !!state.onNext
@@ -260,21 +272,68 @@ export default function Lightbox({
     setPan({ x: 0, y: 0 })
   }, [])
 
-  const resetDismiss = useCallback(() => {
-    dismissYRef.current = 0
-    setDismissY(0)
+  const setPanelPull = useCallback((y: number, animate: boolean) => {
+    const panel = panelRef.current
+    const scrim = scrimRef.current
+    if (!panel) return
+    const h = panel.offsetHeight || window.innerHeight
+    const pull = Math.max(0, y)
+    dismissYRef.current = pull
+    const ms = animate ? DISMISS_MS : 0
+    panel.style.transition = ms > 0 ? `transform ${ms}ms ${DISMISS_EASE}` : 'none'
+    panel.style.transform = pull ? `translate3d(0,${pull}px,0)` : 'translate3d(0,0,0)'
+    if (scrim) {
+      scrim.style.transition = ms > 0 ? `opacity ${ms}ms ${DISMISS_EASE}` : 'none'
+      scrim.style.opacity = String(Math.max(0, 1 - Math.min(1, pull / h)))
+    }
   }, [])
+
+  const resetDismiss = useCallback(() => {
+    setPanelPull(0, true)
+  }, [setPanelPull])
+
+  const finishClose = useCallback(() => {
+    if (closingRef.current) return
+    closingRef.current = true
+    const panel = panelRef.current
+    const scrim = scrimRef.current
+    const h = panel?.offsetHeight || window.innerHeight
+    if (panel) {
+      panel.style.transition = `transform ${DISMISS_MS}ms ${DISMISS_EASE}`
+      panel.style.transform = `translate3d(0,${h}px,0)`
+    }
+    if (scrim) {
+      scrim.style.transition = `opacity ${DISMISS_MS}ms ${DISMISS_EASE}`
+      scrim.style.opacity = '0'
+    }
+    window.setTimeout(() => onClose(), DISMISS_MS)
+  }, [onClose])
+
+  const requestClose = useCallback(() => {
+    resetZoom()
+    finishClose()
+  }, [resetZoom, finishClose])
 
   useEffect(() => {
     setStatus('loading')
     resetZoom()
-    resetDismiss()
+    dismissYRef.current = 0
+    const panel = panelRef.current
+    const scrim = scrimRef.current
+    if (panel) {
+      panel.style.transition = 'none'
+      panel.style.transform = 'translate3d(0,0,0)'
+    }
+    if (scrim) {
+      scrim.style.transition = 'none'
+      scrim.style.opacity = '1'
+    }
     if (state.type === 'file') {
       const ext = (state.caption ?? '').split('.').pop()?.toLowerCase() ?? ''
       const officeExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
       if (ext !== 'pdf' && !officeExts.includes(ext)) setStatus('ready')
     }
-  }, [state.src, state.type, state.caption, resetZoom, resetDismiss, retry])
+  }, [state.src, state.type, state.caption, resetZoom, retry])
 
   // Prefetch neighbors only once the clicked image is on screen — first paint keeps the bandwidth.
   useEffect(() => {
@@ -297,8 +356,7 @@ export default function Lightbox({
       if (e.key === 'Escape') {
         if (menuOpen) { setMenuOpen(false); return }
         if (sheetOpen) { setSheetOpen(false); return }
-        resetZoom()
-        onClose()
+        requestClose()
         return
       }
       if (e.key === 'ArrowLeft') state.onPrev?.()
@@ -307,7 +365,7 @@ export default function Lightbox({
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, state, resetZoom, menuOpen, sheetOpen])
+  }, [requestClose, state, resetZoom, menuOpen, sheetOpen])
 
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -331,10 +389,17 @@ export default function Lightbox({
   }
 
   function onTouchStart(e: React.TouchEvent) {
-    if (!isImage) return
+    if (closingRef.current) return
+    // Don't steal touches from native video/file controls or chrome buttons.
+    if (!isImage) {
+      const el = e.target as HTMLElement
+      if (el.closest('video, a, button, iframe, input, textarea')) return
+    }
+    // Allow page-dismiss on any media; pinch/zoom only for images.
     setDragging(true)
     const t = touchRef.current
-    if (e.touches.length === 2) {
+    const nowPerf = performance.now()
+    if (isImage && e.touches.length === 2) {
       t.mode = 'pinch'
       t.startDist = dist(e.touches[0], e.touches[1])
       t.startScale = scaleRef.current
@@ -342,30 +407,35 @@ export default function Lightbox({
     }
     if (e.touches.length !== 1) return
     const touch = e.touches[0]
-    const now = Date.now()
-    if (now - t.lastTap < 280) {
-      if (scaleRef.current > 1.05) {
-        resetZoom()
-      } else {
-        scaleRef.current = 2
-        setScale(2)
+    if (isImage) {
+      const now = Date.now()
+      if (now - t.lastTap < 280) {
+        if (scaleRef.current > 1.05) {
+          resetZoom()
+        } else {
+          scaleRef.current = 2
+          setScale(2)
+        }
+        t.lastTap = 0
+        t.mode = 'none'
+        setDragging(false)
+        return
       }
-      t.lastTap = 0
-      t.mode = 'none'
-      setDragging(false)
-      return
+      t.lastTap = now
     }
-    t.lastTap = now
     t.startX = touch.clientX
     t.startY = touch.clientY
+    t.lastY = touch.clientY
+    t.startT = nowPerf
+    t.lastT = nowPerf
     t.startPan = { ...panRef.current }
     t.mode = zoomed ? 'pan' : 'swipe'
   }
 
   function onTouchMove(e: React.TouchEvent) {
-    if (!isImage) return
+    if (closingRef.current) return
     const t = touchRef.current
-    if (t.mode === 'pinch' && e.touches.length === 2) {
+    if (isImage && t.mode === 'pinch' && e.touches.length === 2) {
       e.preventDefault()
       const next = Math.min(PINCH_MAX, Math.max(PINCH_MIN, t.startScale * (dist(e.touches[0], e.touches[1]) / t.startDist)))
       scaleRef.current = next
@@ -381,6 +451,7 @@ export default function Lightbox({
     const dx = touch.clientX - t.startX
     const dy = touch.clientY - t.startY
     if (t.mode === 'pan') {
+      if (!isImage) return
       e.preventDefault()
       const next = { x: t.startPan.x + dx, y: t.startPan.y + dy }
       panRef.current = next
@@ -388,27 +459,29 @@ export default function Lightbox({
       return
     }
     if (t.mode === 'swipe' || t.mode === 'dismiss') {
-      // Lock axis once movement is decisive
       if (t.mode === 'swipe') {
         if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.15 && dy > 0) {
           t.mode = 'dismiss'
-        } else if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
-          // horizontal — keep swipe
+          t.startY = touch.clientY
+          t.startT = performance.now()
+        } else if (isImage && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+          // horizontal — keep swipe (images only)
         } else {
           return
         }
       }
       if (t.mode === 'dismiss') {
         e.preventDefault()
-        const y = Math.max(0, dy)
-        dismissYRef.current = y
-        setDismissY(y)
+        const pull = Math.max(0, touch.clientY - t.startY)
+        t.lastY = touch.clientY
+        t.lastT = performance.now()
+        setPanelPull(pull, false)
       }
     }
   }
 
   function onTouchEnd(e: React.TouchEvent) {
-    if (!isImage) return
+    if (closingRef.current) return
     const t = touchRef.current
     if (t.mode === 'pinch') {
       if (scaleRef.current < 1.05) resetZoom()
@@ -417,8 +490,11 @@ export default function Lightbox({
       return
     }
     if (t.mode === 'dismiss') {
-      if (dismissYRef.current > DISMISS_THRESHOLD) {
-        onClose()
+      const h = panelRef.current?.offsetHeight || window.innerHeight
+      const elapsed = Math.max(1, t.lastT - t.startT)
+      const velocity = (t.lastY - t.startY) / elapsed
+      if (dismissYRef.current > h * DISMISS_RATIO || velocity > DISMISS_VELOCITY) {
+        finishClose()
       } else {
         resetDismiss()
       }
@@ -426,7 +502,7 @@ export default function Lightbox({
       setDragging(false)
       return
     }
-    if (t.mode === 'swipe' && e.changedTouches[0]) {
+    if (isImage && t.mode === 'swipe' && e.changedTouches[0]) {
       const dx = e.changedTouches[0].clientX - t.startX
       if (dx > SWIPE_THRESHOLD) state.onPrev?.()
       else if (dx < -SWIPE_THRESHOLD) state.onNext?.()
@@ -482,9 +558,6 @@ export default function Lightbox({
     destructive: a.destructive,
     onPress: a.onPress,
   }))
-
-  const dismissProgress = Math.min(1, dismissY / (DISMISS_THRESHOLD * 1.8))
-  const stageOpacity = 1 - dismissProgress * 0.45
 
   const headerActions = actions.length > 0 ? (
     <>
@@ -545,16 +618,24 @@ export default function Lightbox({
 
   return (
     <div
-      className="fixed inset-0 z-999 flex flex-col bg-black/95 [animation:fade-in_160ms_ease-out]"
-      style={{ backgroundColor: `rgba(0,0,0,${0.95 - dismissProgress * 0.35})` }}
+      className="fixed inset-0 z-999"
       role="dialog"
       aria-modal
       aria-label="Media viewer"
     >
+      {/* Scrim fades as the page is pulled down (same idea as chat settings sheet). */}
+      <div ref={scrimRef} className="absolute inset-0 bg-black/95 [animation:fade-in_160ms_ease-out]" />
+
+      {/* Whole page panel — header, stage, and filmstrip slide together. */}
+      <div
+        ref={panelRef}
+        className="absolute inset-0 flex flex-col bg-black/95 [animation:fade-in_160ms_ease-out] will-change-transform"
+        style={{ transform: 'translate3d(0,0,0)' }}
+      >
       <AppHeader
         tone="media"
         dismiss
-        onBack={() => { resetZoom(); onClose() }}
+        onBack={requestClose}
         title={(
           <div className="min-w-0">
             <p className="text-sm font-bold truncate">{titleText}</p>
@@ -568,17 +649,12 @@ export default function Lightbox({
 
       {/* Media stage */}
       <div
-        className={`flex-1 min-h-0 relative flex items-center justify-center px-2 select-none ${isImage ? 'touch-none' : ''}`}
-        style={{
-          transform: dismissY ? `translateY(${dismissY}px)` : undefined,
-          opacity: stageOpacity,
-          transition: dragging ? undefined : 'transform 180ms ease-out, opacity 180ms ease-out',
-        }}
-        onClick={e => { if (e.target === e.currentTarget && !zoomed && dismissY < 8) onClose() }}
-        onTouchStart={isImage ? onTouchStart : undefined}
-        onTouchMove={isImage ? onTouchMove : undefined}
-        onTouchEnd={isImage ? onTouchEnd : undefined}
-        onTouchCancel={isImage ? () => { touchRef.current.mode = 'none'; setDragging(false); resetDismiss() } : undefined}
+        className={`flex-1 min-h-0 relative flex items-center justify-center px-2 select-none touch-none`}
+        onClick={e => { if (e.target === e.currentTarget && !zoomed && dismissYRef.current < 8) requestClose() }}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={() => { touchRef.current.mode = 'none'; setDragging(false); resetDismiss() }}
       >
         <button
           type="button"
@@ -696,6 +772,7 @@ export default function Lightbox({
             <div className="h-1" />
           ) : null}
         </div>
+      </div>
       </div>
 
       {sheetOpen && (
