@@ -229,15 +229,20 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
               className="aspect-square overflow-hidden cursor-pointer rounded-xs bg-gray-200 dark:bg-mist-700 relative hover:opacity-85 group/cell"
               style={{ WebkitTouchCallout: 'none' }}
               onClick={() => {
+                const kind = type === 'videos' ? 'video' as const : type === 'gifs' ? 'gif' as const : 'photo' as const
+                const loadStrip = async (offset: number, limit: number) => {
+                  const items = itemsRef.current
+                  return items.slice(offset, offset + limit).map(it => ({ uri: it.uri }))
+                }
                 const mkState = (idx: number): LightboxState => {
                   const items = itemsRef.current
                   const prev = idx > 0 ? items[idx - 1] : undefined
                   const next = idx < items.length - 1 ? items[idx + 1] : undefined
-                  const kind = type === 'videos' ? 'video' as const : type === 'gifs' ? 'gif' as const : 'photo' as const
                   return {
                     src: r2(items[idx].uri),
                     uri: items[idx].uri,
                     type: kind,
+                    mediaType: type === 'stickers' ? undefined : type,
                     caption: `${new Date(items[idx].ts).toLocaleDateString()} · ${items[idx].sender}`,
                     msgId: items[idx].msgId,
                     ts: items[idx].ts,
@@ -245,8 +250,12 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
                     total: items.length,
                     prevSrc: prev ? r2(prev.uri) : undefined,
                     nextSrc: next ? r2(next.uri) : undefined,
-                    onPrev: idx > 0                           ? () => onLightbox(mkState(idx - 1)) : undefined,
+                    onPrev: idx > 0 ? () => onLightbox(mkState(idx - 1)) : undefined,
                     onNext: idx < items.length - 1 ? () => onLightbox(mkState(idx + 1)) : undefined,
+                    onGoToIndex: (absOff) => {
+                      if (absOff >= 0 && absOff < itemsRef.current.length) onLightbox(mkState(absOff))
+                    },
+                    loadStrip,
                   }
                 }
                 onLightbox(mkState(i))

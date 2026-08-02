@@ -62,6 +62,13 @@ export interface LightboxState {
   nextSrc?: string
   onPrev?: () => void
   onNext?: () => void
+  /** Jump to a 0-based absolute index in the carousel set */
+  onGoToIndex?: (index: number) => void
+  /**
+   * Load a page of filmstrip thumbnails. `offset` is 0-based; returns uris for that page.
+   * Callers should reuse the same lazy/windowed attachments fetch used for prev/next.
+   */
+  loadStrip?: (offset: number, limit: number) => Promise<{ uri: string }[]>
 }
 
 export interface ContextMenuState {

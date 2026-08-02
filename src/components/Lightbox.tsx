@@ -1,15 +1,11 @@
 'use client'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { LightboxState } from '@/types'
-import { headerBtn, headerChip } from '@/lib/ui'
-
-function CloseIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  )
-}
+import { headerBtn, headerChip, menu, menuItem, menuItemDanger } from '@/lib/ui'
+import AppHeader from '@/components/AppHeader'
+import ActionSheet, { ActionSheetAction } from '@/components/ActionSheet'
+import { GoToMessageIcon, HideIcon, UnhideIcon } from '@/components/icons'
+import { r2 } from '@/lib/format'
 
 function ChevronIcon({ dir }: { dir: 'left' | 'right' }) {
   return (
@@ -20,32 +16,223 @@ function ChevronIcon({ dir }: { dir: 'left' | 'right' }) {
   )
 }
 
-function ChatIcon() {
+function MoreIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none" />
     </svg>
   )
 }
 
 const SWIPE_THRESHOLD = 56
+const DISMISS_THRESHOLD = 96
 const PINCH_MIN = 1
 const PINCH_MAX = 4
+const STRIP_PAGE = 24
+const STRIP_RADIUS = 12
 
-export default function Lightbox({ state, onClose, onJumpToMessage }: {
+type TouchMode = 'none' | 'swipe' | 'pan' | 'pinch' | 'dismiss'
+
+interface LightboxAction {
+  id: string
+  label: string
+  destructive?: boolean
+  onPress: () => void
+  icon?: React.ReactNode
+}
+
+const STRIP_CELL = 56
+const STRIP_GAP = 6
+const STRIP_STRIDE = STRIP_CELL + STRIP_GAP
+const STRIP_PAD_X = 12
+
+function LightboxFilmstrip({
+  currentIndex,
+  total,
+  loadStrip,
+  onGoToIndex,
+}: {
+  currentIndex: number
+  total: number
+  loadStrip: (offset: number, limit: number) => Promise<{ uri: string }[]>
+  onGoToIndex: (index: number) => void
+}) {
+  const [thumbs, setThumbs] = useState<Map<number, string>>(() => new Map())
+  const [range, setRange] = useState({ from: 0, to: Math.min(total - 1, STRIP_RADIUS * 2) })
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const loadingRef = useRef<Set<number>>(new Set())
+  const thumbsRef = useRef(thumbs)
+  const suppressScrollSync = useRef(false)
+  thumbsRef.current = thumbs
+
+  const ensureRange = useCallback(async (from: number, to: number) => {
+    const a0 = Math.max(0, from)
+    const b0 = Math.min(total - 1, to)
+    if (b0 < a0) return
+    const missing: number[] = []
+    for (let i = a0; i <= b0; i++) {
+      if (!thumbsRef.current.has(i) && !loadingRef.current.has(i)) missing.push(i)
+    }
+    if (!missing.length) return
+
+    let start = missing[0]!
+    let end = start
+    const runs: Array<[number, number]> = []
+    for (let i = 1; i < missing.length; i++) {
+      const n = missing[i]!
+      if (n === end + 1 && end - start + 1 < STRIP_PAGE) {
+        end = n
+      } else {
+        runs.push([start, end])
+        start = n
+        end = n
+      }
+    }
+    runs.push([start, end])
+
+    await Promise.all(runs.map(async ([a, b]) => {
+      for (let i = a; i <= b; i++) loadingRef.current.add(i)
+      try {
+        const items = await loadStrip(a, b - a + 1)
+        setThumbs(prev => {
+          const next = new Map(prev)
+          items.forEach((item, i) => {
+            if (item?.uri) next.set(a + i, item.uri)
+          })
+          return next
+        })
+      } finally {
+        for (let i = a; i <= b; i++) loadingRef.current.delete(i)
+      }
+    }))
+  }, [loadStrip, total])
+
+  const updateVisible = useCallback((scrollLeft: number, clientWidth: number) => {
+    const first = Math.floor(Math.max(0, scrollLeft - STRIP_PAD_X) / STRIP_STRIDE)
+    const visible = Math.ceil(clientWidth / STRIP_STRIDE) + 2
+    const from = Math.max(0, first - STRIP_RADIUS)
+    const to = Math.min(total - 1, first + visible + STRIP_RADIUS)
+    setRange(prev => (prev.from === from && prev.to === to ? prev : { from, to }))
+    void ensureRange(from, to)
+  }, [ensureRange, total])
+
+  useEffect(() => {
+    const from = Math.max(0, currentIndex - STRIP_RADIUS)
+    const to = Math.min(total - 1, currentIndex + STRIP_RADIUS)
+    setRange({ from, to })
+    void ensureRange(from, to)
+  }, [currentIndex, ensureRange, total])
+
+  // Keep the active thumb roughly centered when the index changes.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const left = STRIP_PAD_X + currentIndex * STRIP_STRIDE - el.clientWidth / 2 + STRIP_CELL / 2
+    suppressScrollSync.current = true
+    el.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
+    window.setTimeout(() => { suppressScrollSync.current = false }, 320)
+  }, [currentIndex])
+
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    updateVisible(el.scrollLeft, el.clientWidth)
+    let ticking = false
+    const onScroll = () => {
+      if (suppressScrollSync.current || ticking) return
+      ticking = true
+      requestAnimationFrame(() => {
+        ticking = false
+        updateVisible(el.scrollLeft, el.clientWidth)
+      })
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [updateVisible])
+
+  const trackWidth = STRIP_PAD_X * 2 + total * STRIP_CELL + Math.max(0, total - 1) * STRIP_GAP
+  const indices: number[] = []
+  for (let i = range.from; i <= range.to; i++) indices.push(i)
+
+  return (
+    <div
+      ref={scrollerRef}
+      className="overflow-x-auto py-2 scrollbar-none"
+      style={{ WebkitOverflowScrolling: 'touch' }}
+      role="listbox"
+      aria-label="Photos"
+    >
+      <div className="relative h-14" style={{ width: trackWidth }}>
+        {indices.map(i => {
+          const uri = thumbs.get(i)
+          const left = STRIP_PAD_X + i * STRIP_STRIDE
+          return (
+            <button
+              key={i}
+              type="button"
+              data-strip-idx={i}
+              role="option"
+              aria-selected={i === currentIndex}
+              aria-label={`Photo ${i + 1}`}
+              onClick={() => onGoToIndex(i)}
+              className={`absolute top-0 w-14 h-14 rounded-sm overflow-hidden bg-white/10 transition-opacity ${
+                i === currentIndex ? 'ring-2 ring-white opacity-100' : 'opacity-55 hover:opacity-90'
+              }`}
+              style={{ left }}
+            >
+              {uri ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={r2(uri, { w: 480 })}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+              ) : (
+                <span className="absolute inset-0 animate-pulse bg-white/10" />
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export default function Lightbox({
+  state,
+  onClose,
+  onJumpToMessage,
+  isSuperAdmin,
+  isHidden,
+  onHide,
+  onUnhide,
+}: {
   state: LightboxState
   onClose: () => void
   onJumpToMessage?: (ts: number, msgId: string | null) => void
+  isSuperAdmin?: boolean
+  isHidden?: boolean
+  onHide?: (uri: string) => void
+  onUnhide?: (uri: string) => void
 }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [retry, setRetry] = useState(0)
   const [scale, setScale] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [dragging, setDragging] = useState(false)
+  const [dismissY, setDismissY] = useState(0)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const scaleRef = useRef(1)
   const panRef = useRef({ x: 0, y: 0 })
+  const dismissYRef = useRef(0)
   const touchRef = useRef<{
-    mode: 'none' | 'swipe' | 'pan' | 'pinch'
+    mode: TouchMode
     startX: number
     startY: number
     startPan: { x: number; y: number }
@@ -58,6 +245,13 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
   const canNext = !!state.onNext
   const isImage = state.type === 'photo' || state.type === 'gif'
   const zoomed = scale > 1.05
+  const showStrip = !!(
+    state.total && state.total > 1
+    && state.index != null
+    && state.loadStrip
+    && state.onGoToIndex
+    && (state.type === 'photo' || state.type === 'gif' || state.type === 'video')
+  )
 
   const resetZoom = useCallback(() => {
     scaleRef.current = 1
@@ -66,15 +260,21 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
     setPan({ x: 0, y: 0 })
   }, [])
 
+  const resetDismiss = useCallback(() => {
+    dismissYRef.current = 0
+    setDismissY(0)
+  }, [])
+
   useEffect(() => {
     setStatus('loading')
     resetZoom()
+    resetDismiss()
     if (state.type === 'file') {
       const ext = (state.caption ?? '').split('.').pop()?.toLowerCase() ?? ''
       const officeExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
       if (ext !== 'pdf' && !officeExts.includes(ext)) setStatus('ready')
     }
-  }, [state.src, state.type, resetZoom, retry])
+  }, [state.src, state.type, state.caption, resetZoom, resetDismiss, retry])
 
   // Prefetch neighbors only once the clicked image is on screen — first paint keeps the bandwidth.
   useEffect(() => {
@@ -94,20 +294,35 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { resetZoom(); onClose(); return }
+      if (e.key === 'Escape') {
+        if (menuOpen) { setMenuOpen(false); return }
+        if (sheetOpen) { setSheetOpen(false); return }
+        resetZoom()
+        onClose()
+        return
+      }
       if (e.key === 'ArrowLeft') state.onPrev?.()
       if (e.key === 'ArrowRight') state.onNext?.()
       if (e.key === '0') resetZoom()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose, state, resetZoom])
+  }, [onClose, state, resetZoom, menuOpen, sheetOpen])
 
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
   }, [])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [menuOpen])
 
   function dist(a: { clientX: number; clientY: number }, b: { clientX: number; clientY: number }) {
     const dx = a.clientX - b.clientX
@@ -170,8 +385,25 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
       const next = { x: t.startPan.x + dx, y: t.startPan.y + dy }
       panRef.current = next
       setPan(next)
-    } else if (t.mode === 'swipe' && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
-      // commit to horizontal swipe — visual feedback via opacity could be added later
+      return
+    }
+    if (t.mode === 'swipe' || t.mode === 'dismiss') {
+      // Lock axis once movement is decisive
+      if (t.mode === 'swipe') {
+        if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx) * 1.15 && dy > 0) {
+          t.mode = 'dismiss'
+        } else if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+          // horizontal — keep swipe
+        } else {
+          return
+        }
+      }
+      if (t.mode === 'dismiss') {
+        e.preventDefault()
+        const y = Math.max(0, dy)
+        dismissYRef.current = y
+        setDismissY(y)
+      }
     }
   }
 
@@ -180,6 +412,16 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
     const t = touchRef.current
     if (t.mode === 'pinch') {
       if (scaleRef.current < 1.05) resetZoom()
+      t.mode = 'none'
+      setDragging(false)
+      return
+    }
+    if (t.mode === 'dismiss') {
+      if (dismissYRef.current > DISMISS_THRESHOLD) {
+        onClose()
+      } else {
+        resetDismiss()
+      }
       t.mode = 'none'
       setDragging(false)
       return
@@ -197,49 +439,147 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
   const counter = state.index != null && state.total != null && state.total > 1
     ? `${state.index} / ${state.total}`
     : null
+  // Prefer human caption (date · sender, or real document name). Avoid opaque photo hash filenames.
+  const titleText = state.caption?.trim() || typeLabel
+
+  const actions: LightboxAction[] = []
+  if (onJumpToMessage && state.ts != null) {
+    actions.push({
+      id: 'viewInChat',
+      label: 'View in chat',
+      icon: <GoToMessageIcon size={15} />,
+      onPress: () => { onJumpToMessage(state.ts!, state.msgId ?? null); onClose() },
+    })
+  }
+  if (isSuperAdmin && state.uri && (onHide || onUnhide)) {
+    if (isHidden && onUnhide) {
+      actions.push({
+        id: 'unhide',
+        label: 'Unhide',
+        icon: <UnhideIcon size={15} />,
+        onPress: () => { onUnhide(state.uri!) },
+      })
+    } else if (!isHidden && onHide) {
+      actions.push({
+        id: 'hide',
+        label: 'Hide image',
+        destructive: true,
+        icon: <HideIcon size={15} />,
+        onPress: () => { onHide(state.uri!); onClose() },
+      })
+    }
+  }
+  if (state.type === 'file') {
+    actions.push({
+      id: 'download',
+      label: 'Download',
+      onPress: () => { window.open(state.src, '_blank', 'noopener') },
+    })
+  }
+
+  const sheetActions: ActionSheetAction[] = actions.map(a => ({
+    label: a.label,
+    destructive: a.destructive,
+    onPress: a.onPress,
+  }))
+
+  const dismissProgress = Math.min(1, dismissY / (DISMISS_THRESHOLD * 1.8))
+  const stageOpacity = 1 - dismissProgress * 0.45
+
+  const headerActions = actions.length > 0 ? (
+    <>
+      {/* Desktop: primary icons */}
+      <div className="hidden md:flex items-center gap-1.5 relative" ref={menuRef}>
+        {actions.slice(0, 2).map(a => (
+          <button
+            key={a.id}
+            type="button"
+            title={a.label}
+            aria-label={a.label}
+            onClick={a.onPress}
+            className={`${headerBtn} !text-white ${a.destructive ? '!text-red-400' : ''}`}
+          >
+            {a.icon ?? <span className="text-[11px] font-semibold px-0.5">{a.label}</span>}
+          </button>
+        ))}
+        {actions.length > 2 && (
+          <>
+            <button
+              type="button"
+              aria-label="More actions"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(v => !v)}
+              className={`${headerBtn} !text-white`}
+            >
+              <MoreIcon />
+            </button>
+            {menuOpen && (
+              <div className={`${menu} absolute right-0 top-full mt-2 min-w-[160px]`}>
+                {actions.slice(2).map(a => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => { a.onPress(); setMenuOpen(false) }}
+                    className={a.destructive ? menuItemDanger : menuItem}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Mobile: overflow → ActionSheet (same pattern as selection bar) */}
+      <button
+        type="button"
+        aria-label="Actions"
+        onClick={() => setSheetOpen(true)}
+        className={`md:hidden ${headerBtn} !text-white`}
+      >
+        <MoreIcon />
+      </button>
+    </>
+  ) : null
 
   return (
     <div
       className="fixed inset-0 z-999 flex flex-col bg-black/95 [animation:fade-in_160ms_ease-out]"
+      style={{ backgroundColor: `rgba(0,0,0,${0.95 - dismissProgress * 0.35})` }}
       role="dialog"
       aria-modal
       aria-label="Media viewer"
     >
-      {/* Top bar */}
-      <div className="sticky top-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-white shrink-0">
-        <div className="px-3 pt-[calc(0.5rem+env(safe-area-inset-top))] pb-2.5">
-          <div className="grid grid-cols-[72px_minmax(0,1fr)_72px] items-center gap-3 min-h-8">
-            <div className="flex items-center justify-start min-w-0">
-              <div className="min-w-0">
-                {counter && <p className="text-white/90 text-[13px] font-medium tabular-nums">{counter}</p>}
-                <p className="text-white/50 text-[11px] truncate">{typeLabel}</p>
-              </div>
-            </div>
-            <div />
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={onClose}
-                className={`${headerBtn} !text-white`}
-              >
-                <CloseIcon />
-              </button>
-            </div>
+      <AppHeader
+        tone="media"
+        dismiss
+        onBack={() => { resetZoom(); onClose() }}
+        title={(
+          <div className="min-w-0">
+            <p className="text-sm font-bold truncate">{titleText}</p>
+            {counter && (
+              <p className="text-[11px] text-white/55 tabular-nums truncate">{counter}</p>
+            )}
           </div>
-        </div>
-      </div>
+        )}
+        actions={headerActions}
+      />
 
       {/* Media stage */}
       <div
         className={`flex-1 min-h-0 relative flex items-center justify-center px-2 select-none ${isImage ? 'touch-none' : ''}`}
-        onClick={e => { if (e.target === e.currentTarget && !zoomed) onClose() }}
+        style={{
+          transform: dismissY ? `translateY(${dismissY}px)` : undefined,
+          opacity: stageOpacity,
+          transition: dragging ? undefined : 'transform 180ms ease-out, opacity 180ms ease-out',
+        }}
+        onClick={e => { if (e.target === e.currentTarget && !zoomed && dismissY < 8) onClose() }}
         onTouchStart={isImage ? onTouchStart : undefined}
         onTouchMove={isImage ? onTouchMove : undefined}
         onTouchEnd={isImage ? onTouchEnd : undefined}
-        onTouchCancel={isImage ? () => { touchRef.current.mode = 'none'; setDragging(false) } : undefined}
+        onTouchCancel={isImage ? () => { touchRef.current.mode = 'none'; setDragging(false); resetDismiss() } : undefined}
       >
-        {/* Desktop prev/next — always rendered; dimmed when unavailable */}
         <button
           type="button"
           aria-label="Previous"
@@ -317,6 +657,8 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
             )
           })()
         ) : status !== 'error' ? (
+          // Archive media is served via same-origin /api/media — next/image is intentionally unused.
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             key={`${state.src}-${retry}`}
             src={state.src}
@@ -335,46 +677,34 @@ export default function Lightbox({ state, onClose, onJumpToMessage }: {
         ) : null}
       </div>
 
-      {/* Bottom chrome */}
+      {/* Bottom chrome — filmstrip + optional reset zoom */}
       <div className="sticky bottom-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-white shrink-0 border-b-0 border-t border-black/10 dark:border-white/10">
-        <div className="px-4 pt-3 pb-[calc(0.75rem+var(--resibo-safe-bottom))]">
-          <div className="flex items-end gap-3 max-w-3xl mx-auto">
-            <div className="flex-1 min-w-0">
-              {state.caption && (
-                <p className="text-white/90 text-[13px] leading-snug truncate">{state.caption}</p>
-              )}
-              {zoomed && isImage && (
-                <button type="button" onClick={resetZoom} className="text-white/50 text-[11px] mt-1 hover:text-white/90 transition-colors">
-                  Reset zoom
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {state.type === 'file' && (
-                <a
-                  href={state.src}
-                  download
-                  target="_blank"
-                  rel="noopener"
-                  className={`${headerChip} !h-10 !text-white`}
-                >
-                  <span>Download</span>
-                </a>
-              )}
-              {onJumpToMessage && state.ts != null && (
-                <button
-                  type="button"
-                  onClick={() => { onJumpToMessage(state.ts!, state.msgId ?? null); onClose() }}
-                  className="h-10 px-3.5 flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-medium transition-colors"
-                >
-                  <ChatIcon />
-                  View in chat
-                </button>
-              )}
-            </div>
-          </div>
+        {showStrip && (
+          <LightboxFilmstrip
+            currentIndex={(state.index ?? 1) - 1}
+            total={state.total!}
+            loadStrip={state.loadStrip!}
+            onGoToIndex={state.onGoToIndex!}
+          />
+        )}
+        <div className="px-4 pt-1 pb-[calc(0.5rem+var(--resibo-safe-bottom))]">
+          {zoomed && isImage ? (
+            <button type="button" onClick={resetZoom} className="text-white/50 text-[11px] hover:text-white/90 transition-colors">
+              Reset zoom
+            </button>
+          ) : !showStrip ? (
+            <div className="h-1" />
+          ) : null}
         </div>
       </div>
+
+      {sheetOpen && (
+        <ActionSheet
+          title={titleText}
+          actions={sheetActions}
+          onClose={() => setSheetOpen(false)}
+        />
+      )}
     </div>
   )
 }

@@ -26,7 +26,6 @@ export function useMessageJump({
   const pendingJump           = useRef<string | null>(null)
   const pendingScrollReset    = useRef(false)
   const pendingScrollBottom   = useRef(false)
-  const pendingLightboxScroll = useRef<string | null>(null)
 
   function scrollToMsg(msgId: string): boolean {
     const row   = document.getElementById(`msg-${msgId}`)
@@ -183,6 +182,32 @@ export function useMessageJump({
         }
       }
 
+      const loadStrip = async (offset: number, limit: number): Promise<{ uri: string }[]> => {
+        if (offset < 0 || limit <= 0) return []
+        const capped = Math.min(limit, Math.max(0, total - offset))
+        if (!capped) return []
+
+        const win = lightboxWindow.current
+        const allCached = win?.mtype === mtype && Array.from({ length: capped }, (_, i) => win.items.has(offset + i)).every(Boolean)
+        if (allCached && win) {
+          return Array.from({ length: capped }, (_, i) => ({ uri: win.items.get(offset + i)!.uri }))
+        }
+
+        try {
+          const { items: fetched } = await apiFetch<{ items: PhotoItem[] }>(
+            withThread(`/api/attachments?type=${mtype}&offset=${offset}&limit=${capped}`)
+          )
+          if (!lightboxWindow.current || lightboxWindow.current.mtype !== mtype) {
+            lightboxWindow.current = { mtype, total, items: new Map() }
+          }
+          lightboxWindow.current.total = total
+          fetched.forEach((item, i) => lightboxWindow.current!.items.set(offset + i, item))
+          return fetched.map(item => ({ uri: item.uri }))
+        } catch {
+          return []
+        }
+      }
+
       const mkState = (absOff: number, item: PhotoItem): LightboxState => {
         const prev = lightboxWindow.current?.items.get(absOff - 1)
         const next = lightboxWindow.current?.items.get(absOff + 1)
@@ -200,7 +225,6 @@ export function useMessageJump({
             try {
               const pi = await ensureItem(absOff - 1)
               if (!pi) return
-              // Warm metadata only — full image prefetch waits until current is ready in Lightbox
               void ensureItem(absOff - 2)
               onLightbox(mkState(absOff - 1, pi))
             } catch { /* keep current */ }
@@ -213,6 +237,17 @@ export function useMessageJump({
               onLightbox(mkState(absOff + 1, ni))
             } catch { /* keep current */ }
           } : undefined,
+          onGoToIndex: async (targetOff: number) => {
+            if (targetOff < 0 || targetOff >= total) return
+            try {
+              const itemAt = await ensureItem(targetOff)
+              if (!itemAt) return
+              void ensureItem(targetOff - 1)
+              void ensureItem(targetOff + 1)
+              onLightbox(mkState(targetOff, itemAt))
+            } catch { /* keep current */ }
+          },
+          loadStrip,
         }
       }
 
@@ -224,7 +259,7 @@ export function useMessageJump({
 
   return {
     jumping,
-    pendingJump, pendingScrollReset, pendingScrollBottom, pendingLightboxScroll,
+    pendingJump, pendingScrollReset, pendingScrollBottom,
     scrollToMsg, scheduleScrollToMsg,
     jumpToMessage, handleDateJump, handleChatJump, handleMsgLightbox,
   }

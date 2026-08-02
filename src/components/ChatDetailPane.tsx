@@ -200,11 +200,6 @@ export default function ChatDetailPane({
     }
     const jumpId = jump.pendingJump.current
     if (jumpId) jump.scheduleScrollToMsg(jumpId)
-    const scrollId = jump.pendingLightboxScroll.current
-    if (scrollId) {
-      const anchor = document.getElementById('msg-' + scrollId)?.closest<HTMLElement>('.msg-group')
-      if (anchor) { jump.pendingLightboxScroll.current = null; anchor.scrollIntoView({ block: 'center', behavior: 'smooth' }) }
-    }
   }, [loader.messages]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMsgContextMenu = useCallback((e: React.MouseEvent, msgIds: string[]) => {
