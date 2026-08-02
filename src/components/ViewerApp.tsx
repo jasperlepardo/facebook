@@ -584,7 +584,7 @@ export default function ViewerApp() {
 
   if (!initialized) {
     return (
-      <div className="md:p-3 font-sans bg-mist-50 dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
+      <div className="md:p-3 font-sans bg-mist-50 dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: 'var(--resibo-shell-height)' }}>
         <AppLayout
           section="chat"
           onSectionChange={() => {}}
@@ -599,7 +599,7 @@ export default function ViewerApp() {
   }
 
   return (
-    <div className="md:p-3 font-sans bg-mist-50 dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="md:p-3 font-sans bg-mist-50 dark:bg-mist-950 flex flex-col overflow-hidden" style={{ height: 'var(--resibo-shell-height)' }}>
       <InAppBrowserBanner />
       <Toaster />
       <AppLayout

@@ -55,6 +55,20 @@
   --resibo-safe-top: env(safe-area-inset-top, 0px);
   /* Use when the floating bottom nav is visible */
   --resibo-nav-clearance: calc(var(--resibo-nav-pill) + var(--resibo-nav-gap) + var(--resibo-safe-bottom));
+  /* Shell height — `dvh` tracks collapsing browser toolbars */
+  --resibo-shell-height: 100dvh;
+}
+
+/*
+ * iOS home-screen app: with a translucent status bar the shell is anchored at
+ * the top of the screen, but `dvh` reports the viewport minus the status bar,
+ * so the shell falls short by exactly the top inset and the page canvas shows
+ * through at the bottom. `vh` spans the whole screen here.
+ */
+@media all and (display-mode: standalone) {
+  :root {
+    --resibo-shell-height: 100vh;
+  }
 }
 
 /* ── Scroll strips (horizontal media rows, tab bars) ──────────────────────── */
