@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Hashtag, LightboxState, Message } from '@/types'
+import { ContentTypeKey } from '@/lib/contentTypes'
 import MessageList from './message/MessageList'
 import MessageSelectionBar from './message/MessageSelectionBar'
 import Lightbox from './Lightbox'
@@ -30,6 +31,7 @@ interface HashtagsPaneProps {
   pendingUrlHashtagId?: string | null
   onResolveUrlHashtag?: (id: string | null) => void
   isSuperAdmin?: boolean
+  showHidden?: boolean
   hideImages?: boolean
   hiddenUris?: Set<string>
   hiddenMsgIds?: Set<string>
@@ -42,9 +44,10 @@ interface HashtagsPaneProps {
   msgFilter: string
   onMsgFilterChange: (v: string) => void
   senderStyles?: Record<string, { initials: string; color: string }>
+  enabledTypes?: Set<ContentTypeKey>
 }
 
-export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter: _filter, onFilterChange: _onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, pendingUrlHashtagId, onResolveUrlHashtag, isSuperAdmin, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange: _onMsgFilterChange, senderStyles }: HashtagsPaneProps) {
+export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter: _filter, onFilterChange: _onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, pendingUrlHashtagId, onResolveUrlHashtag, isSuperAdmin, showHidden, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange: _onMsgFilterChange, senderStyles, enabledTypes }: HashtagsPaneProps) {
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [context, setContext] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -73,13 +76,22 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
     hasBefore,
     loadMessages,
     handleScrollToDay,
-  } = useHashtagMessages({ thread, isSuperAdmin, activeTab, msgFilter })
+  } = useHashtagMessages({ thread, isSuperAdmin, showHidden, hiddenMsgIds, activeTab, msgFilter })
 
   const showToast = useCallback((msg: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast(msg)
     toastTimer.current = setTimeout(() => setToast(null), 2000)
   }, [])
+
+  const showHiddenReloadMounted = useRef(false)
+  useEffect(() => {
+    if (!showHiddenReloadMounted.current) {
+      showHiddenReloadMounted.current = true
+      return
+    }
+    if (selected) void loadMessages(selected)
+  }, [showHidden]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (pendingSelect) openDetail(pendingSelect)
@@ -393,6 +405,7 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   hiddenMsgIds={hiddenMsgIds}
                   onHideUri={onHideUri}
                   onUnhideUri={onUnhideUri}
+                  enabledTypes={enabledTypes}
                   senderStyles={senderStyles}
                 />
                 {hasMore && <div ref={botSentinelRef} className="h-8" />}

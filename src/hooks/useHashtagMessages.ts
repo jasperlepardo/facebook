@@ -11,11 +11,13 @@ const MAX_VISIBLE = CHUNK * 2  // max message blocks kept in DOM at once
 interface UseHashtagMessagesParams {
   thread: string
   isSuperAdmin?: boolean
+  showHidden?: boolean
+  hiddenMsgIds?: Set<string>
   activeTab: 'context' | 'messages'
   msgFilter: string
 }
 
-export function useHashtagMessages({ thread, isSuperAdmin, activeTab, msgFilter }: UseHashtagMessagesParams) {
+export function useHashtagMessages({ thread, isSuperAdmin, showHidden, hiddenMsgIds, activeTab, msgFilter }: UseHashtagMessagesParams) {
   const [allMsgs, setAllMsgs] = useState<Message[]>([])
   const [winStart, setWinStart] = useState(0)
   const [winEnd, setWinEnd]   = useState(CHUNK)
@@ -30,10 +32,14 @@ export function useHashtagMessages({ thread, isSuperAdmin, activeTab, msgFilter 
   const filteredMsgsRef = useRef<Message[]>([])
 
   const filteredMsgs = useMemo(() => {
+    let msgs = allMsgs
+    if (!(showHidden && isSuperAdmin) && hiddenMsgIds?.size) {
+      msgs = msgs.filter(m => !m._id || !hiddenMsgIds.has(m._id))
+    }
     const q = msgFilter.trim().toLowerCase()
-    if (!q) return allMsgs
-    return allMsgs.filter(m => m.content?.toLowerCase().includes(q))
-  }, [allMsgs, msgFilter])
+    if (!q) return msgs
+    return msgs.filter(m => m.content?.toLowerCase().includes(q))
+  }, [allMsgs, msgFilter, showHidden, isSuperAdmin, hiddenMsgIds])
   filteredMsgsRef.current = filteredMsgs
 
   // Bottom sentinel: append downward, cull from top
@@ -118,7 +124,7 @@ export function useHashtagMessages({ thread, isSuperAdmin, activeTab, msgFilter 
       const data = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageIds, thread: resolvedThread, showHidden: !!isSuperAdmin }),
+        body: JSON.stringify({ messageIds, thread: resolvedThread, showHidden: !!(showHidden && isSuperAdmin) }),
       }).then(r => r.json())
       const sorted = (data.messages ?? []).sort((a: Message, b: Message) => a.timestamp_ms - b.timestamp_ms)
       const end = Math.min(CHUNK, sorted.length)

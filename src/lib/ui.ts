@@ -77,8 +77,8 @@ export const emptyWell =
 /**
  * Bottom padding tokens (PWA / iOS home indicator). Pair with `md:pb-*` at the call site.
  * `md` is remapped to 1024px (floating nav below; sidebar from small desktop up).
- * - pbNav: floating capsule is visible (list, story)
- * - pbSafe: nav hidden (chat/hashtag detail, settings, media overlay)
+ * - pbNav: floating capsule is visible (list, story, settings)
+ * - pbSafe: nav hidden (chat/hashtag detail, media overlay)
  */
 export const pbNav  = 'pb-[var(--resibo-nav-clearance)]'
 export const pbSafe = 'pb-[var(--resibo-safe-bottom)]'

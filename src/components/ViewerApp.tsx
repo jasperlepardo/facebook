@@ -1,11 +1,12 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
-import { Section, Thread, LightboxState, ContextMenuState, GalleryItem, DateIndex } from '@/types'
+import { Section, Thread, LightboxState, ContextMenuState, GalleryItem } from '@/types'
 import { toast } from '@/lib/toast'
 import { ContentTypeKey, ALL_CONTENT_TYPE_KEYS, DEFAULT_ENABLED } from '@/lib/contentTypes'
 import { useHashtagPaneState } from '@/hooks/useHashtagPaneState'
 import { useHiddenState } from '@/hooks/useHiddenState'
+import { useHiddenSync } from '@/hooks/useHiddenSync'
 import { useViewerUrlSync } from '@/hooks/useViewerUrlSync'
 import { useViewerInit } from '@/hooks/useViewerInit'
 import ContextMenu from './ContextMenu'
@@ -40,10 +41,13 @@ export default function ViewerApp() {
   // ─── Hidden state ────────────────────────────────────────────────────────────
   const {
     hiddenUris, setDbHiddenItems,
-    dbHiddenMsgIds, allHiddenUris,
+    effectiveHiddenMsgIds, allHiddenUris,
+    applyHiddenSnapshot,
     hideUri, handleHideMessage, handleUnhideMessage,
     handleHideDbUri, handleUnhideDbUri, clearHiddenUris,
   } = useHiddenState()
+
+  useHiddenSync({ onSnapshot: applyHiddenSnapshot })
 
   // ─── Hashtag pane state ───────────────────────────────────────────────────────
   const {
@@ -69,8 +73,6 @@ export default function ViewerApp() {
   const [chatDetailOpen, setChatDetailOpen] = useState(false)
   const [threadFilter, setThreadFilter] = useState('')
   const [threadMeta, setThreadMeta]     = useState<Record<string, { subtitle: string; badge: string }>>({})
-  const [chatTotal, setChatTotal]       = useState(0)
-  const [chatDateIndex, setChatDateIndex] = useState<DateIndex | null>(null)
   const [threads, setThreads]           = useState<Thread[]>([])
   const [initialized, setInitialized]   = useState(false)
 
@@ -97,6 +99,7 @@ export default function ViewerApp() {
   const jumpFnRef     = useRef<JumpFn | null>(null)
   // Queued when jump is requested before ChatDetailPane has registered (section/thread remount)
   const pendingJumpRef = useRef<{ ts: number; msgId: string | null } | null>(null)
+  const layoutControlsRef = useRef<AppLayoutControls | null>(null)
 
   const closeThreadSideView = useCallback(() => {
     setThreadSideView(null)
@@ -154,6 +157,8 @@ export default function ViewerApp() {
     setSearchInput('')
     setHashtagSearchOpen(false)
     setHashtagMsgFilter('')
+    // Same as thread list select — detail must be interactive after landing on a message
+    layoutControlsRef.current?.onShowDetail()
     await jumpToMessage(ts, msgId, thread)
   }, [jumpToMessage, closeThreadSideView, setHashtagSearchOpen, setHashtagMsgFilter])
 
@@ -170,11 +175,6 @@ export default function ViewerApp() {
     pendingJumpRef.current = null
     void jumpFnRef.current(ts, msgId)
   }, [section, activeThread])
-
-  // Sync hideImages from localStorage after hydration
-  useEffect(() => {
-    setHideImages(localStorage.getItem('hideImages') === '1')
-  }, [])
 
   useViewerUrlSync({
     section, setSection,
@@ -193,6 +193,7 @@ export default function ViewerApp() {
     setCurrentUser,
     setIsSuperAdmin,
     setShowHidden,
+    setHideImages,
     setThreadMeta,
     setDbHiddenItems,
     setHashtags,
@@ -232,10 +233,26 @@ export default function ViewerApp() {
     setHashtagMsgFilter('')
   }, [activeHashtagName, section, setHashtagMsgFilter])
 
+  const patchUserSettings = useCallback((body: Record<string, unknown>) => {
+    fetch('/api/user-settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).catch(() => toast('Failed to save view settings'))
+  }, [])
+
   const handleHideImagesChange = useCallback((v: boolean) => {
     setHideImages(v)
-    localStorage.setItem('hideImages', v ? '1' : '0')
-  }, [])
+    patchUserSettings({ hideImages: v })
+  }, [patchUserSettings])
+
+  const handleToggleShowHidden = useCallback(() => {
+    setShowHidden(v => {
+      const next = !v
+      patchUserSettings({ showHidden: next })
+      return next
+    })
+  }, [patchUserSettings])
 
   // ─── Context menu (gallery only) ─────────────────────────────────────────────
 
@@ -310,6 +327,7 @@ export default function ViewerApp() {
   const activeHashtag = hashtags.find(h => h.name === activeHashtagName)
 
   function renderDetailPane(controls: AppLayoutControls) {
+    layoutControlsRef.current = controls
     const thread = threads.find(t => t.id === activeThread)
     const senderStyles: Record<string, { initials: string; color: string }> = {}
     for (const p of thread?.participants ?? []) {
@@ -458,7 +476,7 @@ export default function ViewerApp() {
 
     return (
       <>
-        {((section === 'chat' && chatDetailOpen) || (section === 'hashtags' && (!!activeHashtagName || hashtagCreating)) || section === 'settings') && (
+        {((section === 'chat' && chatDetailOpen) || (section === 'hashtags' && (!!activeHashtagName || hashtagCreating))) && (
           <AppHeader
             title={title}
             onBack={chatSearching ? closeChatSearch : hashtagSearching ? closeHashtagSearch : backFn}
@@ -493,7 +511,7 @@ export default function ViewerApp() {
               showHidden={showHidden}
               hideImages={hideImages}
               hiddenUris={allHiddenUris}
-              hiddenMsgIds={dbHiddenMsgIds}
+              hiddenMsgIds={effectiveHiddenMsgIds}
               onHideUri={hideUri}
               onHideDbUri={handleHideDbUri}
               onUnhideDbUri={handleUnhideDbUri}
@@ -501,7 +519,6 @@ export default function ViewerApp() {
               onUnhideMessage={handleUnhideMessage}
               onLightbox={setLightbox}
               onRegisterJump={registerJump}
-              onStatsChange={(total, dateIndex) => { setChatTotal(total); setChatDateIndex(dateIndex) }}
               enabledTypes={enabledTypes}
               senderStyles={senderStyles}
               participants={thread?.participants ?? []}
@@ -545,12 +562,14 @@ export default function ViewerApp() {
               isSuperAdmin={isSuperAdmin}
               hideImages={hideImages}
               hiddenUris={allHiddenUris}
-              hiddenMsgIds={dbHiddenMsgIds}
+              hiddenMsgIds={effectiveHiddenMsgIds}
               onHideMessage={handleHideMessage}
               onUnhideMessage={handleUnhideMessage}
               onHideUri={handleHideDbUri}
               onUnhideUri={handleUnhideDbUri}
               senderStyles={senderStyles}
+              enabledTypes={enabledTypes}
+              showHidden={showHidden}
             />
           </div>
 
@@ -562,18 +581,15 @@ export default function ViewerApp() {
           {/* Settings section */}
           {section === 'settings' && (
             <SettingsPane
-              total={chatTotal}
-              dateIndex={chatDateIndex}
-              currentUser={currentUser}
-              isSuperAdmin={isSuperAdmin}
               showHidden={showHidden}
-              onToggleShowHidden={() => setShowHidden(v => {
-                const next = !v
-                localStorage.setItem('showHidden', next ? '1' : '0')
-                return next
-              })}
+              onToggleShowHidden={handleToggleShowHidden}
               hiddenUriCount={hiddenUris.size}
               onClearHiddenUris={clearHiddenUris}
+              thread={(thread?.collection ?? activeThread) || 'messages'}
+              senderStyles={senderStyles}
+              onUnhideMessage={handleUnhideMessage}
+              onUnhideUri={handleUnhideDbUri}
+              onJumpToMessage={(ts, msgId, t) => { void goToMessage(ts, msgId, t) }}
             />
           )}
 
@@ -612,50 +628,51 @@ export default function ViewerApp() {
         name={currentUser ?? undefined}
         prevSection={prevSection}
         detailGrow={
-          section === 'settings' ? 4
-            : section === 'story' ? 12
-              : largeDesktop
-                ? ((section === 'chat' && threadSideView) || (section === 'hashtags' && hashtagSideView) ? 7 : 12)
-                : 8
+          section === 'settings' || section === 'story' ? 12
+            : largeDesktop
+              ? ((section === 'chat' && threadSideView) || (section === 'hashtags' && hashtagSideView) ? 7 : 12)
+              : 8
         }
         listGrow={4}
-        hideListPane={section === 'story'}
-        centeredDetail={section === 'settings'}
+        hideListPane={section === 'story' || section === 'settings'}
         onCloseMediaPane={() => {
           if (section === 'hashtags') setHashtagSideView(false)
           else closeThreadSideView()
         }}
-        listPane={controls => section === 'hashtags' ? (
-          <ListPane
-            title="Hashtags"
-            items={hashtagItems}
-            activeId={hashtags.find(h => h.name === activeHashtagName)?.id ?? null}
-            filter={hashtagFilter}
-            onFilterChange={setHashtagFilter}
-            filterPlaceholder="Filter hashtags"
-            onNew={() => { setHashtagCreating(true); controls.onShowDetail() }}
-            onSelect={id => { const h = hashtags.find(h => h.id === id); if (h) { setPendingHashtag(h); controls.onShowDetail(); setTimeout(() => setPendingHashtag(null), 100) } }}
-            emptyMessage="No hashtags yet."
-          />
-        ) : (
-          <ListPane
-            title="Chats"
-            items={threadItems}
-            activeId={chatDetailOpen ? activeThread : null}
-            filter={threadFilter}
-            onFilterChange={setThreadFilter}
-            filterPlaceholder="Search Messenger"
-            onNew={isSuperAdmin ? () => { window.location.assign('/upload') } : undefined}
-            emptyMessage="No chats yet."
-            onSelect={id => {
-              setActiveThread(id)
-              setChatDetailOpen(true)
-              setChatSearchOpen(false)
-              setSearchInput('')
-              controls.onShowDetail()
-            }}
-          />
-        )}
+        listPane={controls => {
+          layoutControlsRef.current = controls
+          return section === 'hashtags' ? (
+            <ListPane
+              title="Hashtags"
+              items={hashtagItems}
+              activeId={hashtags.find(h => h.name === activeHashtagName)?.id ?? null}
+              filter={hashtagFilter}
+              onFilterChange={setHashtagFilter}
+              filterPlaceholder="Filter hashtags"
+              onNew={() => { setHashtagCreating(true); controls.onShowDetail() }}
+              onSelect={id => { const h = hashtags.find(h => h.id === id); if (h) { setPendingHashtag(h); controls.onShowDetail(); setTimeout(() => setPendingHashtag(null), 100) } }}
+              emptyMessage="No hashtags yet."
+            />
+          ) : (
+            <ListPane
+              title="Chats"
+              items={threadItems}
+              activeId={chatDetailOpen ? activeThread : null}
+              filter={threadFilter}
+              onFilterChange={setThreadFilter}
+              filterPlaceholder="Search Messenger"
+              onNew={isSuperAdmin ? () => { window.location.assign('/upload') } : undefined}
+              emptyMessage="No chats yet."
+              onSelect={id => {
+                setActiveThread(id)
+                setChatDetailOpen(true)
+                setChatSearchOpen(false)
+                setSearchInput('')
+                controls.onShowDetail()
+              }}
+            />
+          )
+        }}
         detailPane={renderDetailPane}
         mediaPane={(section === 'chat' && threadSideView && (() => {
           const t = threads.find(th => th.id === activeThread)
@@ -691,11 +708,7 @@ export default function ViewerApp() {
                 onHideImagesChange={handleHideImagesChange}
                 isSuperAdmin={isSuperAdmin}
                 showHidden={showHidden}
-                onToggleShowHidden={() => setShowHidden(v => {
-                  const next = !v
-                  localStorage.setItem('showHidden', next ? '1' : '0')
-                  return next
-                })}
+                onToggleShowHidden={handleToggleShowHidden}
                 onOpenMedia={() => { setTagMsgIds(null); setThreadSideView('media') }}
                 onThreadDeleted={collection => {
                   setThreads(prev => prev.filter(th => th.collection !== collection))

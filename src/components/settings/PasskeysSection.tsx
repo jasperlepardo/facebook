@@ -1,6 +1,7 @@
 'use client'
 import { useRef, useState } from 'react'
 import { startRegistration } from '@simplewebauthn/browser'
+import { sectionLabel } from '@/lib/ui'
 
 export type Passkey = {
   credentialID: string
@@ -31,6 +32,7 @@ export default function PasskeysSection({
 }: PasskeysSectionProps) {
   const [editingNickname, setEditingNickname] = useState<string | null>(null)
   const [nicknameInput, setNicknameInput]     = useState('')
+  const [confirmRemove, setConfirmRemove]     = useState<string | null>(null)
   const [passkeyStatus, setPasskeyStatus]     = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [passkeyError, setPasskeyError]       = useState('')
   const passkeyResetTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -65,7 +67,7 @@ export default function PasskeysSection({
 
   return (
     <section>
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-mist-500 mb-2 px-1">Passkeys</h2>
+      <h2 className={sectionLabel}>Passkeys</h2>
       <div className={sectionCls}>
         {passkeys.length === 0 && (
           <div className={rowCls}><span className={labelCls}>No passkeys registered</span></div>
@@ -119,14 +121,28 @@ export default function PasskeysSection({
                   {typeof pk.counter === 'number' && <><span>·</span><span>{pk.counter}×</span></>}
                   {pk.backedUp   && <><span>·</span><span>Backed up</span></>}
                 </p>
+                {confirmRemove === pk.credentialID && passkeys.length === 1 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Your last passkey — you will sign in with your password.</p>
+                )}
               </div>
-              <button
-                onClick={async () => {
-                  await fetch('/api/auth/passkey/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credentialID: pk.credentialID }) })
-                  setPasskeys(prev => prev.filter(p => p.credentialID !== pk.credentialID))
-                }}
-                className="text-xs text-red-400 hover:text-red-600 shrink-0"
-              >Remove</button>
+              {confirmRemove === pk.credentialID ? (
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => setConfirmRemove(null)} className="text-xs text-mist-500 dark:text-mist-400">Cancel</button>
+                  <button
+                    onClick={async () => {
+                      setConfirmRemove(null)
+                      await fetch('/api/auth/passkey/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credentialID: pk.credentialID }) })
+                      setPasskeys(prev => prev.filter(p => p.credentialID !== pk.credentialID))
+                    }}
+                    className="text-xs font-semibold text-red-500 hover:text-red-600"
+                  >Confirm</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmRemove(pk.credentialID)}
+                  className="text-xs text-red-400 hover:text-red-600 shrink-0"
+                >Remove</button>
+              )}
             </div>
           )
         })}

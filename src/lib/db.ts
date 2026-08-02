@@ -72,6 +72,10 @@ export async function getHiddenItems() {
   return (await clientPromise).db().collection<HiddenItem>('hidden_items')
 }
 
+export async function getHiddenSync() {
+  return (await clientPromise).db().collection<{ _id: string; version: number }>('hidden_sync')
+}
+
 let dateIndexIndexed = false
 
 export async function getDateIndexCollection() {

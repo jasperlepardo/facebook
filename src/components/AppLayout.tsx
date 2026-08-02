@@ -485,6 +485,14 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
     }
   }, [applyProgress])
 
+  // Full-bleed sections (story, settings) have no list — keep the detail interactive
+  useEffect(() => {
+    if (!hideListPane) return
+    setMobileShowList(false)
+    progressRef.current = 0
+    clearMobileTransforms()
+  }, [hideListPane, clearMobileTransforms])
+
   // Desktop / alternate layouts: don't leave mobile transforms hanging
   useEffect(() => {
     const mq = window.matchMedia(DESKTOP_SHELL_MQ)
@@ -670,7 +678,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
                 'md:static md:z-auto md:basis-0 md:min-w-0 md:min-h-0 md:rounded-2xl md:!transform-none md:!shadow-none',
                 'will-change-transform',
                 'shadow-[-12px_0_32px_rgba(0,0,0,0.18)] dark:shadow-[-12px_0_32px_rgba(0,0,0,0.45)]',
-                mobileShowList ? 'pointer-events-none' : '',
+                mobileShowList ? 'max-md:pointer-events-none' : '',
                 mediaPaneOpen ? 'max-md:pointer-events-none' : '',
               ].filter(Boolean).join(' ')}
               style={{ flexGrow: detailGrow }}

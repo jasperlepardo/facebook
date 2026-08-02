@@ -14,6 +14,7 @@ interface UseViewerInitParams {
   setCurrentUser: Dispatch<SetStateAction<string>>
   setIsSuperAdmin: Dispatch<SetStateAction<boolean>>
   setShowHidden: Dispatch<SetStateAction<boolean>>
+  setHideImages: Dispatch<SetStateAction<boolean>>
   setThreadMeta: Dispatch<SetStateAction<Record<string, { subtitle: string; badge: string }>>>
   setDbHiddenItems: Dispatch<SetStateAction<HiddenItem[]>>
   setHashtags: Dispatch<SetStateAction<Hashtag[]>>
@@ -31,6 +32,7 @@ export function useViewerInit({
   setCurrentUser,
   setIsSuperAdmin,
   setShowHidden,
+  setHideImages,
   setThreadMeta,
   setDbHiddenItems,
   setHashtags,
@@ -49,7 +51,8 @@ export function useViewerInit({
         if (!d) return
 
         if (d.user?.name) setCurrentUser(d.user.name)
-        if (d.user?.superAdmin) { setIsSuperAdmin(true); setShowHidden(true) }
+        const isAdmin = !!d.user?.superAdmin
+        if (isAdmin) setIsSuperAdmin(true)
 
         if (d.threadLastMsg && activeThread) {
           setThreadMeta(prev => ({
@@ -76,8 +79,19 @@ export function useViewerInit({
           })))
         }
 
-        if (d.userSettings?.chatContentTypes) {
-          setEnabledTypes(new Set<ContentTypeKey>(d.userSettings.chatContentTypes))
+        const settings = d.userSettings as {
+          chatContentTypes?: ContentTypeKey[]
+          hideImages?: boolean
+          showHidden?: boolean
+        } | undefined
+        if (settings?.chatContentTypes) {
+          setEnabledTypes(new Set<ContentTypeKey>(settings.chatContentTypes))
+        }
+        if (typeof settings?.hideImages === 'boolean') {
+          setHideImages(settings.hideImages)
+        }
+        if (isAdmin) {
+          setShowHidden(typeof settings?.showHidden === 'boolean' ? settings.showHidden : true)
         }
       } catch { toast('Failed to load app data') }
       finally { setInitialized(true) }

@@ -21,13 +21,22 @@ interface Props {
 
 export default function ProfileView({ nameInput, emailInput, saveState, error, onNameChange, onEmailChange, onSave, onBack }: Props) {
   return (
-    <div className={`flex-1 overflow-y-auto liquid-glass-atmosphere ${pbNav} md:pb-0`}>
-      <div className="px-4 py-6">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-mist-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-6">
+    <div className={`relative flex-1 overflow-y-auto ${pbNav} md:pb-0`}>
+      <div className="mx-auto w-full max-w-lg px-5 pt-8 pb-10 md:px-10 md:pt-12 [animation:fade-up_280ms_ease-out]">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm text-mist-500 dark:text-mist-400 hover:text-mist-700 dark:hover:text-mist-200 mb-8"
+        >
           <BackIcon /> Back
         </button>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-mist-100 mb-6">Edit profile</h1>
-        <div className="liquid-glass rounded-2xl p-5 space-y-4">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-mist-500 dark:text-mist-400 mb-2">
+          Profile
+        </p>
+        <h1 className="font-display text-3xl font-medium tracking-tight text-gray-900 dark:text-white mb-8">
+          Edit profile
+        </h1>
+        <div className="liquid-glass rounded-2xl p-5 md:p-6 space-y-4">
           <div>
             <label className={label}>Name</label>
             <input type="text" value={nameInput} onChange={e => onNameChange(e.target.value)} className={field} />
@@ -38,6 +47,7 @@ export default function ProfileView({ nameInput, emailInput, saveState, error, o
           </div>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button
+            type="button"
             onClick={onSave}
             disabled={saveState === 'saving'}
             className={`${btnPrimary} ${saveState === 'saved' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}

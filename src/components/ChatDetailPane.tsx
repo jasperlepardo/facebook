@@ -39,7 +39,6 @@ interface Props {
   onUnhideMessage: (id: string) => void
   onLightbox: (state: LightboxState) => void
   onRegisterJump: (fn: JumpFn | null) => void
-  onStatsChange?: (total: number, dateIndex: DateIndex | null) => void
   enabledTypes?: Set<ContentTypeKey>
   senderStyles?: Record<string, { initials: string; color: string }>
   participants?: ThreadParticipant[]
@@ -56,7 +55,7 @@ export default function ChatDetailPane({
   hideImages, hiddenUris, hiddenMsgIds,
   onHideUri: _onHideUri, onHideDbUri, onUnhideDbUri,
   onHideMessage, onUnhideMessage,
-  onLightbox, onRegisterJump, onStatsChange, enabledTypes, senderStyles,
+  onLightbox, onRegisterJump, enabledTypes, senderStyles,
   participants = [],
   thread = 'messages',
   onOpenTag,
@@ -98,6 +97,27 @@ export default function ChatDetailPane({
   }, [onSearchChange, onExitSearch])
 
   const loader = useMessageLoader({ thread, searchRef, senderIdsRef, showHiddenRef, scrollRef })
+
+  const showHiddenReloadMounted = useRef(false)
+  useEffect(() => {
+    if (!showHiddenReloadMounted.current) {
+      showHiddenReloadMounted.current = true
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      loader.lowerOffset.current = 0
+      loader.upperOffset.current = 0
+      loader.setSearching(true)
+      try {
+        await loader.loadMessages('fresh')
+      } finally {
+        if (!cancelled) loader.setSearching(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [showHidden]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const jump   = useMessageJump({
     withThread: loader.withThread, scrollRef, dateIndexRef,
     lowerOffset: loader.lowerOffset, upperOffset: loader.upperOffset,
@@ -157,10 +177,14 @@ export default function ChatDetailPane({
     return () => onRegisterJump(null)
   }, [jump.jumpToMessage]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { onStatsChange?.(loader.total, dateIndex) }, [loader.total, dateIndex]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { dateIndexRef.current = dateIndex }, [dateIndex])
 
-  const blocks = useMemo(() => groupMessages(loader.messages), [loader.messages])
+  const blocks = useMemo(() => {
+    const msgs = (isSuperAdmin && showHidden)
+      ? loader.messages
+      : loader.messages.filter(m => !m._id || !hiddenMsgIds.has(m._id))
+    return groupMessages(msgs)
+  }, [loader.messages, isSuperAdmin, showHidden, hiddenMsgIds])
   useEffect(() => { blocksRef.current = blocks }, [blocks])
 
   useEffect(() => {
@@ -428,9 +452,7 @@ export default function ChatDetailPane({
 
       {!showSearchEmpty && (!chatVisible || jump.jumping || loader.searching) && (
         <div
-          className={`absolute inset-0 flex flex-col justify-end z-30 overflow-hidden liquid-glass-atmosphere ${
-            chatVisible ? '' : 'pointer-events-none'
-          }`}
+          className="absolute inset-0 flex flex-col justify-end z-30 overflow-hidden liquid-glass-atmosphere pointer-events-none"
           aria-busy
           aria-label={loader.searching ? 'Searching' : 'Loading'}
         >
