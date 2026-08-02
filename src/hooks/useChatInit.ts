@@ -31,16 +31,23 @@ interface UseChatInitParams {
   dateIndexRef: React.MutableRefObject<DateIndex | null>
   deviceId: React.MutableRefObject<string>
   currentUserRef: React.MutableRefObject<string>
+  /** Filters the currently loaded window was fetched with, see {@link filterKey}. */
+  appliedFilterKey: React.MutableRefObject<string>
   loader: LoaderInitApi
   jump: JumpInitApi
   setDateIndex: Dispatch<SetStateAction<DateIndex | null>>
   setChatVisible: Dispatch<SetStateAction<boolean>>
 }
 
+/** Identifies a message window by the filters it was loaded with. */
+export const filterKey = (search: string, senderIds: string[]) =>
+  `${search.trim()}|${senderIds.slice().sort().join(',')}`
+
 /** Mount restore (URL msg / bookmark), date-index fetch, and debounced search. */
 export function useChatInit({
   thread, search, senderIdsKey, scrollRef, searchRef, senderIdsRef, dateIndexRef,
-  deviceId, currentUserRef, loader, jump, setDateIndex, setChatVisible,
+  deviceId, currentUserRef, appliedFilterKey,
+  loader, jump, setDateIndex, setChatVisible,
 }: UseChatInitParams) {
   useEffect(() => {
     let id = localStorage.getItem('deviceId')
@@ -120,6 +127,10 @@ export function useChatInit({
     clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(async () => {
       const trimmed = search.trim()
+      const key = filterKey(trimmed, senderIdsRef.current ?? [])
+      // A jump already loaded this filter state; reloading would undo its scroll.
+      if (key === appliedFilterKey.current) return
+      appliedFilterKey.current = key
       if (/^[0-9a-f]{24}$/i.test(trimmed)) {
         loader.setSearching(true)
         try {
@@ -148,6 +159,9 @@ export function useChatInit({
   const senderEffectMounted = useRef(false)
   useEffect(() => {
     if (!senderEffectMounted.current) { senderEffectMounted.current = true; return }
+    const key = filterKey(searchRef.current, senderIdsRef.current ?? [])
+    if (key === appliedFilterKey.current) return
+    appliedFilterKey.current = key
     let cancelled = false
     ;(async () => {
       loader.lowerOffset.current = 0

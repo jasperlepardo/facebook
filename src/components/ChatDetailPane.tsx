@@ -9,7 +9,7 @@ import { useMessageLoader } from '@/hooks/useMessageLoader'
 import { useMessageJump } from '@/hooks/useMessageJump'
 import { useMessageSelection } from '@/hooks/useMessageSelection'
 import { useChatScroll } from '@/hooks/useChatScroll'
-import { useChatInit } from '@/hooks/useChatInit'
+import { useChatInit, filterKey } from '@/hooks/useChatInit'
 import MessageList from './message/MessageList'
 import MessageSelectionBar from './message/MessageSelectionBar'
 import ActionSheet from './ActionSheet'
@@ -23,6 +23,8 @@ interface Props {
   search: string
   searchActive?: boolean
   onSearchChange: (v: string) => void
+  /** Leave search mode (e.g. after jumping to a message from a search result). */
+  onExitSearch?: () => void
   scrollRef: React.RefObject<HTMLDivElement | null>
   currentUser: string
   isSuperAdmin: boolean
@@ -49,7 +51,7 @@ interface Props {
 }
 
 export default function ChatDetailPane({
-  search, searchActive = false, onSearchChange, scrollRef,
+  search, searchActive = false, onSearchChange, onExitSearch, scrollRef,
   currentUser, isSuperAdmin, showHidden,
   hideImages, hiddenUris, hiddenMsgIds,
   onHideUri: _onHideUri, onHideDbUri, onUnhideDbUri,
@@ -82,11 +84,24 @@ export default function ChatDetailPane({
     senderIdsRef.current = senderIds
   }, [senderIds])
 
+  const appliedFilterKey = useRef(filterKey('', []))
+
+  // Jumping lands on an unfiltered window, so search and sender filters have to
+  // go with it — otherwise the target message isn't in the range we load.
+  const resetFilters = useCallback(() => {
+    searchRef.current = ''
+    senderIdsRef.current = []
+    setSenderIds([])
+    appliedFilterKey.current = filterKey('', [])
+    onSearchChange('')
+    onExitSearch?.()
+  }, [onSearchChange, onExitSearch])
+
   const loader = useMessageLoader({ thread, searchRef, senderIdsRef, showHiddenRef, scrollRef })
   const jump   = useMessageJump({
-    withThread: loader.withThread, scrollRef, searchRef, dateIndexRef,
+    withThread: loader.withThread, scrollRef, dateIndexRef,
     lowerOffset: loader.lowerOffset, upperOffset: loader.upperOffset,
-    onSearchChange, loadMessages: loader.loadMessages, onLightbox,
+    resetFilters, loadMessages: loader.loadMessages, onLightbox,
   })
   const selection = useMessageSelection({
     withThread: loader.withThread,
@@ -114,7 +129,8 @@ export default function ChatDetailPane({
 
   useChatInit({
     thread, search, senderIdsKey, scrollRef, searchRef, senderIdsRef, dateIndexRef,
-    deviceId, currentUserRef, loader, jump, setDateIndex, setChatVisible,
+    deviceId, currentUserRef, appliedFilterKey,
+    loader, jump, setDateIndex, setChatVisible,
   })
 
   const showToast = useCallback((msg: string) => {

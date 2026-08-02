@@ -8,18 +8,18 @@ import { toast } from '@/lib/toast'
 interface UseMessageJumpParams {
   withThread: (url: string) => string
   scrollRef: React.RefObject<HTMLDivElement | null>
-  searchRef: React.MutableRefObject<string>
   dateIndexRef: React.RefObject<DateIndex | null>
   lowerOffset: React.MutableRefObject<number>
   upperOffset: React.MutableRefObject<number>
-  onSearchChange: (v: string) => void
+  /** Drops search text and sender filters (and leaves search mode) before loading. */
+  resetFilters: () => void
   loadMessages: (mode: 'fresh' | 'append' | 'prepend', skipScrollReset?: boolean) => Promise<void>
   onLightbox: (state: LightboxState) => void
 }
 
 export function useMessageJump({
-  withThread, scrollRef, searchRef, dateIndexRef,
-  lowerOffset, upperOffset, onSearchChange, loadMessages, onLightbox,
+  withThread, scrollRef, dateIndexRef,
+  lowerOffset, upperOffset, resetFilters, loadMessages, onLightbox,
 }: UseMessageJumpParams) {
   const [jumping, setJumping] = useState(false)
 
@@ -68,7 +68,7 @@ export function useMessageJump({
       if (d.index == null) { toast('Message not found'); return }
       lowerOffset.current = Math.max(0, d.index - (msgId ? Math.floor(LIMIT / 2) : 0))
       upperOffset.current = lowerOffset.current
-      searchRef.current = ''; onSearchChange('')
+      resetFilters()
       if (msgId) {
         const params = new URLSearchParams(window.location.search)
         params.set('s', 'chat')
@@ -81,7 +81,7 @@ export function useMessageJump({
       if (msgId && !scrollToMsg(msgId)) { pendingJump.current = msgId; scheduleScrollToMsg(msgId) }
     } catch { toast('Failed to jump to message') }
     finally { setJumping(false) }
-  }, [withThread, onSearchChange, loadMessages]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [withThread, resetFilters, loadMessages]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDateJump = useCallback(async (date: string) => {
     if (!date) return
@@ -109,29 +109,31 @@ export function useMessageJump({
       }
       if (offset == null) { toast('Date not found in archive'); return }
       lowerOffset.current = offset; upperOffset.current = offset
-      searchRef.current = ''; onSearchChange('')
+      resetFilters()
       pendingJump.current = null; pendingScrollReset.current = true
       await loadMessages('fresh')
     } catch { toast('Failed to jump to date') }
     finally { setJumping(false) }
-  }, [withThread, onSearchChange, loadMessages]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [withThread, resetFilters, loadMessages]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChatJump = useCallback(async (target: string) => {
     if (target === 'recent') {
       try {
         const d = await apiFetch<{ total: number }>(withThread('/api/messages?offset=0&limit=1&asc=1&total=1'))
         lowerOffset.current = Math.max(0, d.total - LIMIT); upperOffset.current = lowerOffset.current
+        resetFilters()
         pendingJump.current = null; pendingScrollBottom.current = true
         await loadMessages('fresh')
       } catch { toast('Failed to jump to recent messages') }
     } else if (target === 'beginning') {
       lowerOffset.current = 0; upperOffset.current = 0
+      resetFilters()
       pendingJump.current = null; pendingScrollReset.current = true
       await loadMessages('fresh')
     } else {
       await handleDateJump(target)
     }
-  }, [withThread, loadMessages, handleDateJump]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [withThread, resetFilters, loadMessages, handleDateJump]) // eslint-disable-line react-hooks/exhaustive-deps
 
   type PhotoItem = { uri: string; ts: number; sender: string; msgId: string }
   const lightboxWindow = useRef<{ mtype: string; total: number; items: Map<number, PhotoItem> } | null>(null)

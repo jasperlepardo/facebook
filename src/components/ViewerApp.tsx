@@ -98,6 +98,11 @@ export default function ViewerApp() {
   // Queued when jump is requested before ChatDetailPane has registered (section/thread remount)
   const pendingJumpRef = useRef<{ ts: number; msgId: string | null } | null>(null)
 
+  const closeThreadSideView = useCallback(() => {
+    setThreadSideView(null)
+    setTagMsgIds(null)
+  }, [])
+
   // ─── Jump ─────────────────────────────────────────────────────────────────────
 
   const registerJump = useCallback((fn: JumpFn | null) => {
@@ -137,9 +142,26 @@ export default function ViewerApp() {
     await jumpFnRef.current!(ts, msgId)
   }, [activeThread, section])
 
+  /**
+   * Explicit "go to message". Unlike {@link jumpToMessage} — which also runs as a
+   * background sync when the lightbox closes — this lands the user on the message
+   * pane, so it dismisses the overlays and searches that would otherwise cover it.
+   */
+  const goToMessage = useCallback(async (ts: number, msgId: string | null, thread?: string): Promise<void> => {
+    setLightbox(null)
+    closeThreadSideView()
+    setChatSearchOpen(false)
+    setSearchInput('')
+    setHashtagSearchOpen(false)
+    setHashtagMsgFilter('')
+    await jumpToMessage(ts, msgId, thread)
+  }, [jumpToMessage, closeThreadSideView, setHashtagSearchOpen, setHashtagMsgFilter])
+
   const jumpToDate = useCallback((ts: number) => {
-    jumpToMessage(ts, null)
-  }, [jumpToMessage])
+    goToMessage(ts, null)
+  }, [goToMessage])
+
+  const exitChatSearch = useCallback(() => setChatSearchOpen(false), [])
 
   // Flush queued jump once chat is the active section (pane visible + jump fn registered)
   useEffect(() => {
@@ -186,11 +208,6 @@ export default function ViewerApp() {
     setThreadSideView(null)
     setTagMsgIds(null)
   }, [activeThread, section])
-
-  const closeThreadSideView = useCallback(() => {
-    setThreadSideView(null)
-    setTagMsgIds(null)
-  }, [])
 
   const openTagPane = useCallback((msgIds: string[]) => {
     if (!msgIds.length) return
@@ -469,6 +486,7 @@ export default function ViewerApp() {
               search={searchInput}
               searchActive={chatSearchOpen}
               onSearchChange={setSearchInput}
+              onExitSearch={exitChatSearch}
               scrollRef={chatScrollRef}
               currentUser={currentUser}
               isSuperAdmin={isSuperAdmin}
@@ -509,7 +527,7 @@ export default function ViewerApp() {
               hashtags={hashtags}
               thread={activeThread}
               onReload={reloadHashtags}
-              onJumpToMessage={jumpToMessage}
+              onJumpToMessage={goToMessage}
               filter={hashtagFilter}
               onFilterChange={setHashtagFilter}
               creating={hashtagCreating}
@@ -711,7 +729,7 @@ export default function ViewerApp() {
               isSuperAdmin={isSuperAdmin}
               onHideUri={handleHideDbUri}
               onUnhideUri={handleUnhideDbUri}
-              onGoToMessage={(ts, msgId) => { void jumpToMessage(ts, msgId) }}
+              onGoToMessage={(ts, msgId) => { void goToMessage(ts, msgId) }}
               onBack={() => { setTagMsgIds(null); setThreadSideView('details') }}
             />
           )
@@ -742,13 +760,13 @@ export default function ViewerApp() {
           setLightbox(null)
           if (section === 'chat' && msgId && !document.getElementById('msg-' + msgId)) jumpToMessage(Number(ts), msgId)
         }}
-        onJumpToMessage={(ts, msgId) => { setLightbox(null); jumpToMessage(ts, msgId) }}
+        onJumpToMessage={(ts, msgId) => { void goToMessage(ts, msgId) }}
       />}
       {galleryCtxMenu && galleryCtxMenu.fromTouch ? (
         <ActionSheet
           onClose={() => setGalleryCtxMenu(null)}
           actions={[
-            ...(galleryCtxMenu.kind === 'gallery' && galleryCtxMenu.galMsgId ? [{ label: 'Go to message', onPress: () => { jumpToMessage(Number(galleryCtxMenu.galTs), galleryCtxMenu.galMsgId!); setGalleryCtxMenu(null) } }] : []),
+            ...(galleryCtxMenu.kind === 'gallery' && galleryCtxMenu.galMsgId ? [{ label: 'Go to message', onPress: () => { void goToMessage(Number(galleryCtxMenu.galTs), galleryCtxMenu.galMsgId!); setGalleryCtxMenu(null) } }] : []),
             ...(galleryCtxMenu.mediaUri && isSuperAdmin ? [
               allHiddenUris.has(galleryCtxMenu.mediaUri)
                 ? { label: 'Unhide', onPress: () => { handleUnhideDbUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } }
