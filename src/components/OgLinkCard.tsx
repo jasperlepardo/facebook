@@ -27,7 +27,7 @@ function FilePill({ url }: { url: string }) {
 
   return (
     <a href={url} target="_blank" rel="noopener"
-      className={`mt-1 max-w-[280px] hover:opacity-80 transition-opacity ${pill}`}
+      className={`mt-1 w-full max-w-[280px] hover:opacity-80 transition-opacity ${pill}`}
       style={{ textDecoration: 'none' }}
     >
       <span className={iconWell}>{fileIcon}</span>
@@ -57,7 +57,7 @@ function OgPreview({ url }: { url: string }) {
   }, [url])
 
   if (!done) return (
-    <div className={`mt-1.5 w-[280px] animate-pulse ${card}`}>
+    <div className={`mt-1.5 w-full max-w-[280px] animate-pulse ${card}`}>
       <div className="px-3 py-2.5 space-y-2">
         <div className="h-2 bg-mist-100 dark:bg-mist-700 rounded w-1/4" />
         <div className="h-3 bg-mist-100 dark:bg-mist-700 rounded w-3/4" />
@@ -72,7 +72,7 @@ function OgPreview({ url }: { url: string }) {
 
   return (
     <a href={url} target="_blank" rel="noopener"
-      className={`mt-1.5 flex flex-col max-w-[300px] overflow-hidden hover:opacity-80 transition-opacity ${card}`}
+      className={`mt-1.5 flex flex-col w-full max-w-[min(300px,100%)] overflow-hidden hover:opacity-80 transition-opacity ${card}`}
       style={{ textDecoration: 'none' }}
     >
       {meta.image && (

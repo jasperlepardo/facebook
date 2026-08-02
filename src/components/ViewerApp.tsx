@@ -16,6 +16,7 @@ import ListPane, { ListPaneItem } from './ListPane'
 import ChatDetailPane, { JumpFn } from './ChatDetailPane'
 import InAppBrowserBanner from './InAppBrowserBanner'
 import Toaster from './Toaster'
+import TagMessagesPane from './TagMessagesPane'
 import { LockIcon } from '@/components/icons'
 import { ListPaneSkeleton, ChatDetailSkeleton } from '@/components/skeletons'
 import AvatarGroup from '@/components/AvatarGroup'
@@ -30,7 +31,6 @@ const SettingsPane = dynamic(() => import('./settings/SettingsPane'), { ssr: fal
 const ThreadDetailsPane = dynamic(() => import('./ThreadDetailsPane'), { ssr: false })
 const HashtagDetailsPane = dynamic(() => import('./HashtagDetailsPane'), { ssr: false })
 const MediaPane = dynamic(() => import('./MediaPane'), { ssr: false })
-const TagMessagesPane = dynamic(() => import('./TagMessagesPane'), { ssr: false })
 const Lightbox     = dynamic(() => import('./Lightbox'), { ssr: false })
 
 export default function ViewerApp() {
@@ -80,6 +80,8 @@ export default function ViewerApp() {
   const [tagMsgIds, setTagMsgIds] = useState<string[] | null>(null)
   const clearChatSelectionRef = useRef<(() => void) | null>(null)
   const [hashtagSideView, setHashtagSideView] = useState(false)
+  /** Large desktop (≥1280): inline 4/7/5 three-pane when side view is open. */
+  const [largeDesktop, setLargeDesktop] = useState(false)
   const [enabledTypes, setEnabledTypes]     = useState<Set<ContentTypeKey>>(DEFAULT_ENABLED)
   const [mediaCounts, setMediaCounts]       = useState<Record<string, number>>({})
   const [currentUser, setCurrentUser]       = useState('')
@@ -198,6 +200,14 @@ export default function ViewerApp() {
   useEffect(() => {
     setHashtagSideView(false)
   }, [activeHashtagName, section])
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1280px)')
+    const sync = () => setLargeDesktop(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
 
   // Reset hashtag search when leaving the hashtag detail
   useEffect(() => {
@@ -561,7 +571,7 @@ export default function ViewerApp() {
           section="chat"
           onSectionChange={() => {}}
           initials=""
-          detailGrow={12}
+          detailGrow={8}
           listGrow={4}
           listPane={() => <ListPaneSkeleton />}
           detailPane={() => <ChatDetailSkeleton />}
@@ -586,10 +596,11 @@ export default function ViewerApp() {
         detailGrow={
           section === 'settings' ? 4
             : section === 'story' ? 12
-              : (section === 'chat' && threadSideView) || (section === 'hashtags' && hashtagSideView) ? 7
-                : 12
+              : largeDesktop
+                ? ((section === 'chat' && threadSideView) || (section === 'hashtags' && hashtagSideView) ? 7 : 12)
+                : 8
         }
-        listGrow={section === 'settings' ? 4 : 4}
+        listGrow={4}
         hideListPane={section === 'story'}
         centeredDetail={section === 'settings'}
         onCloseMediaPane={() => {

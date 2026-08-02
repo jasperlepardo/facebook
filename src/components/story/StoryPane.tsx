@@ -162,6 +162,10 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
     ? (previewMode ? PREVIEW_META.byYear[selectedYear as keyof typeof PREVIEW_META.byYear] ?? [] : meta?.byYear?.[selectedYear] ?? [])
     : []
 
+  // Mobile: show calendar/arcs OR reader (not both). Desktop: side-by-side.
+  const readingOpen = !!(selected || selectedArc)
+  const closeReading = () => { setSelected(null); setSelectedArc(null) }
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden liquid-glass-atmosphere">
 
@@ -174,55 +178,58 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
         </div>
       )}
 
-      {/* Year tabs */}
-      <div className="shrink-0 px-4 pt-4 pb-2 flex gap-1 overflow-x-auto no-scrollbar border-b border-mist-100 dark:border-mist-800">
-        {visibleYears.map(y => (
-          <button key={y} onClick={() => {
-            setSelectedYear(y)
-            if (previewMode) {
-              const months = PREVIEW_META.byYear[y as keyof typeof PREVIEW_META.byYear] ?? []
-              const firstMonth = months[0]
-              setSelectedMonth(firstMonth)
-              setDaySummaries(PREVIEW_BY_MONTH[`${y}-${firstMonth}`] ?? [])
-              setSelected(null)
-            } else {
-              const months = meta?.byYear[y]; if (months?.length) setSelectedMonth(months[0])
-            }
-          }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors shrink-0
-              ${y === selectedYear
-                ? 'liquid-glass-selected text-gray-900 dark:text-white'
-                : 'text-mist-500 dark:text-mist-400 liquid-glass-hover'}`}
-          >{y}</button>
-        ))}
-      </div>
-
-      {/* Month tabs — calendar mode only */}
-      {leftTab === 'calendar' && (
-        <div className="shrink-0 px-4 py-2 flex gap-1 overflow-x-auto no-scrollbar">
-          {visibleMonths.map(m => (
-            <button key={m} onClick={() => {
-              setSelectedMonth(m)
-              if (previewMode) { setDaySummaries(PREVIEW_BY_MONTH[`${selectedYear}-${m}`] ?? []); setSelected(null) }
+      {/* Year/month chrome — hide on mobile while reading */}
+      <div className={readingOpen ? 'hidden md:contents' : 'contents'}>
+        {/* Year tabs */}
+        <div className="shrink-0 px-4 pt-4 pb-2 flex gap-1 overflow-x-auto no-scrollbar border-b border-mist-100 dark:border-mist-800">
+          {visibleYears.map(y => (
+            <button key={y} onClick={() => {
+              setSelectedYear(y)
+              if (previewMode) {
+                const months = PREVIEW_META.byYear[y as keyof typeof PREVIEW_META.byYear] ?? []
+                const firstMonth = months[0]
+                setSelectedMonth(firstMonth)
+                setDaySummaries(PREVIEW_BY_MONTH[`${y}-${firstMonth}`] ?? [])
+                setSelected(null)
+              } else {
+                const months = meta?.byYear[y]; if (months?.length) setSelectedMonth(months[0])
+              }
             }}
-              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors shrink-0
-                ${m === selectedMonth
-                  ? 'liquid-glass-selected text-mist-800 dark:text-mist-100'
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors shrink-0
+                ${y === selectedYear
+                  ? 'liquid-glass-selected text-gray-900 dark:text-white'
                   : 'text-mist-500 dark:text-mist-400 liquid-glass-hover'}`}
-            >{MONTH_NAMES[m - 1]}</button>
+            >{y}</button>
           ))}
         </div>
-      )}
 
-      {/* Body: left + right panels */}
+        {/* Month tabs — calendar mode only */}
+        {leftTab === 'calendar' && (
+          <div className="shrink-0 px-4 py-2 flex gap-1 overflow-x-auto no-scrollbar">
+            {visibleMonths.map(m => (
+              <button key={m} onClick={() => {
+                setSelectedMonth(m)
+                if (previewMode) { setDaySummaries(PREVIEW_BY_MONTH[`${selectedYear}-${m}`] ?? []); setSelected(null) }
+              }}
+                className={`px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0
+                  ${m === selectedMonth
+                    ? 'liquid-glass-selected text-mist-800 dark:text-mist-100'
+                    : 'text-mist-500 dark:text-mist-400 liquid-glass-hover'}`}
+              >{MONTH_NAMES[m - 1]}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Body: stacked on mobile, side-by-side from md */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
 
-        {/* Left column */}
-        <div className="w-52 shrink-0 border-r border-mist-100 dark:border-mist-800 flex flex-col min-h-0">
+        {/* Left column — full width on mobile until a chapter/arc is open */}
+        <div className={`w-full md:w-52 shrink-0 md:border-r border-mist-100 dark:border-mist-800 flex-col min-h-0 ${readingOpen ? 'hidden md:flex' : 'flex'}`}>
           <div className="shrink-0 px-3 pt-3 pb-2 flex gap-1">
             {(['calendar', 'arcs'] as const).map(tab => (
               <button key={tab} onClick={() => { setLeftTab(tab); setSelectedArc(null) }}
-                className={`flex-1 py-1 rounded-full text-[11px] font-semibold transition-colors capitalize
+                className={`flex-1 py-1.5 rounded-full text-[11px] font-semibold transition-colors capitalize
                   ${leftTab === tab
                     ? 'liquid-glass-selected text-mist-800 dark:text-mist-100'
                     : 'text-mist-400 dark:text-mist-500 liquid-glass-hover'}`}
@@ -269,8 +276,23 @@ export default function StoryPane({ onJumpToMessages }: StoryPaneProps) {
           )}
         </div>
 
-        {/* Right panel */}
-        <div className={`flex-1 min-w-0 overflow-y-auto px-5 py-4 ${pbNav} md:pb-4`}>
+        {/* Right panel — full-bleed reader on mobile when open */}
+        <div className={`flex-1 min-w-0 overflow-y-auto px-5 py-4 ${pbNav} md:pb-4 ${readingOpen ? 'flex flex-col' : 'hidden md:flex md:flex-col'}`}>
+          {readingOpen && (
+            <button
+              type="button"
+              onClick={() => {
+                if (selected && selectedArc) setSelected(null)
+                else closeReading()
+              }}
+              className="md:hidden flex items-center gap-1 text-xs font-medium text-mist-500 dark:text-mist-400 mb-3 shrink-0 self-start"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              {selected && selectedArc ? selectedArc.title : 'Story'}
+            </button>
+          )}
           {selected ? (
             <DaySummaryView
               summary={selected}

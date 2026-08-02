@@ -204,7 +204,7 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
 
   return (
     <div ref={galleryRef} className={`flex-1 overflow-y-auto p-3 bg-transparent ${pbSafe} md:pb-3`} onScroll={e => saveBookmark((e.currentTarget).scrollTop)}>
-      <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
+      <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(min(150px,100%),1fr))' }}>
         {items.map((item, i) => {
           const isHidden = hiddenUris?.has(item.uri)
 

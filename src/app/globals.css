@@ -1,5 +1,15 @@
 @import 'tailwindcss';
 
+/*
+ * Shell breakpoints (keep JS matchMedia in AppLayout / ViewerApp in sync):
+ * - < md (1024): floating capsule + push panes + bottom sheet
+ * - md–xl (1024–1279): small desktop — sidebar + 4/8 + overlay 3rd pane
+ * - ≥ xl (1280): large desktop — sidebar + inline 4/7/5 three-pane
+ */
+@theme {
+  --breakpoint-md: 64rem; /* 1024px */
+}
+
 @custom-variant dark (&:is(.dark, .dark *));
 
 @keyframes fade-in {
@@ -15,6 +25,11 @@
 @keyframes sheet-up {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
+}
+
+@keyframes sheet-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -450,4 +465,50 @@
     background: rgba(96, 165, 250, 0.14);
     box-shadow: inset 0 0 0 0.5px rgba(96, 165, 250, 0.22);
   }
+}
+
+/* ── Merged selection block ───────────────────────────────────────────────────
+ * Consecutive selected chat rows read as one card: only the outer corners stay
+ * rounded and the shared edges drop their hairline. Unlayered so these win over
+ * the `rounded-lg` utility and the `.liquid-glass-selected` component ring.
+ */
+.msg-group > [data-selected] {
+  --sel-ring: rgba(37, 99, 235, 0.18);
+  --sel-ring-top: var(--sel-ring);
+  --sel-ring-bottom: var(--sel-ring);
+  box-shadow:
+    inset 0.5px 0 0 0 var(--sel-ring),
+    inset -0.5px 0 0 0 var(--sel-ring),
+    inset 0 0.5px 0 0 var(--sel-ring-top),
+    inset 0 -0.5px 0 0 var(--sel-ring-bottom);
+}
+
+.dark .msg-group > [data-selected] {
+  --sel-ring: rgba(96, 165, 250, 0.22);
+}
+
+.msg-group > [data-selected] + [data-selected],
+.msg-group:has(> [data-selected]:last-child) + .msg-group > [data-selected]:first-child {
+  --sel-ring-top: transparent;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.msg-group > [data-selected]:has(+ [data-selected]),
+.msg-group:has(+ .msg-group > [data-selected]:first-child) > [data-selected]:last-child {
+  --sel-ring-bottom: transparent;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Sender blocks sit 2px apart. Grow the merged edges into that gap and pull the
+ * same amount back as margin, so the fill is continuous without shifting rows. */
+.msg-group:has(> [data-selected]:last-child) + .msg-group > [data-selected]:first-child {
+  padding-top: calc(0.25rem + 2px);
+  margin-top: -2px;
+}
+
+.msg-group:has(+ .msg-group > [data-selected]:first-child) > [data-selected]:last-child {
+  padding-bottom: calc(0.25rem + 2px);
+  margin-bottom: -2px;
 }

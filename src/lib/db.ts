@@ -60,6 +60,10 @@ export async function getSettings() {
   return (await clientPromise).db().collection('settings')
 }
 
+export async function getHashtagGroups() {
+  return (await clientPromise).db().collection<{ hashtagId: string; messageId: string; thread: string }>('hashtag-groups')
+}
+
 export async function getUserSettings() {
   return (await clientPromise).db().collection('user_settings')
 }

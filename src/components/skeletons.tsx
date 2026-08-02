@@ -88,7 +88,7 @@ export function ChatDetailSkeleton() {
 export function GallerySkeleton({ count = 12 }: { count?: number }) {
   return (
     <div className="flex-1 overflow-hidden p-3 bg-transparent" aria-busy>
-      <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
+      <div className="grid gap-[3px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(min(150px,100%),1fr))' }}>
         {Array.from({ length: count }).map((_, i) => (
           <Bone key={i} className="aspect-square rounded-xs" />
         ))}
@@ -112,19 +112,19 @@ export function StoryPaneSkeleton() {
         ))}
       </div>
       <div className="flex-1 flex min-h-0 overflow-hidden">
-        <div className="w-52 shrink-0 border-r border-mist-100 dark:border-mist-800 flex flex-col min-h-0 p-3 gap-3">
+        <div className="w-full md:w-52 shrink-0 md:border-r border-mist-100 dark:border-mist-800 flex flex-col min-h-0 p-3 gap-3">
           <div className="flex gap-1">
             <Bone className="flex-1 h-7 rounded-full" />
             <Bone className="flex-1 h-7 rounded-full bg-mist-100 dark:bg-mist-800" />
           </div>
           <Bone className="h-3 w-24 rounded-md bg-mist-100 dark:bg-mist-800" />
-          <div className="grid grid-cols-7 gap-0.5">
+          <div className="grid grid-cols-7 gap-0.5 max-w-sm md:max-w-none">
             {Array.from({ length: 35 }).map((_, i) => (
               <Bone key={i} className="aspect-square rounded-md bg-mist-100 dark:bg-mist-800" />
             ))}
           </div>
         </div>
-        <div className="flex-1 min-w-0 px-5 py-4 flex flex-col gap-3">
+        <div className="hidden md:flex flex-1 min-w-0 px-5 py-4 flex-col gap-3">
           <Bone className="h-5 w-48 rounded-md" />
           <Bone className="h-3 w-28 rounded-md bg-mist-100 dark:bg-mist-800" />
           <Bone className="h-3 w-full rounded-md bg-mist-100 dark:bg-mist-800 mt-2" />

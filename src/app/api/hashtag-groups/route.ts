@@ -2,7 +2,7 @@ import config from '@payload-config'
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { getPayload } from 'payload'
-import { getCollection, isSafeCollectionName } from '@/lib/db'
+import { getCollection, getHashtagGroups, isSafeCollectionName } from '@/lib/db'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -24,6 +24,17 @@ export async function GET(req: NextRequest) {
   const thread     = searchParams.get('thread') // null means no thread filter
 
   try {
+    if (messageIds) {
+      const ids = messageIds.split(',').filter(Boolean)
+      // Direct Mongo — avoid Payload init/find latency for this hot open path.
+      const col = await getHashtagGroups()
+      const filter: Record<string, unknown> = { messageId: { $in: ids } }
+      if (thread) filter.thread = thread
+      const docs = await col.find(filter, { projection: { hashtagId: 1 } }).toArray()
+      const hashtagIds = [...new Set(docs.map(d => d.hashtagId).filter(Boolean))]
+      return NextResponse.json({ hashtagIds }, { headers: CORS })
+    }
+
     const payload = await getPayload({ config })
 
     if (hashtagId) {
@@ -39,19 +50,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         groups: result.docs.map(d => ({ id: d.id, hashtagId: d.hashtagId, messageId: d.messageId, thread: d.thread, firstMsgTs: d.firstMsgTs })),
       }, { headers: CORS })
-    }
-
-    if (messageIds) {
-      const ids = messageIds.split(',').filter(Boolean)
-      const result = await payload.find({
-        collection: 'hashtag-groups',
-        where: { messageId: { in: ids }, thread: { equals: thread } },
-        pagination: false,
-        depth: 0,
-        overrideAccess: true,
-      })
-      const hashtagIds = [...new Set(result.docs.map(d => d.hashtagId as string))]
-      return NextResponse.json({ hashtagIds }, { headers: CORS })
     }
 
     if (messageId) {

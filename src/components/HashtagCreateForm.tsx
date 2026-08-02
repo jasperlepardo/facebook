@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toSlug } from '@/lib/utils'
 import { btnPrimary, btnGhost, labelUpper, headerField, glassPanel } from '@/lib/ui'
 import { LockIcon, GlobeIcon } from '@/components/icons'
+import { isAbortError } from '@/lib/utils'
 
 interface CreatePayload {
   name: string
@@ -13,7 +14,7 @@ interface CreatePayload {
 interface Props {
   isSuperAdmin?: boolean
   onCancel: () => void
-  onCreate: (payload: CreatePayload) => Promise<void>
+  onCreate: (payload: CreatePayload, signal: AbortSignal) => Promise<void>
 }
 
 export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: Props) {
@@ -21,14 +22,31 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
   const [isPrivate, setIsPrivate] = useState(false)
   const [context, setContext]     = useState('')
   const [loading, setLoading]     = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => () => { abortRef.current?.abort() }, [])
+
+  function handleCancel() {
+    abortRef.current?.abort()
+    onCancel()
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const slug = name.trim()
-    if (!slug) return
+    if (!slug || loading) return
+    abortRef.current?.abort()
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
     setLoading(true)
-    try { await onCreate({ name: slug, isPrivate, context: context.trim() }) }
-    finally { setLoading(false) }
+    try {
+      await onCreate({ name: slug, isPrivate, context: context.trim() }, ctrl.signal)
+    } catch (err) {
+      if (isAbortError(err) || ctrl.signal.aborted) return
+      throw err
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false)
+    }
   }
 
   const fieldCls = `${headerField} w-full px-4 py-3 text-sm`
@@ -45,7 +63,7 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
               autoFocus
               value={name}
               onChange={e => setName(toSlug(e.target.value))}
-              onKeyDown={e => e.key === 'Escape' && onCancel()}
+              onKeyDown={e => e.key === 'Escape' && handleCancel()}
               placeholder="hashtag-name"
               className="flex-1 bg-transparent outline-hidden text-gray-900 dark:text-white placeholder:text-mist-400 text-sm"
             />
@@ -88,7 +106,7 @@ export default function HashtagCreateForm({ isSuperAdmin, onCancel, onCreate }: 
         </div>
 
         <div className="flex gap-3 pt-1">
-          <button type="button" onClick={onCancel} className={`flex-1 ${btnGhost}`}>
+          <button type="button" onClick={handleCancel} className={`flex-1 ${btnGhost}`}>
             Cancel
           </button>
           <button type="submit" disabled={!name.trim() || loading} className={`flex-1 ${btnPrimary} disabled:opacity-40`}>

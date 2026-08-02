@@ -7,3 +7,9 @@ export async function apiFetch<T>(url: string): Promise<T> {
 export function toSlug(v: string): string {
   return v.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').toLowerCase()
 }
+
+export function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException
+    ? err.name === 'AbortError'
+    : !!err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'AbortError'
+}

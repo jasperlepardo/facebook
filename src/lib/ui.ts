@@ -66,9 +66,9 @@ export const headerField = 'liquid-glass-field'
 export const glassHover = 'liquid-glass-hover'
 export const glassSelected = 'liquid-glass-selected'
 
-/** Floating toast / snackbar */
+/** Floating toast / snackbar — clears floating nav on mobile, standard offset on md+ */
 export const toastPill =
-  'fixed bottom-6 left-1/2 -translate-x-1/2 liquid-glass text-gray-900 dark:text-white text-sm px-4 py-2 rounded-full shadow-xl pointer-events-none z-[400]'
+  'fixed left-1/2 -translate-x-1/2 bottom-[calc(var(--resibo-nav-clearance)+0.75rem)] md:bottom-6 liquid-glass text-gray-900 dark:text-white text-sm px-4 py-2 rounded-full shadow-xl pointer-events-none z-[400] max-w-[calc(100vw-2rem)]'
 
 /** Empty-state icon well */
 export const emptyWell =
@@ -76,6 +76,7 @@ export const emptyWell =
 
 /**
  * Bottom padding tokens (PWA / iOS home indicator). Pair with `md:pb-*` at the call site.
+ * `md` is remapped to 1024px (floating nav below; sidebar from small desktop up).
  * - pbNav: floating capsule is visible (list, story)
  * - pbSafe: nav hidden (chat/hashtag detail, settings, media overlay)
  */

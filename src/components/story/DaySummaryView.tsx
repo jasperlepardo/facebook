@@ -15,7 +15,7 @@ export function DaySummaryView({ summary, parentArc, onJumpToMessages, onNavigat
       {parentArc && (
         <button
           onClick={onBackToArc}
-          className="flex items-center gap-1 text-[11px] text-mist-400 dark:text-mist-500 hover:text-mist-600 dark:hover:text-mist-300 transition-colors mb-3"
+          className="hidden md:flex items-center gap-1 text-[11px] text-mist-400 dark:text-mist-500 hover:text-mist-600 dark:hover:text-mist-300 transition-colors mb-3"
         >
           ← {parentArc.title}
         </button>

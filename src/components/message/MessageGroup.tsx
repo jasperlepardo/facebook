@@ -5,7 +5,7 @@ import { fmtTime, fmtTimeShort } from '@/lib/format'
 import { mapFbEmoji } from '@/lib/fbEmoji'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import ThreadAvatar from '@/components/ThreadAvatar'
-import { rowBase, rowSel, rowUnsel, timeCls, actionsCls } from './MessageStyles'
+import { rowBase, rowSel, rowUnsel, timeCls, selectCls } from './MessageStyles'
 import { renderContent } from './MessageContent'
 import { renderMedia } from './MessageMedia'
 
@@ -21,12 +21,9 @@ interface MessageGroupProps {
   hiddenUris?: Set<string>
   isSuperAdmin?: boolean
   hiddenMsgIds?: Set<string>
-  onHideMessage?: (msgId: string) => void
-  onUnhideMessage?: (msgId: string) => void
   onHideUri?: (uri: string) => void
   onUnhideUri?: (uri: string) => void
   enabledTypes?: Set<ContentTypeKey>
-  renderRowActions?: (msg: Message) => React.ReactNode
   senderStyles?: Record<string, { initials: string; color: string }>
 }
 
@@ -42,11 +39,8 @@ interface RowSharedProps {
   onToggle: MessageGroupProps['onToggle']
   onLightbox: MessageGroupProps['onLightbox']
   onContextMenu?: MessageGroupProps['onContextMenu']
-  onHideMessage?: (id: string) => void
-  onUnhideMessage?: (id: string) => void
   onHideUri?: (uri: string) => void
   onUnhideUri?: (uri: string) => void
-  renderRowActions?: (msg: Message) => React.ReactNode
   senderStyles?: Record<string, { initials: string; color: string }>
   longPressTimer: React.RefObject<ReturnType<typeof setTimeout> | undefined>
   touchPos: React.RefObject<{ x: number; y: number }>
@@ -82,7 +76,7 @@ function isPhotoOnlyMsg(m: Message): boolean {
 const MessageRow = memo(function MessageRow({
   m, block, isFirst, isSel, isSuperAdmin, hiddenMsgIds, hideImages, hiddenUris,
   enabledTypes, onToggle, onLightbox, onContextMenu,
-  onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, renderRowActions, senderStyles,
+  onHideUri, onUnhideUri, senderStyles,
   longPressTimer, touchPos,
 }: RowSharedProps & { m: Message }) {
   const show = (k: ContentTypeKey) => !enabledTypes || enabledTypes.has(k)
@@ -114,6 +108,7 @@ const MessageRow = memo(function MessageRow({
     <div
       id={`msg-${m._id}`}
       data-id={isFirst ? m._id : undefined}
+      data-selected={isSel || undefined}
       className={`${rowBase} ${isSel ? rowSel : rowUnsel}`}
       style={{ WebkitTouchCallout: 'none' }}
       onClick={handleClick}
@@ -140,32 +135,14 @@ const MessageRow = memo(function MessageRow({
         {renderMedia({ m, show, onLightbox, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri })}
       </div>
 
-      <div className={actionsCls(isSel)} onClick={e => e.stopPropagation()}>
-        {renderRowActions ? renderRowActions(m) : (
-          <div className="hidden md:flex items-center gap-0.5 liquid-glass rounded-full p-0.5 shadow-lg">
-            {isSuperAdmin && m._id && (
-              <button
-                onClick={e => {
-                  e.stopPropagation()
-                  if (isHidden) onUnhideMessage?.(m._id)
-                  else onHideMessage?.(m._id)
-                }}
-                className={`inline-flex items-center justify-center h-7 px-2 rounded-full text-[11px] font-medium liquid-glass-hover ${isHidden ? 'text-mist-400' : 'text-red-400'}`}
-              >
-                {isHidden ? 'Unhide' : 'Hide'}
-              </button>
-            )}
-            <input
-              type="checkbox"
-              checked={isSel}
-              onChange={() => {}}
-              onClick={e => { e.stopPropagation(); onToggle(m._id, m.timestamp_ms, m.timestamp_ms, [m._id], e.shiftKey) }}
-              className="w-4 h-4 mx-1.5 cursor-pointer accent-blue-600 shrink-0"
-              aria-label="Select message"
-            />
-          </div>
-        )}
-      </div>
+      <input
+        type="checkbox"
+        checked={isSel}
+        onChange={() => {}}
+        onClick={e => { e.stopPropagation(); onToggle(m._id, m.timestamp_ms, m.timestamp_ms, [m._id], e.shiftKey) }}
+        className={`${selectCls(isSel)} w-4 h-4 cursor-pointer accent-blue-600`}
+        aria-label={isSel ? 'Deselect message' : 'Select message'}
+      />
     </div>
   )
 })
@@ -175,7 +152,7 @@ const MessageRow = memo(function MessageRow({
 const MessageGroup = memo(function MessageGroup({
   block, selectedMsgIds, onToggle, onLightbox, onContextMenu,
   hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds,
-  onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, enabledTypes, renderRowActions, senderStyles,
+  onHideUri, onUnhideUri, enabledTypes, senderStyles,
 }: MessageGroupProps) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const touchPos = useRef({ x: 0, y: 0 })
@@ -205,7 +182,7 @@ const MessageGroup = memo(function MessageGroup({
   const shared: Omit<RowSharedProps, 'isFirst' | 'isSel'> = {
     block, isSuperAdmin, hiddenMsgIds, hideImages, hiddenUris, enabledTypes,
     onToggle, onLightbox, onContextMenu,
-    onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, renderRowActions, senderStyles,
+    onHideUri, onUnhideUri, senderStyles,
     longPressTimer, touchPos,
   }
 

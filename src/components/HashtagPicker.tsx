@@ -1,44 +1,60 @@
 'use client'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Hashtag } from '@/types'
-import { toSlug } from '@/lib/utils'
+import { isAbortError, toSlug } from '@/lib/utils'
 import { field, btnPrimary, btnSecondary } from '@/lib/ui'
 
 interface HashtagPickerProps {
   hashtags: Hashtag[]
   initialSelected?: Set<string>
+  /** When false, list is visible but selection/Apply stay gated until existing tags load. */
+  ready?: boolean
   onClose: () => void
-  onApply: (hashtagIds: string[], newNames: string[]) => void | Promise<void>
+  onApply: (hashtagIds: string[], newNames: string[], signal: AbortSignal) => void | Promise<void>
   /** Extra classes for the scrollable list (pane can grow). */
   listClassName?: string
 }
 
 export default function HashtagPicker({
-  hashtags, initialSelected, onClose, onApply, listClassName = 'max-h-48',
+  hashtags, initialSelected, ready = true, onClose, onApply, listClassName = 'max-h-48',
 }: HashtagPickerProps) {
   const [input, setInput] = useState('')
   const [selected, setSelected] = useState<Set<string>>(initialSelected ?? new Set())
   const [newTags, setNewTags] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => { inputRef.current?.focus() }, [])
-
-  useEffect(() => {
-    if (initialSelected) setSelected(initialSelected)
-  }, [initialSelected])
+  const abortRef = useRef<AbortController | null>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const locked = !ready || loading
 
   useEffect(() => {
-    const handleEscapeKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !loading) onClose() }
+    if (ready) inputRef.current?.focus()
+  }, [ready])
+
+  useEffect(() => () => { abortRef.current?.abort() }, [])
+
+  useEffect(() => {
+    if (ready && initialSelected) setSelected(initialSelected)
+  }, [ready, initialSelected])
+
+  const handleClose = useCallback(() => {
+    abortRef.current?.abort()
+    onCloseRef.current()
+  }, [])
+
+  useEffect(() => {
+    const handleEscapeKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose() }
     document.addEventListener('keydown', handleEscapeKey)
     return () => document.removeEventListener('keydown', handleEscapeKey)
-  }, [onClose, loading])
+  }, [handleClose])
 
   function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
     setInput(toSlug(e.target.value))
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    if (locked) return
     if (e.key === 'Enter' && input.trim()) {
       const slug = input.trim()
       const existing = hashtags.find(h => h.name === slug)
@@ -57,6 +73,7 @@ export default function HashtagPicker({
   }
 
   function toggleExisting(id: string) {
+    if (locked) return
     setSelected(prev => {
       const n = new Set(prev)
       if (n.has(id)) n.delete(id)
@@ -66,6 +83,7 @@ export default function HashtagPicker({
   }
 
   function removeNew(tag: string) {
+    if (locked) return
     setNewTags(prev => prev.filter(t => t !== tag))
   }
 
@@ -75,16 +93,22 @@ export default function HashtagPicker({
   )
 
   const pendingInput = input.trim()
-  const canApply = selected.size > 0 || newTags.length > 0 || !!pendingInput
+  const canApply = ready && (selected.size > 0 || newTags.length > 0 || !!pendingInput)
 
   async function handleApply() {
     if (!canApply || loading) return
     const allNew = pendingInput && !newTags.includes(pendingInput) ? [...newTags, pendingInput] : newTags
+    abortRef.current?.abort()
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
     setLoading(true)
     try {
-      await onApply([...selected], allNew)
+      await onApply([...selected], allNew, ctrl.signal)
+    } catch (err) {
+      if (isAbortError(err) || ctrl.signal.aborted) return
+      throw err
     } finally {
-      setLoading(false)
+      if (!ctrl.signal.aborted) setLoading(false)
     }
   }
 
@@ -96,9 +120,9 @@ export default function HashtagPicker({
           value={input}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
-          placeholder="Type hashtag, press Enter…"
+          placeholder={ready ? 'Type hashtag, press Enter…' : 'Loading existing tags…'}
           className={`${field} mb-3`}
-          disabled={loading}
+          disabled={locked}
         />
 
         {newTags.length > 0 && (
@@ -106,7 +130,7 @@ export default function HashtagPicker({
             {newTags.map(t => (
               <span key={t} className="flex items-center gap-1 liquid-glass text-mist-700 dark:text-mist-300 text-xs px-2 py-0.5 rounded-full font-medium">
                 #{t}
-                <button type="button" onClick={() => removeNew(t)} disabled={loading} className="hover:text-mist-900 dark:hover:text-mist-100 leading-none disabled:opacity-40">×</button>
+                <button type="button" onClick={() => removeNew(t)} disabled={locked} className="hover:text-mist-900 dark:hover:text-mist-100 leading-none disabled:opacity-40">×</button>
               </span>
             ))}
           </div>
@@ -118,8 +142,8 @@ export default function HashtagPicker({
           <p className="text-xs text-gray-400 dark:text-gray-500 py-1 px-2">Press Enter to create <strong>#{input}</strong></p>
         )}
         {filtered.map(h => (
-          <label key={h.id} className="flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer liquid-glass-hover">
-            <input type="checkbox" checked={selected.has(h.id)} onChange={() => toggleExisting(h.id)} disabled={loading} className="accent-blue-600" />
+          <label key={h.id} className={`flex items-center gap-2 px-2 py-2 rounded-lg liquid-glass-hover ${locked ? 'opacity-60 cursor-default' : 'cursor-pointer'}`}>
+            <input type="checkbox" checked={selected.has(h.id)} onChange={() => toggleExisting(h.id)} disabled={locked} className="accent-blue-600" />
             <span className="text-sm text-gray-700 dark:text-gray-200">#{h.name}</span>
             <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">{h.groupCount ?? 0}</span>
           </label>
@@ -127,7 +151,7 @@ export default function HashtagPicker({
       </div>
 
       <div className="px-4 py-3 flex gap-2 shrink-0 border-t border-mist-100 dark:border-mist-700">
-        <button type="button" onClick={onClose} disabled={loading} className={`flex-1 ${btnSecondary}`}>Cancel</button>
+        <button type="button" onClick={handleClose} className={`flex-1 ${btnSecondary}`}>Cancel</button>
         <button
           type="button"
           onClick={() => { void handleApply() }}
@@ -140,7 +164,7 @@ export default function HashtagPicker({
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
             </svg>
           )}
-          {loading ? 'Applying…' : 'Apply'}
+          {loading ? 'Applying…' : !ready ? 'Loading…' : 'Apply'}
         </button>
       </div>
     </div>

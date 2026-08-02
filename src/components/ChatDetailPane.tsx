@@ -11,7 +11,6 @@ import { useMessageSelection } from '@/hooks/useMessageSelection'
 import { useChatScroll } from '@/hooks/useChatScroll'
 import { useChatInit } from '@/hooks/useChatInit'
 import MessageList from './message/MessageList'
-import MessageRowActions from './message/MessageRowActions'
 import MessageSelectionBar from './message/MessageSelectionBar'
 import ActionSheet from './ActionSheet'
 import DatePickerModal from './DatePickerModal'
@@ -443,19 +442,10 @@ export default function ChatDetailPane({
             hiddenUris={hiddenUris}
             isSuperAdmin={isSuperAdmin}
             hiddenMsgIds={hiddenMsgIds}
-            onHideMessage={onHideMessage}
-            onUnhideMessage={onUnhideMessage}
             onHideUri={onHideDbUri}
             onUnhideUri={onUnhideDbUri}
             enabledTypes={enabledTypes}
             senderStyles={senderStyles}
-            renderRowActions={selection.selectedMsgs.size >= 2 ? undefined : msg => (
-              <MessageRowActions
-                actions={makeActions([msg._id], {
-                  isSelected: selection.selectedMsgs.has(msg._id),
-                })}
-              />
-            )}
           />
         </div>
       </div>

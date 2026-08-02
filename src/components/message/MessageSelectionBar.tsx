@@ -15,7 +15,7 @@ export default function MessageSelectionBar({ count, actions, onClear }: Message
 
   return (
     <>
-      <div className={`absolute bottom-4 left-1/2 -translate-x-1/2 liquid-glass text-gray-900 dark:text-white rounded-full px-3 py-2 flex items-center gap-2 text-[13px] whitespace-nowrap shadow-xl z-20${count < 2 ? ' md:hidden' : ''}`}>
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 liquid-glass text-gray-900 dark:text-white rounded-full px-3 py-2 flex items-center gap-2 text-[13px] whitespace-nowrap shadow-xl z-20">
         <span className="text-mist-500 dark:text-white/60 px-1">{count} selected</span>
 
         {/* Desktop: icon actions */}

@@ -37,8 +37,22 @@ const SHEET_HANDLE_PX = 56
 type DragLock = 'none' | 'h' | 'v'
 type SheetPhase = 'closed' | 'open' | 'closing'
 
+/** Matches Tailwind `md` (remapped to 1024px in globals.css). */
+const DESKTOP_SHELL_MQ = '(min-width: 1024px)'
+/** Matches Tailwind `xl` — inline 4/7/5 three-pane (large desktop). */
+const LARGE_DESKTOP_MQ = '(min-width: 1280px)'
+
 function isMobileSheetViewport() {
-  return !window.matchMedia('(min-width: 768px)').matches
+  return !window.matchMedia(DESKTOP_SHELL_MQ).matches
+}
+
+/** Bottom sheet (phone) or right overlay (small desktop) — animated. */
+function isOverlayMediaViewport() {
+  return !window.matchMedia(LARGE_DESKTOP_MQ).matches
+}
+
+function isLargeDesktopViewport() {
+  return window.matchMedia(LARGE_DESKTOP_MQ).matches
 }
 
 function sheetScrollAtTop(root: HTMLElement) {
@@ -53,7 +67,7 @@ function sheetScrollAtTop(root: HTMLElement) {
   return true
 }
 
-export default function AppLayout({ section, onSectionChange, initials, name, prevSection, listPane, detailPane, mediaPane, onCloseMediaPane, listGrow = 4, detailGrow = 7, hideListPane = false, centeredDetail = false }: AppLayoutProps) {
+export default function AppLayout({ section, onSectionChange, initials, name, prevSection, listPane, detailPane, mediaPane, onCloseMediaPane, listGrow = 4, detailGrow = 8, hideListPane = false, centeredDetail = false }: AppLayoutProps) {
   // SSR-safe defaults — deep links open the detail pane in useEffect after hydrate
   const [mobileShowList, setMobileShowList] = useState(
     section === 'chat' || section === 'hashtags'
@@ -75,6 +89,8 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
   const mobileShowListRef = useRef(mobileShowList)
   const mediaPaneRef = useRef(!!mediaPane)
   const [sheetMounted, setSheetMounted] = useState(!!mediaPane)
+  /** Large desktop (≥1280): inline 3rd column instead of overlay/sheet. */
+  const [threeCol, setThreeCol] = useState(false)
   const drag = useRef({
     tracking: false,
     lock: 'none' as DragLock,
@@ -160,7 +176,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
     const panel = sheetPanelRef.current
     const scrim = sheetScrimRef.current
     const mobile = isMobileSheetViewport()
-    const ms = reduceMotion.current || !mobile ? 0 : SHEET_MS
+    const ms = reduceMotion.current ? 0 : SHEET_MS
 
     if (scrim) {
       // Stop blocking the UI as soon as dismiss starts (opacity anim is cosmetic).
@@ -176,9 +192,10 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
       panel.style.transform = computed === 'none' ? 'translate3d(0,0,0)' : computed
       void panel.offsetHeight
       panel.style.transition = ms > 0 ? `transform ${ms}ms ${SHEET_EASE}` : 'none'
-      panel.style.transform = 'translate3d(0,100%,0)'
+      // Phone: slide down. Small desktop: slide right.
+      panel.style.transform = mobile ? 'translate3d(0,100%,0)' : 'translate3d(100%,0,0)'
     }
-    // Expand the behind card in lockstep with the sheet slide (same duration/easing).
+    // Expand the behind card in lockstep with the sheet slide (mobile only).
     setBehindProgress(1, ms > 0)
 
     if (sheetCloseTimerRef.current) window.clearTimeout(sheetCloseTimerRef.current)
@@ -189,15 +206,23 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
   }, [finishSheetClose, setBehindProgress])
 
   const requestCloseSheet = useCallback(() => {
-    if (!isMobileSheetViewport()) {
-      onCloseMediaPaneRef.current?.()
+    if (sheetPhaseRef.current !== 'open') return
+    onCloseMediaPaneRef.current?.()
+    if (isLargeDesktopViewport()) {
+      finishSheetClose()
       return
     }
-    if (sheetPhaseRef.current !== 'open') return
-    // Clear parent state immediately so chat/nav aren't inert for the whole exit anim.
-    onCloseMediaPaneRef.current?.()
     animateSheetClosed()
-  }, [animateSheetClosed])
+  }, [animateSheetClosed, finishSheetClose])
+
+  // Track large-desktop three-column mode
+  useEffect(() => {
+    const mq = window.matchMedia(LARGE_DESKTOP_MQ)
+    const sync = () => setThreeCol(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
 
   // Keep the sheet mounted through the exit animation when the parent clears mediaPane.
   useEffect(() => {
@@ -216,7 +241,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
           panel.style.transition = 'none'
           panel.style.transform = ''
           panel.style.pointerEvents = ''
-          if (!isMobileSheetViewport()) panel.style.animation = 'none'
+          panel.style.animation = ''
         }
         if (scrim) {
           scrim.style.transition = 'none'
@@ -237,7 +262,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
       sheetPhaseRef.current = 'closed'
       return
     }
-    if (!isMobileSheetViewport()) {
+    if (!isOverlayMediaViewport()) {
       finishSheetClose()
       return
     }
@@ -462,7 +487,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
 
   // Desktop / alternate layouts: don't leave mobile transforms hanging
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)')
+    const mq = window.matchMedia(DESKTOP_SHELL_MQ)
     const sync = () => {
       if (mq.matches || centeredDetail || hideListPane) clearMobileTransforms()
       else if (!sheetMountedRef.current) applyProgress(mobileShowListRef.current ? 1 : 0, false)
@@ -513,7 +538,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
     const onStart = (e: TouchEvent) => {
       if (sheetMountedRef.current || mediaPaneRef.current || mobileShowListRef.current || hideListPane || centeredDetail) return
       if (reduceMotion.current) return
-      if (window.matchMedia('(min-width: 768px)').matches) return
+      if (window.matchMedia(DESKTOP_SHELL_MQ).matches) return
       const t = e.touches[0]
       if (t.clientX > EDGE_PX) return
       drag.current = {
@@ -605,80 +630,104 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
         onToggleExpanded={toggleNav}
       />
 
-      {centeredDetail ? (
-        <>
-          <div className="hidden md:block basis-0 min-w-0" style={{ flexGrow: listGrow }} />
-          <div className="flex flex-col overflow-hidden liquid-glass-atmosphere flex-1 md:basis-0 md:min-w-0 md:min-h-0 md:rounded-2xl" style={{ flexGrow: detailGrow }}>
-            {detailPane(controls)}
-          </div>
-          <div className="hidden md:block basis-0 min-w-0" style={{ flexGrow: listGrow }} />
-        </>
-      ) : (
-        <>
-          {!hideListPane && (
-            <div
-              ref={listRef}
-              className={[
-                'flex flex-col shrink-0 overflow-hidden liquid-glass-atmosphere absolute inset-0 md:static md:basis-0 md:min-w-0 md:rounded-2xl will-change-transform md:!transform-none',
-                // Hide list while sheet is open so only the chat card peeks (not a 3rd layer).
-                sheetVisible ? 'max-md:invisible' : '',
-              ].filter(Boolean).join(' ')}
-              style={{ flexGrow: listGrow }}
-              aria-hidden={sheetVisible || undefined}
-            >
-              {listPane(controls)}
+      {/* Content stage — side overlay is scoped here so it doesn't cover the nav */}
+      <div className="relative flex-1 flex min-h-0 min-w-0 md:gap-3">
+        {centeredDetail ? (
+          <>
+            <div className="hidden md:block basis-0 min-w-0" style={{ flexGrow: listGrow }} />
+            <div className="flex flex-col overflow-hidden liquid-glass-atmosphere flex-1 md:basis-0 md:min-w-0 md:min-h-0 md:rounded-2xl" style={{ flexGrow: detailGrow }}>
+              {detailPane(controls)}
             </div>
-          )}
-
-          <div
-            ref={scrimRef}
-            className="absolute inset-0 z-[9] bg-black md:hidden pointer-events-none"
-            style={{ opacity: 0 }}
-          />
-
-          <div
-            ref={detailRef}
-            className={[
-              'flex flex-col overflow-hidden liquid-glass-atmosphere absolute inset-0 z-10',
-              'md:static md:z-auto md:basis-0 md:min-w-0 md:min-h-0 md:rounded-2xl md:!transform-none md:!shadow-none',
-              'will-change-transform',
-              'shadow-[-12px_0_32px_rgba(0,0,0,0.18)] dark:shadow-[-12px_0_32px_rgba(0,0,0,0.45)]',
-              mobileShowList ? 'pointer-events-none' : '',
-              mediaPaneOpen ? 'max-md:pointer-events-none' : '',
-            ].filter(Boolean).join(' ')}
-            style={{ flexGrow: detailGrow }}
-          >
-            {detailPane(controls)}
-          </div>
-
-          {sheetVisible && (mediaPane || sheetContentRef.current) && (
-            <div className="fixed inset-0 z-40 flex flex-col justify-end pt-[calc(env(safe-area-inset-top,0px)+2.75rem)] pointer-events-none md:pointer-events-auto md:static md:z-auto md:flex md:flex-col md:basis-0 md:min-w-0 md:min-h-0 md:justify-start md:pt-0 md:rounded-2xl md:overflow-hidden md:[flex-grow:5]">
-              <button
-                ref={sheetScrimRef}
-                type="button"
-                aria-label="Dismiss"
-                className="absolute inset-0 bg-black/25 pointer-events-auto md:hidden"
-                onClick={requestCloseSheet}
-              />
+            <div className="hidden md:block basis-0 min-w-0" style={{ flexGrow: listGrow }} />
+          </>
+        ) : (
+          <>
+            {!hideListPane && (
               <div
-                ref={sheetPanelRef}
-                role="dialog"
-                aria-modal
-                className="relative z-10 flex flex-col flex-1 min-h-0 w-full rounded-t-[1.25rem] overflow-hidden liquid-glass-atmosphere shadow-[0_-8px_40px_rgba(0,0,0,0.25)] dark:shadow-[0_-8px_40px_rgba(0,0,0,0.55)] pointer-events-auto [animation:sheet-up_340ms_cubic-bezier(0.32,0.72,0,1)] md:h-full md:rounded-2xl md:shadow-none md:animate-none will-change-transform"
+                ref={listRef}
+                className={[
+                  'flex flex-col shrink-0 overflow-hidden liquid-glass-atmosphere absolute inset-0 md:static md:basis-0 md:min-w-0 md:rounded-2xl will-change-transform md:!transform-none',
+                  // Hide list while phone sheet is open so only the chat card peeks.
+                  sheetVisible ? 'max-md:invisible' : '',
+                ].filter(Boolean).join(' ')}
+                style={{ flexGrow: listGrow }}
+                aria-hidden={sheetVisible && !threeCol ? true : undefined}
               >
-                <div className="sticky top-0 z-20 liquid-glass-bar liquid-glass-bar-frosted shrink-0 md:hidden" aria-hidden>
-                  <div className="flex justify-center pt-2.5 pb-1">
-                    <div className="w-9 h-1 rounded-full bg-black/20 dark:bg-white/25" />
+                {listPane(controls)}
+              </div>
+            )}
+
+            <div
+              ref={scrimRef}
+              className="absolute inset-0 z-[9] bg-black md:hidden pointer-events-none"
+              style={{ opacity: 0 }}
+            />
+
+            <div
+              ref={detailRef}
+              className={[
+                'flex flex-col overflow-hidden liquid-glass-atmosphere absolute inset-0 z-10',
+                'md:static md:z-auto md:basis-0 md:min-w-0 md:min-h-0 md:rounded-2xl md:!transform-none md:!shadow-none',
+                'will-change-transform',
+                'shadow-[-12px_0_32px_rgba(0,0,0,0.18)] dark:shadow-[-12px_0_32px_rgba(0,0,0,0.45)]',
+                mobileShowList ? 'pointer-events-none' : '',
+                mediaPaneOpen ? 'max-md:pointer-events-none' : '',
+              ].filter(Boolean).join(' ')}
+              style={{ flexGrow: detailGrow }}
+            >
+              {detailPane(controls)}
+            </div>
+
+            {sheetVisible && (mediaPane || sheetContentRef.current) && (
+              <div
+                className={[
+                  'z-40 flex',
+                  // Phone: bottom sheet
+                  'fixed inset-0 flex-col justify-end pt-[calc(env(safe-area-inset-top,0px)+2.75rem)] pointer-events-none',
+                  // Small desktop (md–xl): full-viewport scrim, right-aligned 6/6 overlay
+                  'md:max-xl:inset-0 md:max-xl:flex-row md:max-xl:items-stretch md:max-xl:justify-end md:max-xl:gap-3 md:max-xl:p-3 md:max-xl:pt-3',
+                  // Large desktop (xl+): inline 3rd column (flex-grow 5)
+                  'xl:static xl:inset-auto xl:z-auto xl:pointer-events-auto xl:flex-col xl:basis-0 xl:min-w-0 xl:min-h-0 xl:justify-start xl:p-0 xl:pt-0 xl:rounded-2xl xl:overflow-hidden',
+                ].join(' ')}
+                style={threeCol ? { flexGrow: 5 } : undefined}
+              >
+                <button
+                  ref={sheetScrimRef}
+                  type="button"
+                  aria-label="Dismiss"
+                  className="absolute inset-0 bg-black/25 pointer-events-auto md:bg-black/30 xl:hidden"
+                  onClick={requestCloseSheet}
+                />
+                {/* Small desktop: left spacer → right-aligned half-width panel */}
+                <div className="hidden md:max-xl:block basis-0 min-w-0 pointer-events-none md:max-xl:[flex-grow:6]" aria-hidden />
+                <div
+                  ref={sheetPanelRef}
+                  role="dialog"
+                  aria-modal={!threeCol || undefined}
+                  className={[
+                    'relative z-10 flex flex-col min-h-0 overflow-hidden liquid-glass-atmosphere pointer-events-auto will-change-transform',
+                    // Phone bottom sheet
+                    'flex-1 w-full rounded-t-[1.25rem] shadow-[0_-8px_40px_rgba(0,0,0,0.25)] dark:shadow-[0_-8px_40px_rgba(0,0,0,0.55)] max-md:[animation:sheet-up_340ms_cubic-bezier(0.32,0.72,0,1)]',
+                    // Small desktop: right half (6/12)
+                    'md:max-xl:basis-0 md:max-xl:min-w-0 md:max-xl:h-full md:max-xl:rounded-2xl md:max-xl:shadow-xl md:max-xl:[flex-grow:6] md:max-xl:[animation:sheet-right_340ms_cubic-bezier(0.32,0.72,0,1)]',
+                    // Large desktop: fill the 5-grow column
+                    'xl:flex-1 xl:w-full xl:h-full xl:rounded-2xl xl:shadow-none xl:animate-none',
+                  ].join(' ')}
+                >
+                  <div className="sticky top-0 z-20 liquid-glass-bar liquid-glass-bar-frosted shrink-0 md:hidden" aria-hidden>
+                    <div className="flex justify-center pt-2.5 pb-1">
+                      <div className="w-9 h-1 rounded-full bg-black/20 dark:bg-white/25" />
+                    </div>
+                  </div>
+                  <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                    {mediaPane ?? sheetContentRef.current}
                   </div>
                 </div>
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  {mediaPane ?? sheetContentRef.current}
-                </div>
               </div>
-            </div>
-          )}
-        </>
-      )}
+            )}
+          </>
+        )}
+      </div>
 
     </div>
   )

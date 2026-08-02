@@ -1,6 +1,6 @@
 'use client'
 import { memo, useId } from 'react'
-import { Message, MessageBlock, LightboxState, DateIndex } from '@/types'
+import { MessageBlock, LightboxState, DateIndex } from '@/types'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import MessageGroup from './MessageGroup'
 import DateMenu from '@/components/DateMenu'
@@ -15,13 +15,10 @@ interface MessageListProps {
   dateIndex?: DateIndex | null
   onJumpTo?: (target: string) => void
   onOpenDatePicker?: () => void
-  renderRowActions?: (msg: import('@/types').Message) => React.ReactNode
   hideImages?: boolean
   hiddenUris?: Set<string>
   isSuperAdmin?: boolean
   hiddenMsgIds?: Set<string>
-  onHideMessage?: (msgId: string) => void
-  onUnhideMessage?: (msgId: string) => void
   onHideUri?: (uri: string) => void
   onUnhideUri?: (uri: string) => void
   enabledTypes?: Set<ContentTypeKey>
@@ -32,9 +29,9 @@ const noop = () => {}
 
 const MessageList = memo(function MessageList({
   blocks, onLightbox, selectedMsgIds, onToggle, onContextMenu,
-  dateIndex, onJumpTo, onOpenDatePicker, renderRowActions,
+  dateIndex, onJumpTo, onOpenDatePicker,
   hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds,
-  onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, enabledTypes, senderStyles,
+  onHideUri, onUnhideUri, enabledTypes, senderStyles,
 }: MessageListProps) {
   const uid = useId()
 
@@ -83,12 +80,9 @@ const MessageList = memo(function MessageList({
                 hiddenUris={hiddenUris}
                 isSuperAdmin={isSuperAdmin}
                 hiddenMsgIds={hiddenMsgIds}
-                onHideMessage={onHideMessage}
-                onUnhideMessage={onUnhideMessage}
                 onHideUri={onHideUri}
                 onUnhideUri={onUnhideUri}
                 enabledTypes={enabledTypes}
-                renderRowActions={renderRowActions}
                 senderStyles={senderStyles}
               />
             ))}

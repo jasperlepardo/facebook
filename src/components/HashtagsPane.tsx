@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Hashtag, LightboxState, Message } from '@/types'
 import MessageList from './message/MessageList'
-import MessageRowActions from './message/MessageRowActions'
 import MessageSelectionBar from './message/MessageSelectionBar'
 import Lightbox from './Lightbox'
 import ActionSheet from './ActionSheet'
@@ -236,6 +235,8 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
       surface: 'hashtag',
       count: msgIds.length,
       isSelected: opts?.isSelected,
+      isHidden: !!(first && hiddenMsgIds?.has(first._id)),
+      isSuperAdmin,
       omitSelect: opts?.omitSelect,
       callbacks: {
         onSelect: () => {
@@ -248,9 +249,11 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
         onCopyLink: () => copyLink(msgIds),
         onCopyText: () => copyText(msgIds),
         onRemove: () => { void removeGroup(msgIds) },
+        onHide: onHideMessage && msgIds.length ? () => { for (const id of msgIds) onHideMessage(id) } : undefined,
+        onUnhide: onUnhideMessage && msgIds.length ? () => { for (const id of msgIds) onUnhideMessage(id) } : undefined,
       },
     })
-  }, [allMsgsRef, handleToggle, onJumpToMessage, msgThread, copyLink, copyText]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allMsgsRef, handleToggle, onJumpToMessage, msgThread, copyLink, copyText, isSuperAdmin, hiddenMsgIds, onHideMessage, onUnhideMessage]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedIds = useMemo(() => [...selectedMsgs.keys()], [selectedMsgs])
   const barActions = useMemo(
@@ -269,11 +272,19 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
       return <HashtagCreateForm
         isSuperAdmin={isSuperAdmin}
         onCancel={() => { onCreatingChange(false); onNavigateBack?.() }}
-        onCreate={async ({ name, isPrivate, context }) => {
-          const res = await fetch('/api/hashtags', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, isPrivate, context: context || undefined }) })
+        onCreate={async ({ name, isPrivate, context }, signal) => {
+          const res = await fetch('/api/hashtags', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, isPrivate, context: context || undefined }),
+            signal,
+          })
+          if (signal.aborted) return
           const { doc } = await res.json()
+          if (signal.aborted) return
           onCreatingChange(false)
           await onReload()
+          if (signal.aborted) return
           if (doc) openDetail(doc)
         }}
       />
@@ -380,18 +391,9 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   hideImages={hideImages}
                   hiddenUris={hiddenUris}
                   hiddenMsgIds={hiddenMsgIds}
-                  onHideMessage={onHideMessage}
-                  onUnhideMessage={onUnhideMessage}
                   onHideUri={onHideUri}
                   onUnhideUri={onUnhideUri}
                   senderStyles={senderStyles}
-                  renderRowActions={selectedMsgs.size >= 2 ? undefined : msg => (
-                    <MessageRowActions
-                      actions={makeActions([msg._id], {
-                        isSelected: selectedMsgs.has(msg._id),
-                      })}
-                    />
-                  )}
                 />
                 {hasMore && <div ref={botSentinelRef} className="h-8" />}
                 </div>

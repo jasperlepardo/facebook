@@ -80,7 +80,7 @@ export function buildMessageActions(opts: BuildMessageActionsOpts): MessageActio
     else push('hide', 'Hide', callbacks.onHide, true)
   }
 
-  if ((surface === 'chat' || surface === 'chat-search') && isSuperAdmin) {
+  if ((surface === 'chat' || surface === 'chat-search' || surface === 'hashtag') && isSuperAdmin) {
     if (isHidden) push('unhide', 'Unhide message', callbacks.onUnhide)
     else push('hide', 'Hide message', callbacks.onHide, true)
   }

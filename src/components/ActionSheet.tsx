@@ -20,6 +20,12 @@ export default function ActionSheet({ title, actions, onClose }: ActionSheetProp
     return () => { document.body.style.overflow = prev }
   }, [])
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   return (
     <div className="fixed inset-0 z-300 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
