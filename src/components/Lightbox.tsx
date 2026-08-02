@@ -181,8 +181,10 @@ function LightboxFilmstrip({
               aria-selected={i === currentIndex}
               aria-label={`Photo ${i + 1}`}
               onClick={() => onGoToIndex(i)}
-              className={`absolute top-0 w-14 h-14 rounded-sm overflow-hidden bg-white/10 transition-opacity ${
-                i === currentIndex ? 'ring-2 ring-white opacity-100' : 'opacity-55 hover:opacity-90'
+              className={`absolute top-0 w-14 h-14 rounded-sm overflow-hidden bg-black/10 dark:bg-white/10 transition-opacity ${
+                i === currentIndex
+                  ? 'ring-2 ring-gray-900 dark:ring-white opacity-100'
+                  : 'opacity-55 hover:opacity-90'
               }`}
               style={{ left }}
             >
@@ -196,7 +198,7 @@ function LightboxFilmstrip({
                   className="absolute inset-0 w-full h-full object-cover"
                 />
               ) : (
-                <span className="absolute inset-0 animate-pulse bg-white/10" />
+                <span className="absolute inset-0 animate-pulse bg-black/10 dark:bg-white/10" />
               )}
             </button>
           )
@@ -570,7 +572,7 @@ export default function Lightbox({
             title={a.label}
             aria-label={a.label}
             onClick={a.onPress}
-            className={`${headerBtn} !text-white ${a.destructive ? '!text-red-400' : ''}`}
+            className={`${headerBtn} ${a.destructive ? '!text-red-500 dark:!text-red-400' : ''}`}
           >
             {a.icon ?? <span className="text-[11px] font-semibold px-0.5">{a.label}</span>}
           </button>
@@ -582,7 +584,7 @@ export default function Lightbox({
               aria-label="More actions"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen(v => !v)}
-              className={`${headerBtn} !text-white`}
+              className={headerBtn}
             >
               <MoreIcon />
             </button>
@@ -609,7 +611,7 @@ export default function Lightbox({
         type="button"
         aria-label="Actions"
         onClick={() => setSheetOpen(true)}
-        className={`md:hidden ${headerBtn} !text-white`}
+        className={`md:hidden ${headerBtn}`}
       >
         <MoreIcon />
       </button>
@@ -624,32 +626,34 @@ export default function Lightbox({
       aria-label="Media viewer"
     >
       {/* Scrim fades as the page is pulled down (same idea as chat settings sheet). */}
-      <div ref={scrimRef} className="absolute inset-0 bg-black/95 [animation:fade-in_160ms_ease-out]" />
+      <div
+        ref={scrimRef}
+        className="absolute inset-0 bg-mist-50/95 dark:bg-black/95 [animation:fade-in_160ms_ease-out]"
+      />
 
       {/* Whole page panel — header, stage, and filmstrip slide together. */}
       <div
         ref={panelRef}
-        className="absolute inset-0 flex flex-col bg-black/95 [animation:fade-in_160ms_ease-out] will-change-transform"
+        className="absolute inset-0 flex flex-col bg-mist-50 dark:bg-mist-950 text-gray-900 dark:text-white [animation:fade-in_160ms_ease-out] will-change-transform"
         style={{ transform: 'translate3d(0,0,0)' }}
       >
       <AppHeader
-        tone="media"
         dismiss
         onBack={requestClose}
         title={(
           <div className="min-w-0">
             <p className="text-sm font-bold truncate">{titleText}</p>
             {counter && (
-              <p className="text-[11px] text-white/55 tabular-nums truncate">{counter}</p>
+              <p className="text-[11px] text-mist-500 dark:text-white/55 tabular-nums truncate">{counter}</p>
             )}
           </div>
         )}
         actions={headerActions}
       />
 
-      {/* Media stage */}
+      {/* Media stage — keep a dark letterbox so photos read in both themes */}
       <div
-        className={`flex-1 min-h-0 relative flex items-center justify-center px-2 select-none touch-none`}
+        className="flex-1 min-h-0 relative flex items-center justify-center px-2 select-none touch-none bg-mist-100/80 dark:bg-black/40"
         onClick={e => { if (e.target === e.currentTarget && !zoomed && dismissYRef.current < 8) requestClose() }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -661,7 +665,7 @@ export default function Lightbox({
           aria-label="Previous"
           disabled={!canPrev}
           onClick={() => state.onPrev?.()}
-          className={`hidden md:flex absolute left-[max(0.25rem,env(safe-area-inset-left))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} !text-white ${canPrev ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
+          className={`hidden md:flex absolute left-[max(0.25rem,env(safe-area-inset-left))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} ${canPrev ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
         >
           <ChevronIcon dir="left" />
         </button>
@@ -670,25 +674,25 @@ export default function Lightbox({
           aria-label="Next"
           disabled={!canNext}
           onClick={() => state.onNext?.()}
-          className={`hidden md:flex absolute right-[max(0.25rem,env(safe-area-inset-right))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} !text-white ${canNext ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
+          className={`hidden md:flex absolute right-[max(0.25rem,env(safe-area-inset-right))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} ${canNext ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
         >
           <ChevronIcon dir="right" />
         </button>
 
         {status === 'loading' && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-9 h-9 rounded-full border-2 border-white/20 border-t-white/80 animate-spin" />
+            <div className="w-9 h-9 rounded-full border-2 border-mist-300 border-t-mist-600 dark:border-white/20 dark:border-t-white/80 animate-spin" />
           </div>
         )}
 
         {status === 'error' && (
           <div className="flex flex-col items-center gap-2 text-center px-6">
-            <p className="text-white/80 text-sm font-medium">Couldn&apos;t load media</p>
-            <p className="text-white/40 text-xs max-w-xs truncate">{state.src}</p>
+            <p className="text-mist-700 dark:text-white/80 text-sm font-medium">Couldn&apos;t load media</p>
+            <p className="text-mist-400 dark:text-white/40 text-xs max-w-xs truncate">{state.src}</p>
             <button
               type="button"
               onClick={() => { setRetry(r => r + 1); setStatus('loading') }}
-              className={`mt-2 ${headerChip} !h-8 !text-white`}
+              className={`mt-2 ${headerChip} !h-8`}
             >
               <span>Try again</span>
             </button>
@@ -725,7 +729,7 @@ export default function Lightbox({
                       onLoad={() => setStatus('ready')}
                     />
                   : (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-2 text-white/40 text-sm">
+                    <div className="flex-1 flex flex-col items-center justify-center gap-2 text-mist-400 dark:text-white/40 text-sm">
                       Preview not available
                     </div>
                   )}
@@ -754,7 +758,7 @@ export default function Lightbox({
       </div>
 
       {/* Bottom chrome — filmstrip + optional reset zoom */}
-      <div className="sticky bottom-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-white shrink-0 border-b-0 border-t border-black/10 dark:border-white/10">
+      <div className="sticky bottom-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-gray-900 dark:text-white shrink-0 border-b-0 border-t border-black/10 dark:border-white/10">
         {showStrip && (
           <LightboxFilmstrip
             currentIndex={(state.index ?? 1) - 1}
@@ -765,7 +769,7 @@ export default function Lightbox({
         )}
         <div className="px-4 pt-1 pb-[calc(0.5rem+var(--resibo-safe-bottom))]">
           {zoomed && isImage ? (
-            <button type="button" onClick={resetZoom} className="text-white/50 text-[11px] hover:text-white/90 transition-colors">
+            <button type="button" onClick={resetZoom} className="text-mist-500 dark:text-white/50 text-[11px] hover:text-mist-800 dark:hover:text-white/90 transition-colors">
               Reset zoom
             </button>
           ) : !showStrip ? (

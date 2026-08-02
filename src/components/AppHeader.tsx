@@ -11,25 +11,21 @@ interface AppHeaderProps {
   embedded?: boolean
   /** Replace title/actions with a full-width search field (plus Cancel). */
   searchMode?: boolean
-  /** Full-screen media overlay: force light-on-dark chrome. */
-  tone?: 'default' | 'media'
   /** Always show an X dismiss control (lightbox / modal). */
   dismiss?: boolean
 }
 
 export default function AppHeader({
-  title, onBack, actions, search, embedded, searchMode, tone = 'default', dismiss,
+  title, onBack, actions, search, embedded, searchMode, dismiss,
 }: AppHeaderProps) {
   const topPad = embedded
     ? 'pt-2.5'
     : 'pt-[calc(0.625rem+env(safe-area-inset-top))]'
 
   // Center detail header: always opaque so content never shows through.
-  const barCls = tone === 'media'
-    ? 'sticky top-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-white shrink-0'
-    : 'sticky top-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-gray-900 dark:text-white shrink-0'
-  const btnCls = tone === 'media' ? `${headerBtn} !text-white` : headerBtn
-  const chipCls = tone === 'media' ? `${headerChip} !text-white` : headerChip
+  const barCls = 'sticky top-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-gray-900 dark:text-white shrink-0'
+  const btnCls = headerBtn
+  const chipCls = headerChip
 
   const backButton = onBack ? (
     <button
