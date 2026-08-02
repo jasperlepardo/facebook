@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Message, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
 import { ContentTypeKey } from '@/lib/contentTypes'
+import { buildLocalMediaLightbox } from '@/lib/lightboxLocal'
 import OgLinkCard from '@/components/OgLinkCard'
 import { pill, pillIcon, pillLabel, pillSub, iconWell, card } from './MessageStyles'
 import { renderCallPill } from './MessageCallPill'
@@ -137,15 +138,15 @@ export function renderMedia({
                   className={cellCls}
                   src={r2(p.uri, { w: 480 })}
                   imgClassName="absolute inset-0 w-full h-full object-cover hover:opacity-90"
-                  onClick={() => onLightbox({
-                    src: r2(p.uri),
-                    uri: p.uri,
+                  onClick={() => onLightbox(buildLocalMediaLightbox({
+                    items: photos,
+                    index: i,
                     type: 'photo',
                     mediaType: 'photos',
-                    caption: '',
                     msgId: m._id,
                     ts: m.timestamp_ms,
-                  })}
+                    onLightbox,
+                  }))}
                   onContextMenu={e => imgCtx(e, p.uri)}
                 >
                   {isSuperAdmin && onHideUri && (
@@ -160,7 +161,21 @@ export function renderMedia({
 
       {m.videos?.map((v, i) =>
         !show('videos') || hideImages || hiddenUris?.has(v.uri) ? null
-          : <VideoThumb key={i} src={r2(v.uri)} onClick={() => onLightbox({ src: r2(v.uri), type: 'video', mediaType: 'videos', caption: '', msgId: m._id, ts: m.timestamp_ms })} />
+          : (
+            <VideoThumb
+              key={i}
+              src={r2(v.uri)}
+              onClick={() => onLightbox(buildLocalMediaLightbox({
+                items: m.videos!,
+                index: i,
+                type: 'video',
+                mediaType: 'videos',
+                msgId: m._id,
+                ts: m.timestamp_ms,
+                onLightbox,
+              }))}
+            />
+          )
       )}
 
       {m.audio_files?.map((a, i) =>
@@ -175,7 +190,15 @@ export function renderMedia({
               src={r2(g.uri)}
               className="mt-1 w-[280px] max-w-full aspect-[4/3] rounded-sm"
               imgClassName="absolute inset-0 w-full h-full object-contain"
-              onClick={() => onLightbox({ src: r2(g.uri), type: 'gif', mediaType: 'gifs', caption: '', msgId: m._id, ts: m.timestamp_ms })}
+              onClick={() => onLightbox(buildLocalMediaLightbox({
+                items: m.gifs!,
+                index: i,
+                type: 'gif',
+                mediaType: 'gifs',
+                msgId: m._id,
+                ts: m.timestamp_ms,
+                onLightbox,
+              }))}
               onContextMenu={e => imgCtx(e, g.uri)}
             />
           )

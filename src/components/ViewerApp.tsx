@@ -23,6 +23,7 @@ import { ListPaneSkeleton, ChatDetailSkeleton } from '@/components/skeletons'
 import AvatarGroup from '@/components/AvatarGroup'
 import { defaultThreadName, participantAvatars } from '@/lib/threadDisplay'
 import { headerBtn, headerBtnActive } from '@/lib/ui'
+import { createArchiveLightboxOpener } from '@/lib/lightboxArchive'
 
 type ThreadSideView = 'details' | 'media' | 'tag' | null
 
@@ -105,6 +106,20 @@ export default function ViewerApp() {
     setThreadSideView(null)
     setTagMsgIds(null)
   }, [])
+
+  const mediaThread = useMemo(() => {
+    const t = threads.find(th => th.id === activeThread)
+    return (t?.collection ?? activeThread) || 'messages'
+  }, [threads, activeThread])
+
+  const withMediaThread = useCallback((url: string) => (
+    `${url}${url.includes('?') ? '&' : '?'}thread=${mediaThread}`
+  ), [mediaThread])
+
+  const openArchiveLightbox = useMemo(
+    () => createArchiveLightboxOpener(withMediaThread, setLightbox),
+    [withMediaThread],
+  )
 
   // ─── Jump ─────────────────────────────────────────────────────────────────────
 
@@ -733,9 +748,9 @@ export default function ViewerApp() {
           return (
             <MediaPane
               key={`media-${activeThread}`}
-              thread={activeThread}
+              thread={mediaThread}
               counts={mediaCounts}
-              onLightbox={setLightbox}
+              onLightbox={state => { void openArchiveLightbox(state) }}
               onContextMenu={handleGalleryContextMenu}
               hideImages={hideImages}
               hiddenUris={allHiddenUris}

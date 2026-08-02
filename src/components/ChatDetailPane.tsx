@@ -121,7 +121,7 @@ export default function ChatDetailPane({
   const jump   = useMessageJump({
     withThread: loader.withThread, scrollRef, dateIndexRef,
     lowerOffset: loader.lowerOffset, upperOffset: loader.upperOffset,
-    resetFilters, loadMessages: loader.loadMessages, onLightbox,
+    resetFilters, loadMessages: loader.loadMessages,
   })
   const selection = useMessageSelection({
     withThread: loader.withThread,
@@ -464,7 +464,7 @@ export default function ChatDetailPane({
         <div className="min-h-full flex flex-col justify-end">
           <MessageList
             blocks={blocks}
-            onLightbox={jump.handleMsgLightbox}
+            onLightbox={onLightbox}
             selectedMsgIds={selection.selectedMsgs}
             onToggle={selection.handleToggle}
             onContextMenu={handleMsgContextMenu}
