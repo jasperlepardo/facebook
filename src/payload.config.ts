@@ -12,9 +12,9 @@ import { Users } from './collections/Users'
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
-if (!process.env.PAYLOAD_SECRET) {
-  throw new Error('PAYLOAD_SECRET environment variable is not set')
-}
+// Don't throw at import — `next build` evaluates this module while collecting
+// page data, and Preview deploys may not have secrets until runtime.
+const payloadSecret = process.env.PAYLOAD_SECRET || 'build-time-placeholder'
 
 export default buildConfig({
   admin: {
@@ -22,7 +22,7 @@ export default buildConfig({
   },
   collections: [Users, Hashtags, HashtagGroups, Participants, Threads],
   editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET,
+  secret: payloadSecret,
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },

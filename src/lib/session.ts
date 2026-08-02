@@ -1,18 +1,22 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
-if (!process.env.SESSION_SECRET) {
-  throw new Error('SESSION_SECRET environment variable is not set')
-}
-const SECRET = new TextEncoder().encode(process.env.SESSION_SECRET)
 const COOKIE = 'jc-session'
 const EXPIRES = 60 * 60 * 24 * 30 // 30 days
+
+function getSecret(): Uint8Array {
+  const secret = process.env.SESSION_SECRET
+  if (!secret) {
+    throw new Error('SESSION_SECRET environment variable is not set')
+  }
+  return new TextEncoder().encode(secret)
+}
 
 export async function createSession(userId: string, superAdmin = false) {
   const token = await new SignJWT({ sub: userId, superAdmin })
     .setProtectedHeader({ alg: 'HS256' })
     .setExpirationTime('30d')
-    .sign(SECRET)
+    .sign(getSecret())
 
   const jar = await cookies()
   jar.set(COOKIE, token, {
@@ -29,7 +33,7 @@ export async function getSession(): Promise<{ userId: string; superAdmin: boolea
   const token = jar.get(COOKIE)?.value
   if (!token) return null
   try {
-    const { payload } = await jwtVerify(token, SECRET)
+    const { payload } = await jwtVerify(token, getSecret())
     return { userId: payload.sub as string, superAdmin: !!(payload.superAdmin) }
   } catch {
     return null
