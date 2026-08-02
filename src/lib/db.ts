@@ -20,20 +20,29 @@ declare global {
 }
 
 function makeClientPromise() {
-  return new MongoClient(process.env.MONGODB_URI!, OPTIONS).connect()
+  const uri = process.env.MONGODB_URI
+  if (!uri) {
+    // Avoid throwing during `next build` module evaluation when env isn't loaded yet.
+    return Promise.reject(new Error('MONGODB_URI is not set'))
+  }
+  return new MongoClient(uri, OPTIONS).connect()
 }
 
-// In dev, attach to global so module hot-reloads don't open extra connections.
-const clientPromise: Promise<MongoClient> =
-  process.env.NODE_ENV === 'development'
-    ? (global._mongoClientPromise ??= makeClientPromise())
-    : makeClientPromise()
+// Lazy: Next.js evaluates route modules while collecting page data at build time.
+// Creating the client at import crashes the build when MONGODB_URI is absent (e.g. Vercel preview).
+function getClientPromise(): Promise<MongoClient> {
+  if (process.env.NODE_ENV === 'development') {
+    return (global._mongoClientPromise ??= makeClientPromise())
+  }
+  if (!global._mongoClientPromise) global._mongoClientPromise = makeClientPromise()
+  return global._mongoClientPromise
+}
 
 const indexedCollections = new Set<string>()
 
 export async function getCollection(collectionName: string) {
   assertSafeCollectionName(collectionName)
-  const col = (await clientPromise).db().collection(collectionName)
+  const col = (await getClientPromise()).db().collection(collectionName)
   if (!indexedCollections.has(collectionName)) {
     indexedCollections.add(collectionName)
     Promise.all([
@@ -57,29 +66,29 @@ export async function getCollection(collectionName: string) {
 export const getMessages = () => getCollection('messages')
 
 export async function getSettings() {
-  return (await clientPromise).db().collection('settings')
+  return (await getClientPromise()).db().collection('settings')
 }
 
 export async function getHashtagGroups() {
-  return (await clientPromise).db().collection<{ hashtagId: string; messageId: string; thread: string }>('hashtag-groups')
+  return (await getClientPromise()).db().collection<{ hashtagId: string; messageId: string; thread: string }>('hashtag-groups')
 }
 
 export async function getUserSettings() {
-  return (await clientPromise).db().collection('user_settings')
+  return (await getClientPromise()).db().collection('user_settings')
 }
 
 export async function getHiddenItems() {
-  return (await clientPromise).db().collection<HiddenItem>('hidden_items')
+  return (await getClientPromise()).db().collection<HiddenItem>('hidden_items')
 }
 
 export async function getHiddenSync() {
-  return (await clientPromise).db().collection<{ _id: string; version: number }>('hidden_sync')
+  return (await getClientPromise()).db().collection<{ _id: string; version: number }>('hidden_sync')
 }
 
 let dateIndexIndexed = false
 
 export async function getDateIndexCollection() {
-  const col = (await clientPromise).db().collection('date_indexes')
+  const col = (await getClientPromise()).db().collection('date_indexes')
   if (!dateIndexIndexed) {
     dateIndexIndexed = true
     col.createIndex({ thread: 1 }, { unique: true })
@@ -91,7 +100,7 @@ export async function getDateIndexCollection() {
 let arcsIndexed = false
 
 export async function getArcs() {
-  const col = (await clientPromise).db().collection('arcs')
+  const col = (await getClientPromise()).db().collection('arcs')
   if (!arcsIndexed) {
     arcsIndexed = true
     Promise.all([
@@ -105,7 +114,7 @@ export async function getArcs() {
 let summariesIndexed = false
 
 export async function getDailySummaries() {
-  const col = (await clientPromise).db().collection('daily_summaries')
+  const col = (await getClientPromise()).db().collection('daily_summaries')
   if (!summariesIndexed) {
     summariesIndexed = true
     Promise.all([

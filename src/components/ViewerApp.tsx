@@ -768,12 +768,12 @@ export default function ViewerApp() {
 
       {/* Overlays */}
       {lightbox && <Lightbox state={lightbox}
-        onClose={() => {
-          const { ts, msgId } = lightbox
-          setLightbox(null)
-          if (section === 'chat' && msgId && !document.getElementById('msg-' + msgId)) jumpToMessage(Number(ts), msgId)
-        }}
+        onClose={() => setLightbox(null)}
         onJumpToMessage={(ts, msgId) => { void goToMessage(ts, msgId) }}
+        isSuperAdmin={isSuperAdmin}
+        isHidden={!!(lightbox.uri && allHiddenUris.has(lightbox.uri))}
+        onHide={handleHideDbUri}
+        onUnhide={handleUnhideDbUri}
       />}
       {galleryCtxMenu && galleryCtxMenu.fromTouch ? (
         <ActionSheet
