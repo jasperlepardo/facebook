@@ -32,9 +32,6 @@ interface Props {
   hideImages: boolean
   hiddenUris: Set<string>
   hiddenMsgIds: Set<string>
-  onHideUri: (uri: string) => void
-  onHideDbUri: (uri: string) => void
-  onUnhideDbUri: (uri: string) => void
   onHideMessage: (id: string) => void
   onUnhideMessage: (id: string) => void
   onLightbox: (state: LightboxState) => void
@@ -53,7 +50,6 @@ export default function ChatDetailPane({
   search, searchActive = false, onSearchChange, onExitSearch, scrollRef,
   currentUser, isSuperAdmin, showHidden,
   hideImages, hiddenUris, hiddenMsgIds,
-  onHideUri: _onHideUri, onHideDbUri, onUnhideDbUri,
   onHideMessage, onUnhideMessage,
   onLightbox, onRegisterJump, enabledTypes, senderStyles,
   participants = [],
@@ -475,8 +471,6 @@ export default function ChatDetailPane({
             hiddenUris={hiddenUris}
             isSuperAdmin={isSuperAdmin}
             hiddenMsgIds={hiddenMsgIds}
-            onHideUri={onHideDbUri}
-            onUnhideUri={onUnhideDbUri}
             enabledTypes={enabledTypes}
             senderStyles={senderStyles}
           />

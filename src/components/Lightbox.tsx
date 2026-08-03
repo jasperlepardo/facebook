@@ -2,19 +2,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { LightboxState } from '@/types'
 import { headerBtn, headerChip, menu, menuItem, menuItemDanger } from '@/lib/ui'
-import AppHeader from '@/components/AppHeader'
 import ActionSheet, { ActionSheetAction } from '@/components/ActionSheet'
-import { GoToMessageIcon, HideIcon, UnhideIcon } from '@/components/icons'
+import { GoToMessageIcon, GoToGalleryIcon, HideIcon, UnhideIcon } from '@/components/icons'
 import { r2 } from '@/lib/format'
-
-function ChevronIcon({ dir }: { dir: 'left' | 'right' }) {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden
-      className={dir === 'right' ? 'rotate-180' : undefined}>
-      <path d="M15 18l-6-6 6-6" />
-    </svg>
-  )
-}
+import LightboxShell, {
+  LightboxStageSpinner,
+  lightboxCounterFromState,
+  lightboxTitleFromState,
+} from '@/components/LightboxShell'
 
 function MoreIcon() {
   return (
@@ -218,6 +213,7 @@ export default function Lightbox({
   state,
   onClose,
   onJumpToMessage,
+  onGoToGallery,
   isSuperAdmin,
   isHidden,
   onHide,
@@ -226,6 +222,7 @@ export default function Lightbox({
   state: LightboxState
   onClose: () => void
   onJumpToMessage?: (ts: number, msgId: string | null) => void
+  onGoToGallery?: (mediaType?: LightboxState['mediaType'] | 'files') => void
   isSuperAdmin?: boolean
   isHidden?: boolean
   onHide?: (uri: string) => void
@@ -243,12 +240,17 @@ export default function Lightbox({
   const panelRef = useRef<HTMLDivElement>(null)
   const slideViewportRef = useRef<HTMLDivElement>(null)
   const slideTrackRef = useRef<HTMLDivElement>(null)
+  const currentImgRef = useRef<HTMLImageElement | null>(null)
   const scaleRef = useRef(1)
   const panRef = useRef({ x: 0, y: 0 })
   const dismissYRef = useRef(0)
   const slideXRef = useRef(0)
   const slideBusyRef = useRef(false)
   const closingRef = useRef(false)
+  /** Neighbor URL we slid to — keep status ready across the state handoff. */
+  const pendingNavSrcRef = useRef<string | null>(null)
+  const srcRef = useRef(state.src)
+  srcRef.current = state.src
   const touchRef = useRef<{
     mode: TouchMode
     startX: number
@@ -298,9 +300,12 @@ export default function Lightbox({
     const viewport = slideViewportRef.current
     const track = slideTrackRef.current
     if (!viewport || !track) return
-    const w = viewport.clientWidth
+    const w = viewport.clientWidth || window.innerWidth
     for (const child of track.children) {
-      (child as HTMLElement).style.width = `${w}px`
+      const el = child as HTMLElement
+      el.style.flex = `0 0 ${w}px`
+      el.style.width = `${w}px`
+      el.style.minWidth = `${w}px`
     }
     track.style.width = `${w * 3}px`
     applySlideTransform(slideXRef.current, false)
@@ -317,27 +322,52 @@ export default function Lightbox({
     if (dir === 'prev' && !canPrev) return
     if (dir === 'next' && !canNext) return
     slideBusyRef.current = true
+    const srcAtCommit = state.src
+    const targetSrc = dir === 'prev' ? state.prevSrc : state.nextSrc
+    pendingNavSrcRef.current = targetSrc ?? null
     const w = getStageWidth()
     applySlideTransform(dir === 'prev' ? w : -w, true)
     window.setTimeout(() => {
-      if (dir === 'prev') onPrev?.()
-      else onNext?.()
-      slideBusyRef.current = false
-      resetSlideTrack(false)
+      void (async () => {
+        try {
+          if (dir === 'prev') await Promise.resolve(onPrev?.())
+          else await Promise.resolve(onNext?.())
+        } finally {
+          // If navigation never landed a new src, spring back.
+          queueMicrotask(() => {
+            requestAnimationFrame(() => {
+              if (srcRef.current === srcAtCommit) {
+                pendingNavSrcRef.current = null
+                slideBusyRef.current = false
+                resetSlideTrack(true)
+              }
+            })
+          })
+        }
+      })()
     }, SLIDE_MS)
-  }, [applySlideTransform, canNext, canPrev, getStageWidth, onNext, onPrev, resetSlideTrack])
+  }, [
+    applySlideTransform, canNext, canPrev, getStageWidth, onNext, onPrev,
+    resetSlideTrack, state.nextSrc, state.prevSrc, state.src,
+  ])
 
   const navigatePrev = useCallback(() => {
     if (!canPrev || slideBusyRef.current) return
     if (slidePagerActive) commitSlide('prev')
-    else onPrev?.()
-  }, [canPrev, commitSlide, onPrev, slidePagerActive])
+    else {
+      pendingNavSrcRef.current = state.prevSrc ?? null
+      void Promise.resolve(onPrev?.())
+    }
+  }, [canPrev, commitSlide, onPrev, slidePagerActive, state.prevSrc])
 
   const navigateNext = useCallback(() => {
     if (!canNext || slideBusyRef.current) return
     if (slidePagerActive) commitSlide('next')
-    else onNext?.()
-  }, [canNext, commitSlide, onNext, slidePagerActive])
+    else {
+      pendingNavSrcRef.current = state.nextSrc ?? null
+      void Promise.resolve(onNext?.())
+    }
+  }, [canNext, commitSlide, onNext, slidePagerActive, state.nextSrc])
   const showStrip = !!(
     state.total && state.total > 1
     && state.index != null
@@ -395,12 +425,28 @@ export default function Lightbox({
     finishClose()
   }, [resetZoom, finishClose])
 
+  const markImageReady = useCallback((el: HTMLImageElement | null) => {
+    currentImgRef.current = el
+    if (el && el.complete && el.naturalWidth > 0) setStatus('ready')
+  }, [])
+
+  const onCurrentImageLoad = useCallback(async (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const el = e.currentTarget
+    currentImgRef.current = el
+    try { await el.decode() } catch { /* decode optional */ }
+    setStatus('ready')
+  }, [])
+
+  useLayoutEffect(() => {
+    // Snap the 3-slide track to the new current in the same frame as the src swap
+    // so we never flash the previous center slide after a commit animation.
+    resetSlideTrack(false)
+    slideBusyRef.current = false
+  }, [state.src, resetSlideTrack])
+
   useEffect(() => {
-    setStatus('loading')
     resetZoom()
     dismissYRef.current = 0
-    slideBusyRef.current = false
-    resetSlideTrack(false)
     const panel = panelRef.current
     const scrim = scrimRef.current
     if (panel) {
@@ -411,12 +457,30 @@ export default function Lightbox({
       scrim.style.transition = 'none'
       scrim.style.opacity = '1'
     }
+
     if (state.type === 'file') {
       const ext = (state.caption ?? '').split('.').pop()?.toLowerCase() ?? ''
       const officeExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx']
-      if (ext !== 'pdf' && !officeExts.includes(ext)) setStatus('ready')
+      if (ext !== 'pdf' && !officeExts.includes(ext)) {
+        setStatus('ready')
+        return
+      }
     }
-  }, [state.src, state.type, state.caption, resetZoom, resetSlideTrack, retry])
+
+    // Neighbor we already painted in the slide track — keep status ready (no spinner gap).
+    if (pendingNavSrcRef.current && pendingNavSrcRef.current === state.src) {
+      pendingNavSrcRef.current = null
+      return
+    }
+    pendingNavSrcRef.current = null
+
+    const img = currentImgRef.current
+    if (img && img.currentSrc === state.src && img.complete && img.naturalWidth > 0) {
+      setStatus('ready')
+      return
+    }
+    setStatus('loading')
+  }, [state.src, state.type, state.caption, resetZoom, retry])
 
   useLayoutEffect(() => {
     if (!useSlidePager) return
@@ -426,16 +490,17 @@ export default function Lightbox({
     return () => window.removeEventListener('resize', onResize)
   }, [layoutSlideTrack, useSlidePager, state.src, state.prevSrc, state.nextSrc])
 
-  // Prefetch neighbors only once the clicked image is on screen — first paint keeps the bandwidth.
+  // Warm neighbors as soon as the current frame is ready; also warm while sliding.
   useEffect(() => {
-    if (!isImage || status !== 'ready') return
+    if (!isImage) return
     const urls = [state.prevSrc, state.nextSrc].filter((u): u is string => !!u && u !== state.src)
     if (!urls.length) return
+    const priority = status === 'ready' ? 'high' : 'low'
     const idle = window.requestAnimationFrame(() => {
       urls.forEach(src => {
         const img = new Image()
         img.decoding = 'async'
-        img.fetchPriority = 'low'
+        img.fetchPriority = priority
         img.src = src
       })
     })
@@ -620,18 +685,29 @@ export default function Lightbox({
     setDragging(false)
   }
 
-  const typeLabel = state.type === 'video' ? 'Video' : state.type === 'gif' ? 'GIF' : state.type === 'file' ? 'File' : 'Photo'
-  const counter = state.index != null && state.total != null && state.total > 1
-    ? `${state.index} / ${state.total}`
-    : null
+  const counter = lightboxCounterFromState(state)
   // Prefer human caption (date · sender, or real document name). Avoid opaque photo hash filenames.
-  const titleText = state.caption?.trim() || typeLabel
+  const titleText = lightboxTitleFromState(state)
 
   const actions: LightboxAction[] = []
-  if (onJumpToMessage && state.ts != null) {
+  const fromChat = state.source === 'chat'
+  const fromGallery = state.source === 'gallery' || (!state.source && !!state.mediaType)
+  if (fromChat && onGoToGallery) {
+    const tab = state.mediaType
+      ?? (state.type === 'file' ? 'files' as const
+        : state.type === 'video' ? 'videos' as const
+        : state.type === 'gif' ? 'gifs' as const
+        : 'photos' as const)
+    actions.push({
+      id: 'goToGallery',
+      label: 'Go to gallery',
+      icon: <GoToGalleryIcon size={15} />,
+      onPress: () => { onGoToGallery(tab === 'files' ? 'files' : tab); onClose() },
+    })
+  } else if (onJumpToMessage && state.ts != null && (fromGallery || !fromChat)) {
     actions.push({
       id: 'viewInChat',
-      label: 'View in chat',
+      label: 'Go to chat',
       icon: <GoToMessageIcon size={15} />,
       onPress: () => { onJumpToMessage(state.ts!, state.msgId ?? null); onClose() },
     })
@@ -726,76 +802,47 @@ export default function Lightbox({
   ) : null
 
   return (
-    <div
-      className="fixed inset-0 z-999"
-      role="dialog"
-      aria-modal
-      aria-label="Media viewer"
-    >
-      {/* Scrim fades as the page is pulled down (same idea as chat settings sheet). */}
-      <div
-        ref={scrimRef}
-        className="absolute inset-0 bg-mist-50/95 dark:bg-black/95 [animation:fade-in_160ms_ease-out]"
-      />
-
-      {/* Whole page panel — header, stage, and filmstrip slide together. */}
-      <div
-        ref={panelRef}
-        className="absolute inset-0 flex flex-col bg-mist-50 dark:bg-mist-950 text-gray-900 dark:text-white [animation:fade-in_160ms_ease-out] will-change-transform"
-        style={{ transform: 'translate3d(0,0,0)' }}
-      >
-      <AppHeader
-        dismiss
-        onBack={requestClose}
-        title={(
-          <div className="min-w-0">
-            <p className="text-sm font-bold truncate">{titleText}</p>
-            {counter && (
-              <p className="text-[11px] text-mist-500 dark:text-white/55 tabular-nums truncate">{counter}</p>
-            )}
-          </div>
-        )}
-        actions={headerActions}
-      />
-
-      {/* Media stage — keep a dark letterbox so photos read in both themes */}
-      <div
-        className="flex-1 min-h-0 relative flex items-center justify-center px-2 select-none touch-none bg-mist-100/80 dark:bg-black/40"
-        onClick={e => { if (e.target === e.currentTarget && !zoomed && dismissYRef.current < 8) requestClose() }}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        onTouchCancel={() => {
+    <>
+    <LightboxShell
+      title={titleText}
+      counter={counter}
+      onClose={requestClose}
+      headerActions={headerActions}
+      scrimRef={scrimRef}
+      panelRef={panelRef}
+      canPrev={canPrev}
+      canNext={canNext}
+      onPrev={navigatePrev}
+      onNext={navigateNext}
+      strip={showStrip ? (
+        <LightboxFilmstrip
+          currentIndex={(state.index ?? 1) - 1}
+          total={state.total!}
+          loadStrip={state.loadStrip!}
+          onGoToIndex={state.onGoToIndex!}
+        />
+      ) : undefined}
+      footer={zoomed && isImage ? (
+        <button type="button" onClick={resetZoom} className="text-mist-500 dark:text-white/50 text-[11px] hover:text-mist-800 dark:hover:text-white/90 transition-colors">
+          Reset zoom
+        </button>
+      ) : !showStrip ? (
+        <div className="h-1" />
+      ) : null}
+      stageProps={{
+        onClick: e => { if (e.target === e.currentTarget && !zoomed && dismissYRef.current < 8) requestClose() },
+        onTouchStart,
+        onTouchMove,
+        onTouchEnd,
+        onTouchCancel: () => {
           touchRef.current.mode = 'none'
           setDragging(false)
           resetDismiss()
           if (slidePagerActive) resetSlideTrack(true)
-        }}
-      >
-        <button
-          type="button"
-          aria-label="Previous"
-          disabled={!canPrev}
-          onClick={navigatePrev}
-          className={`hidden md:flex absolute left-[max(0.25rem,env(safe-area-inset-left))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} ${canPrev ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
-        >
-          <ChevronIcon dir="left" />
-        </button>
-        <button
-          type="button"
-          aria-label="Next"
-          disabled={!canNext}
-          onClick={navigateNext}
-          className={`hidden md:flex absolute right-[max(0.25rem,env(safe-area-inset-right))] top-1/2 -translate-y-1/2 z-10 ${headerBtn} ${canNext ? 'opacity-80 hover:opacity-100' : 'opacity-25 cursor-default'}`}
-        >
-          <ChevronIcon dir="right" />
-        </button>
-
-        {status === 'loading' && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-9 h-9 rounded-full border-2 border-mist-300 border-t-mist-600 dark:border-white/20 dark:border-t-white/80 animate-spin" />
-          </div>
-        )}
+        },
+      }}
+    >
+        {status === 'loading' && <LightboxStageSpinner />}
 
         {status === 'error' && (
           <div className="flex flex-col items-center gap-2 text-center px-6">
@@ -849,13 +896,14 @@ export default function Lightbox({
             )
           })()
         ) : status !== 'error' ? (
-          <div ref={slideViewportRef} className="relative w-full h-full overflow-hidden flex items-center justify-center">
+          // Track is left-aligned (not flex-centered): translate(-33%) must land on the middle slot.
+          <div ref={slideViewportRef} className="relative w-full h-full overflow-hidden">
             <div
               ref={slideTrackRef}
-              className="flex h-full items-center shrink-0 will-change-transform"
-              style={{ transform: 'translate3d(0,0,0)' }}
+              className="absolute inset-y-0 left-0 flex h-full items-center will-change-transform"
+              style={{ width: '300%', transform: 'translate3d(-33.333%,0,0)' }}
             >
-              <div className="h-full flex items-center justify-center shrink-0">
+              <div className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0">
                 {state.prevSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -867,11 +915,12 @@ export default function Lightbox({
                   />
                 ) : null}
               </div>
-              <div className="h-full flex items-center justify-center shrink-0">
+              <div className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0">
                 {/* Archive media is served via same-origin /api/media — next/image is intentionally unused. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   key={`${state.src}-${retry}`}
+                  ref={markImageReady}
                   src={state.src}
                   alt={state.caption || ''}
                   draggable={false}
@@ -882,11 +931,11 @@ export default function Lightbox({
                     transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
                     transition: dragging ? undefined : 'transform 180ms ease-out',
                   }}
-                  onLoad={() => setStatus('ready')}
+                  onLoad={onCurrentImageLoad}
                   onError={() => setStatus('error')}
                 />
               </div>
-              <div className="h-full flex items-center justify-center shrink-0">
+              <div className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0">
                 {state.nextSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -901,29 +950,7 @@ export default function Lightbox({
             </div>
           </div>
         ) : null}
-      </div>
-
-      {/* Bottom chrome — filmstrip + optional reset zoom */}
-      <div className="sticky bottom-0 z-20 liquid-glass-bar liquid-glass-bar-frosted text-gray-900 dark:text-white shrink-0 border-b-0 border-t border-black/10 dark:border-white/10">
-        {showStrip && (
-          <LightboxFilmstrip
-            currentIndex={(state.index ?? 1) - 1}
-            total={state.total!}
-            loadStrip={state.loadStrip!}
-            onGoToIndex={state.onGoToIndex!}
-          />
-        )}
-        <div className="px-4 pt-1 pb-[calc(0.5rem+var(--resibo-safe-bottom))]">
-          {zoomed && isImage ? (
-            <button type="button" onClick={resetZoom} className="text-mist-500 dark:text-white/50 text-[11px] hover:text-mist-800 dark:hover:text-white/90 transition-colors">
-              Reset zoom
-            </button>
-          ) : !showStrip ? (
-            <div className="h-1" />
-          ) : null}
-        </div>
-      </div>
-      </div>
+    </LightboxShell>
 
       {sheetOpen && (
         <ActionSheet
@@ -932,6 +959,6 @@ export default function Lightbox({
           onClose={() => setSheetOpen(false)}
         />
       )}
-    </div>
+    </>
   )
 }

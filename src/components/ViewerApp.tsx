@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
-import { Section, Thread, LightboxState, ContextMenuState, GalleryItem } from '@/types'
+import { Section, Thread, LightboxState, ContextMenuState, GalleryItem, MediaTab } from '@/types'
 import { toast } from '@/lib/toast'
 import { ContentTypeKey, ALL_CONTENT_TYPE_KEYS, DEFAULT_ENABLED } from '@/lib/contentTypes'
 import { useHashtagPaneState } from '@/hooks/useHashtagPaneState'
@@ -24,6 +24,7 @@ import AvatarGroup from '@/components/AvatarGroup'
 import { defaultThreadName, participantAvatars } from '@/lib/threadDisplay'
 import { headerBtn, headerBtnActive } from '@/lib/ui'
 import { createArchiveLightboxOpener } from '@/lib/lightboxArchive'
+import { LightboxLoadingShell } from '@/components/LightboxShell'
 
 type ThreadSideView = 'details' | 'media' | 'tag' | null
 
@@ -33,7 +34,53 @@ const SettingsPane = dynamic(() => import('./settings/SettingsPane'), { ssr: fal
 const ThreadDetailsPane = dynamic(() => import('./ThreadDetailsPane'), { ssr: false })
 const HashtagDetailsPane = dynamic(() => import('./HashtagDetailsPane'), { ssr: false })
 const MediaPane = dynamic(() => import('./MediaPane'), { ssr: false })
-const Lightbox     = dynamic(() => import('./Lightbox'), { ssr: false })
+
+function LightboxOverlay({
+  state,
+  onClose,
+  onJumpToMessage,
+  onGoToGallery,
+  isSuperAdmin,
+  isHidden,
+  onHide,
+  onUnhide,
+}: {
+  state: LightboxState
+  onClose: () => void
+  onJumpToMessage?: (ts: number, msgId: string | null) => void
+  onGoToGallery?: (mediaType?: import('@/types').LightboxState['mediaType'] | 'files') => void
+  isSuperAdmin?: boolean
+  isHidden?: boolean
+  onHide?: (uri: string) => void
+  onUnhide?: (uri: string) => void
+}) {
+  const [LightboxComp, setLightboxComp] = useState<typeof import('./Lightbox').default | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    void import('./Lightbox').then(mod => {
+      if (alive) setLightboxComp(() => mod.default)
+    })
+    return () => { alive = false }
+  }, [])
+
+  if (!LightboxComp) {
+    return <LightboxLoadingShell state={state} onClose={onClose} />
+  }
+
+  return (
+    <LightboxComp
+      state={state}
+      onClose={onClose}
+      onJumpToMessage={onJumpToMessage}
+      onGoToGallery={onGoToGallery}
+      isSuperAdmin={isSuperAdmin}
+      isHidden={isHidden}
+      onHide={onHide}
+      onUnhide={onUnhide}
+    />
+  )
+}
 
 export default function ViewerApp() {
   // Navigation — SSR-safe defaults; URL restored in useViewerUrlSync after mount
@@ -80,6 +127,7 @@ export default function ViewerApp() {
   // ─── UI state ─────────────────────────────────────────────────────────────────
   const [hideImages, setHideImages]         = useState(false)
   const [threadSideView, setThreadSideView] = useState<ThreadSideView>(null)
+  const [mediaInitialTab, setMediaInitialTab] = useState<MediaTab>('photos')
   const [tagMsgIds, setTagMsgIds] = useState<string[] | null>(null)
   const clearChatSelectionRef = useRef<(() => void) | null>(null)
   const [hashtagSideView, setHashtagSideView] = useState(false)
@@ -176,6 +224,17 @@ export default function ViewerApp() {
     layoutControlsRef.current?.onShowDetail()
     await jumpToMessage(ts, msgId, thread)
   }, [jumpToMessage, closeThreadSideView, setHashtagSearchOpen, setHashtagMsgFilter])
+
+  const goToGallery = useCallback((mediaType?: LightboxState['mediaType'] | 'files') => {
+    setLightbox(null)
+    setTagMsgIds(null)
+    const tab: MediaTab =
+      mediaType === 'videos' || mediaType === 'gifs' || mediaType === 'photos' || mediaType === 'files'
+        ? mediaType
+        : 'photos'
+    setMediaInitialTab(tab)
+    setThreadSideView('media')
+  }, [])
 
   const jumpToDate = useCallback((ts: number) => {
     goToMessage(ts, null)
@@ -283,8 +342,15 @@ export default function ViewerApp() {
   const handleGalleryContextMenu = useCallback((e: React.MouseEvent, item: GalleryItem) => {
     e.preventDefault()
     const fromTouch = !!(e as unknown as { _fromTouch?: boolean })._fromTouch
-    if (!fromTouch) return
-    setGalleryCtxMenu({ x: e.clientX, y: e.clientY, kind: 'gallery', galTs: String(item.ts), galMsgId: item.msgId ?? null, mediaUri: item.uri, fromTouch: true })
+    setGalleryCtxMenu({
+      x: e.clientX,
+      y: e.clientY,
+      kind: 'gallery',
+      galTs: String(item.ts),
+      galMsgId: item.msgId ?? null,
+      mediaUri: item.uri,
+      fromTouch,
+    })
   }, [])
 
   // ─── Content type settings ───────────────────────────────────────────────────
@@ -527,9 +593,6 @@ export default function ViewerApp() {
               hideImages={hideImages}
               hiddenUris={allHiddenUris}
               hiddenMsgIds={effectiveHiddenMsgIds}
-              onHideUri={hideUri}
-              onHideDbUri={handleHideDbUri}
-              onUnhideDbUri={handleUnhideDbUri}
               onHideMessage={handleHideMessage}
               onUnhideMessage={handleUnhideMessage}
               onLightbox={setLightbox}
@@ -580,8 +643,6 @@ export default function ViewerApp() {
               hiddenMsgIds={effectiveHiddenMsgIds}
               onHideMessage={handleHideMessage}
               onUnhideMessage={handleUnhideMessage}
-              onHideUri={handleHideDbUri}
-              onUnhideUri={handleUnhideDbUri}
               senderStyles={senderStyles}
               enabledTypes={enabledTypes}
               showHidden={showHidden}
@@ -724,7 +785,7 @@ export default function ViewerApp() {
                 isSuperAdmin={isSuperAdmin}
                 showHidden={showHidden}
                 onToggleShowHidden={handleToggleShowHidden}
-                onOpenMedia={() => { setTagMsgIds(null); setThreadSideView('media') }}
+                onOpenMedia={() => { setTagMsgIds(null); setMediaInitialTab('photos'); setThreadSideView('media') }}
                 onThreadDeleted={collection => {
                   setThreads(prev => prev.filter(th => th.collection !== collection))
                   setActiveThread(prev => prev === collection ? (threads.find(th => th.collection !== collection)?.id ?? 'messages') : prev)
@@ -747,17 +808,15 @@ export default function ViewerApp() {
           if (threadSideView !== 'media') return undefined
           return (
             <MediaPane
-              key={`media-${activeThread}`}
+              key={`media-${activeThread}-${mediaInitialTab}`}
               thread={mediaThread}
               counts={mediaCounts}
+              initialTab={mediaInitialTab}
               onLightbox={state => { void openArchiveLightbox(state) }}
               onContextMenu={handleGalleryContextMenu}
               hideImages={hideImages}
               hiddenUris={allHiddenUris}
               isSuperAdmin={isSuperAdmin}
-              onHideUri={handleHideDbUri}
-              onUnhideUri={handleUnhideDbUri}
-              onGoToMessage={(ts, msgId) => { void goToMessage(ts, msgId) }}
               onBack={() => { setTagMsgIds(null); setThreadSideView('details') }}
             />
           )
@@ -782,9 +841,10 @@ export default function ViewerApp() {
       />
 
       {/* Overlays */}
-      {lightbox && <Lightbox state={lightbox}
+      {lightbox && <LightboxOverlay state={lightbox}
         onClose={() => setLightbox(null)}
         onJumpToMessage={(ts, msgId) => { void goToMessage(ts, msgId) }}
+        onGoToGallery={goToGallery}
         isSuperAdmin={isSuperAdmin}
         isHidden={!!(lightbox.uri && allHiddenUris.has(lightbox.uri))}
         onHide={handleHideDbUri}
@@ -795,22 +855,27 @@ export default function ViewerApp() {
           onClose={() => setGalleryCtxMenu(null)}
           actions={[
             ...(galleryCtxMenu.kind === 'gallery' && galleryCtxMenu.galMsgId ? [{ label: 'Go to message', onPress: () => { void goToMessage(Number(galleryCtxMenu.galTs), galleryCtxMenu.galMsgId!); setGalleryCtxMenu(null) } }] : []),
-            ...(galleryCtxMenu.mediaUri && isSuperAdmin ? [
+            ...(galleryCtxMenu.kind === 'gallery' && galleryCtxMenu.mediaUri && isSuperAdmin ? [
               allHiddenUris.has(galleryCtxMenu.mediaUri)
                 ? { label: 'Unhide', onPress: () => { handleUnhideDbUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } }
                 : { label: 'Hide', destructive: true, onPress: () => { handleHideDbUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } }
             ] : []),
             ...(galleryCtxMenu.kind === 'media' && galleryCtxMenu.mediaUri ? [
-              { label: 'Hide image', destructive: true, onPress: () => { hideUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } },
+              allHiddenUris.has(galleryCtxMenu.mediaUri)
+                ? { label: 'Unhide', onPress: () => { handleUnhideDbUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } }
+                : { label: 'Hide image', destructive: true, onPress: () => { hideUri(galleryCtxMenu.mediaUri!); setGalleryCtxMenu(null) } },
             ] : []),
           ]}
         />
-      ) : galleryCtxMenu && galleryCtxMenu.kind === 'media' ? (
+      ) : galleryCtxMenu ? (
         <ContextMenu
           state={galleryCtxMenu}
           onClose={() => setGalleryCtxMenu(null)}
-          onJumpToMessage={() => {}}
-          onHideUri={hideUri}
+          onJumpToMessage={(ts, msgId) => { void goToMessage(Number(ts), msgId) }}
+          onHideUri={galleryCtxMenu.kind === 'gallery' ? handleHideDbUri : hideUri}
+          onUnhideUri={handleUnhideDbUri}
+          isHidden={!!(galleryCtxMenu.mediaUri && allHiddenUris.has(galleryCtxMenu.mediaUri))}
+          isSuperAdmin={isSuperAdmin}
         />
       ) : null}
     </div>

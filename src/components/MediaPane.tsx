@@ -17,9 +17,6 @@ interface Props {
   hideImages?: boolean
   hiddenUris?: Set<string>
   isSuperAdmin?: boolean
-  onHideUri?: (uri: string) => void
-  onUnhideUri?: (uri: string) => void
-  onGoToMessage?: (ts: number, msgId: string) => void
   thread?: string
   onBack?: () => void
 }
@@ -37,8 +34,7 @@ const MEDIA_TABS: { key: MediaTab; label: string }[] = [
 
 export default function MediaPane({
   initialTab, counts, thread = 'messages',
-  onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin,
-  onHideUri, onUnhideUri, onGoToMessage, onBack,
+  onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, onBack,
 }: Props) {
   const [tab, setTab] = useState<MediaTab>(initialTab ?? 'photos')
 
@@ -57,10 +53,10 @@ export default function MediaPane({
 
       <Tabs tabs={tabsWithCounts} active={tab} onChange={k => setTab(k)} scrollable />
       <div className={`flex-1 flex flex-col min-h-0 ${pbSafe} md:pb-0`}>
-        {tab === 'photos'   && <Gallery type="photos"   thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} onGoToMessage={onGoToMessage} />}
-        {tab === 'videos'   && <Gallery type="videos"   thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} onGoToMessage={onGoToMessage} />}
-        {tab === 'gifs'     && <Gallery type="gifs"     thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} onGoToMessage={onGoToMessage} />}
-        {tab === 'stickers' && <Gallery type="stickers" thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} onHideUri={onHideUri} onUnhideUri={onUnhideUri} onGoToMessage={onGoToMessage} />}
+        {tab === 'photos'   && <Gallery type="photos"   thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} />}
+        {tab === 'videos'   && <Gallery type="videos"   thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} />}
+        {tab === 'gifs'     && <Gallery type="gifs"     thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} />}
+        {tab === 'stickers' && <Gallery type="stickers" thread={thread} onLightbox={onLightbox} onContextMenu={onContextMenu} hideImages={hideImages} hiddenUris={hiddenUris} isSuperAdmin={isSuperAdmin} />}
         {tab === 'audio'    && <FilesView type="audio" thread={thread} />}
         {tab === 'files'    && <FilesView type="files" thread={thread} />}
         {tab === 'links'    && <LinksView thread={thread} />}

@@ -45,6 +45,17 @@ export function GoToMessageIcon({ size = 14, className = '' }: IconProps) {
   )
 }
 
+export function GoToGalleryIcon({ size = 14, className = '' }: IconProps) {
+  return (
+    <Svg size={size} className={className}>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </Svg>
+  )
+}
+
 export function TagIcon({ size = 14, className = '' }: IconProps) {
   return (
     <Svg size={size} className={className}>

@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { GalleryItem, LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
+import { lightboxMediaCaption } from '@/lib/lightboxCaption'
 import { GALLERY_LIMIT } from '@/lib/constants'
 import { GallerySkeleton } from '@/components/skeletons'
 import { pbSafe } from '@/lib/ui'
-import MessageRowActions from '@/components/message/MessageRowActions'
-import { buildMessageActions } from '@/lib/messageActions'
 
 interface GalleryProps {
   type: 'photos' | 'videos' | 'gifs' | 'stickers'
@@ -17,50 +16,9 @@ interface GalleryProps {
   hideImages?: boolean
   hiddenUris?: Set<string>
   isSuperAdmin?: boolean
-  onHideUri?: (uri: string) => void
-  onUnhideUri?: (uri: string) => void
-  onGoToMessage?: (ts: number, msgId: string) => void
 }
 
-function GalleryCellActions({
-  item,
-  isHidden,
-  isSuperAdmin,
-  onHideUri,
-  onUnhideUri,
-  onGoToMessage,
-}: {
-  item: GalleryItem
-  isHidden?: boolean
-  isSuperAdmin?: boolean
-  onHideUri?: (uri: string) => void
-  onUnhideUri?: (uri: string) => void
-  onGoToMessage?: (ts: number, msgId: string) => void
-}) {
-  const actions = buildMessageActions({
-    surface: 'gallery',
-    count: 1,
-    isHidden,
-    isSuperAdmin,
-    omitSelect: true,
-    callbacks: {
-      onGoToMessage: item.msgId && onGoToMessage
-        ? () => onGoToMessage(item.ts, item.msgId!)
-        : undefined,
-      onHide: onHideUri ? () => onHideUri(item.uri) : undefined,
-      onUnhide: onUnhideUri ? () => onUnhideUri(item.uri) : undefined,
-    },
-  })
-  if (!actions.length) return null
-  return (
-    <MessageRowActions
-      actions={actions}
-      className="absolute top-1.5 right-1.5 opacity-0 group-hover/cell:opacity-100 transition-opacity z-10"
-    />
-  )
-}
-
-export default function Gallery({ type, thread = 'messages', onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri, onGoToMessage }: GalleryProps) {
+export default function Gallery({ type, thread = 'messages', onLightbox, onContextMenu, hideImages, hiddenUris, isSuperAdmin }: GalleryProps) {
   const [items, setItems]     = useState<GalleryItem[]>([])
   const itemsRef    = useRef<GalleryItem[]>([])
   const [hasMore, setHasMore] = useState(true)
@@ -211,22 +169,48 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
           if (isHidden && !isSuperAdmin) return null
 
           if (isHidden && isSuperAdmin) return (
-            <div key={i} className="aspect-square rounded-xs bg-gray-200 dark:bg-mist-700 relative flex flex-col items-center justify-center gap-1 group/cell">
+            <div
+              key={i}
+              className="aspect-square rounded-xs bg-gray-200 dark:bg-mist-700 relative flex flex-col items-center justify-center gap-1 cursor-pointer"
+              style={{ WebkitTouchCallout: 'none' }}
+              onClick={() => {
+                const kind = type === 'videos' ? 'video' as const : type === 'gifs' ? 'gif' as const : 'photo' as const
+                onLightbox({
+                  src: r2(item.uri),
+                  uri: item.uri,
+                  type: type === 'stickers' ? 'photo' : kind,
+                  mediaType: type === 'stickers' ? undefined : type,
+                  caption: lightboxMediaCaption(item.ts, item.sender),
+                  msgId: item.msgId,
+                  ts: item.ts,
+                  source: 'gallery',
+                })
+              }}
+              onContextMenu={e => { e.preventDefault(); onContextMenu(e, item) }}
+              onTouchStart={e => {
+                if (e.touches.length !== 1) return
+                const t = e.touches[0]
+                touchPos.current = { x: t.clientX, y: t.clientY }
+                longPressTimer.current = setTimeout(() => {
+                  onContextMenu(
+                    { clientX: touchPos.current.x, clientY: touchPos.current.y, preventDefault: () => {}, _fromTouch: true } as unknown as React.MouseEvent,
+                    item,
+                  )
+                }, 500)
+              }}
+              onTouchEnd={() => clearTimeout(longPressTimer.current)}
+              onTouchMove={() => clearTimeout(longPressTimer.current)}
+              data-ts={item.ts}
+              data-msg-id={item.msgId}
+            >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
               <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hidden</span>
-              <GalleryCellActions
-                item={item}
-                isHidden
-                isSuperAdmin={isSuperAdmin}
-                onUnhideUri={onUnhideUri}
-                onGoToMessage={onGoToMessage}
-              />
             </div>
           )
 
           return (
             <div key={i}
-              className="aspect-square overflow-hidden cursor-pointer rounded-xs bg-gray-200 dark:bg-mist-700 relative hover:opacity-85 group/cell"
+              className="aspect-square overflow-hidden cursor-pointer rounded-xs bg-gray-200 dark:bg-mist-700 relative hover:opacity-85"
               style={{ WebkitTouchCallout: 'none' }}
               onClick={() => {
                 // Stickers: loaded-list carousel only (attachments offsetOf is array-types).
@@ -243,9 +227,10 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
                       src: r2(items[idx].uri),
                       uri: items[idx].uri,
                       type: 'photo',
-                      caption: `${new Date(items[idx].ts).toLocaleDateString()} · ${items[idx].sender}`,
+                      caption: lightboxMediaCaption(items[idx].ts, items[idx].sender),
                       msgId: items[idx].msgId,
                       ts: items[idx].ts,
+                      source: 'gallery',
                       index: idx + 1,
                       total: items.length,
                       prevSrc: prev ? r2(prev.uri) : undefined,
@@ -269,12 +254,13 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
                   uri: item.uri,
                   type: kind,
                   mediaType: type,
-                  caption: `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
+                  caption: lightboxMediaCaption(item.ts, item.sender),
                   msgId: item.msgId,
                   ts: item.ts,
+                  source: 'gallery',
                 })
               }}
-              onContextMenu={e => { e.preventDefault() }}
+              onContextMenu={e => { e.preventDefault(); onContextMenu(e, item) }}
               onTouchStart={e => {
                 if (e.touches.length !== 1) return
                 const t = e.touches[0]
@@ -295,12 +281,6 @@ export default function Gallery({ type, thread = 'messages', onLightbox, onConte
                 ? <video src={r2(item.uri)} preload="none" className="absolute inset-0 w-full h-full object-cover" />
                 : <img src={r2(item.uri, { w: 480 })} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
               }
-              <GalleryCellActions
-                item={item}
-                isSuperAdmin={isSuperAdmin}
-                onHideUri={onHideUri}
-                onGoToMessage={onGoToMessage}
-              />
             </div>
           )
         })}

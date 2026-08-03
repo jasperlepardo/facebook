@@ -19,8 +19,6 @@ interface MessageListProps {
   hiddenUris?: Set<string>
   isSuperAdmin?: boolean
   hiddenMsgIds?: Set<string>
-  onHideUri?: (uri: string) => void
-  onUnhideUri?: (uri: string) => void
   enabledTypes?: Set<ContentTypeKey>
   senderStyles?: Record<string, { initials: string; color: string }>
 }
@@ -31,7 +29,7 @@ const MessageList = memo(function MessageList({
   blocks, onLightbox, selectedMsgIds, onToggle, onContextMenu,
   dateIndex, onJumpTo, onOpenDatePicker,
   hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds,
-  onHideUri, onUnhideUri, enabledTypes, senderStyles,
+  enabledTypes, senderStyles,
 }: MessageListProps) {
   const uid = useId()
 
@@ -80,8 +78,6 @@ const MessageList = memo(function MessageList({
                 hiddenUris={hiddenUris}
                 isSuperAdmin={isSuperAdmin}
                 hiddenMsgIds={hiddenMsgIds}
-                onHideUri={onHideUri}
-                onUnhideUri={onUnhideUri}
                 enabledTypes={enabledTypes}
                 senderStyles={senderStyles}
               />

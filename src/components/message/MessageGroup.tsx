@@ -21,8 +21,6 @@ interface MessageGroupProps {
   hiddenUris?: Set<string>
   isSuperAdmin?: boolean
   hiddenMsgIds?: Set<string>
-  onHideUri?: (uri: string) => void
-  onUnhideUri?: (uri: string) => void
   enabledTypes?: Set<ContentTypeKey>
   senderStyles?: Record<string, { initials: string; color: string }>
 }
@@ -39,8 +37,6 @@ interface RowSharedProps {
   onToggle: MessageGroupProps['onToggle']
   onLightbox: MessageGroupProps['onLightbox']
   onContextMenu?: MessageGroupProps['onContextMenu']
-  onHideUri?: (uri: string) => void
-  onUnhideUri?: (uri: string) => void
   senderStyles?: Record<string, { initials: string; color: string }>
   longPressTimer: React.RefObject<ReturnType<typeof setTimeout> | undefined>
   touchPos: React.RefObject<{ x: number; y: number }>
@@ -76,7 +72,7 @@ function isPhotoOnlyMsg(m: Message): boolean {
 const MessageRow = memo(function MessageRow({
   m, block, isFirst, isSel, isSuperAdmin, hiddenMsgIds, hideImages, hiddenUris,
   enabledTypes, onToggle, onLightbox, onContextMenu,
-  onHideUri, onUnhideUri, senderStyles,
+  senderStyles,
   longPressTimer, touchPos,
 }: RowSharedProps & { m: Message }) {
   const show = (k: ContentTypeKey) => !enabledTypes || enabledTypes.has(k)
@@ -132,7 +128,7 @@ const MessageRow = memo(function MessageRow({
           </div>
         )}
         {renderContent(m, isHidden, hasMedia, show)}
-        {renderMedia({ m, show, onLightbox, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri })}
+        {renderMedia({ m, show, onLightbox, hideImages, hiddenUris, isSuperAdmin })}
       </div>
 
       <input
@@ -152,7 +148,7 @@ const MessageRow = memo(function MessageRow({
 const MessageGroup = memo(function MessageGroup({
   block, selectedMsgIds, onToggle, onLightbox, onContextMenu,
   hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds,
-  onHideUri, onUnhideUri, enabledTypes, senderStyles,
+  enabledTypes, senderStyles,
 }: MessageGroupProps) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const touchPos = useRef({ x: 0, y: 0 })
@@ -182,7 +178,7 @@ const MessageGroup = memo(function MessageGroup({
   const shared: Omit<RowSharedProps, 'isFirst' | 'isSel'> = {
     block, isSuperAdmin, hiddenMsgIds, hideImages, hiddenUris, enabledTypes,
     onToggle, onLightbox, onContextMenu,
-    onHideUri, onUnhideUri, senderStyles,
+    senderStyles,
     longPressTimer, touchPos,
   }
 

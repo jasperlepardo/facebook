@@ -10,6 +10,26 @@ import { pill, pillIcon, pillLabel, pillSub, iconWell, card } from './MessageSty
 import { renderCallPill } from './MessageCallPill'
 import { mapFbEmoji } from '@/lib/fbEmoji'
 
+function openLocalLightbox(
+  onLightbox: (s: LightboxState) => void,
+  m: Message,
+  items: { uri: string }[],
+  index: number,
+  type: 'photo' | 'video' | 'gif',
+  mediaType: 'photos' | 'videos' | 'gifs',
+) {
+  onLightbox(buildLocalMediaLightbox({
+    items,
+    index,
+    type,
+    mediaType,
+    msgId: m._id,
+    ts: m.timestamp_ms,
+    sender: m.sender_name,
+    onLightbox,
+  }))
+}
+
 export function imgCtx(e: React.MouseEvent, uri: string) {
   e.preventDefault(); e.stopPropagation()
   window.dispatchEvent(new CustomEvent('media-ctx', { detail: { x: e.clientX, y: e.clientY, uri } }))
@@ -106,12 +126,10 @@ interface RenderMediaProps {
   hideImages?: boolean
   hiddenUris?: Set<string>
   isSuperAdmin?: boolean
-  onHideUri?: (uri: string) => void
-  onUnhideUri?: (uri: string) => void
 }
 
 export function renderMedia({
-  m, show, onLightbox, hideImages, hiddenUris, isSuperAdmin, onHideUri, onUnhideUri,
+  m, show, onLightbox, hideImages, hiddenUris, isSuperAdmin,
 }: RenderMediaProps): React.ReactNode {
   return (
     <>
@@ -122,14 +140,18 @@ export function renderMedia({
             {photos.map((p, i) => {
               const hidden = hiddenUris?.has(p.uri)
               if (hidden && !isSuperAdmin) return null
-              const cellCls = 'relative group/img shrink-0 w-[160px] aspect-square overflow-hidden rounded-sm'
+              const cellCls = 'relative shrink-0 w-[160px] aspect-square overflow-hidden rounded-sm'
               if (hidden && isSuperAdmin) return (
-                <div key={i} className={cellCls}>
+                <div
+                  key={i}
+                  className={`${cellCls} cursor-pointer`}
+                  onClick={() => openLocalLightbox(onLightbox, m, photos, i, 'photo', 'photos')}
+                  onContextMenu={e => imgCtx(e, p.uri)}
+                >
                   <div className="w-full h-full rounded-sm bg-gray-200 dark:bg-mist-700 flex flex-col items-center justify-center gap-1 border border-dashed border-gray-400 dark:border-mist-600">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-400"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Hidden</span>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); onUnhideUri?.(p.uri) }} className="absolute bottom-1.5 right-1.5 opacity-0 group-hover/img:opacity-100 transition-opacity text-[11px] bg-mist-600 hover:bg-mist-700 text-white px-2 py-0.5 rounded-full">Unhide</button>
                 </div>
               )
               return (
@@ -138,21 +160,9 @@ export function renderMedia({
                   className={cellCls}
                   src={r2(p.uri, { w: 480 })}
                   imgClassName="absolute inset-0 w-full h-full object-cover hover:opacity-90"
-                  onClick={() => onLightbox(buildLocalMediaLightbox({
-                    items: photos,
-                    index: i,
-                    type: 'photo',
-                    mediaType: 'photos',
-                    msgId: m._id,
-                    ts: m.timestamp_ms,
-                    onLightbox,
-                  }))}
+                  onClick={() => openLocalLightbox(onLightbox, m, photos, i, 'photo', 'photos')}
                   onContextMenu={e => imgCtx(e, p.uri)}
-                >
-                  {isSuperAdmin && onHideUri && (
-                    <button onClick={e => { e.stopPropagation(); onHideUri(p.uri) }} className="absolute bottom-1.5 right-1.5 z-10 opacity-0 group-hover/img:opacity-100 transition-opacity text-[11px] bg-black/60 hover:bg-black/80 text-white px-2 py-0.5 rounded-full">Hide</button>
-                  )}
-                </ChatImage>
+                />
               )
             })}
           </div>
@@ -165,15 +175,7 @@ export function renderMedia({
             <VideoThumb
               key={i}
               src={r2(v.uri)}
-              onClick={() => onLightbox(buildLocalMediaLightbox({
-                items: m.videos!,
-                index: i,
-                type: 'video',
-                mediaType: 'videos',
-                msgId: m._id,
-                ts: m.timestamp_ms,
-                onLightbox,
-              }))}
+              onClick={() => openLocalLightbox(onLightbox, m, m.videos!, i, 'video', 'videos')}
             />
           )
       )}
@@ -190,15 +192,7 @@ export function renderMedia({
               src={r2(g.uri)}
               className="mt-1 w-[280px] max-w-full aspect-[4/3] rounded-sm"
               imgClassName="absolute inset-0 w-full h-full object-contain"
-              onClick={() => onLightbox(buildLocalMediaLightbox({
-                items: m.gifs!,
-                index: i,
-                type: 'gif',
-                mediaType: 'gifs',
-                msgId: m._id,
-                ts: m.timestamp_ms,
-                onLightbox,
-              }))}
+              onClick={() => openLocalLightbox(onLightbox, m, m.gifs!, i, 'gif', 'gifs')}
               onContextMenu={e => imgCtx(e, g.uri)}
             />
           )
@@ -229,7 +223,7 @@ export function renderMedia({
           ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
           : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>
         return (
-          <button key={i} onClick={() => onLightbox({ src: r2(f.uri), type: 'file', caption: name, msgId: m._id, ts: m.timestamp_ms })}
+          <button key={i} onClick={() => onLightbox({ src: r2(f.uri), type: 'file', caption: name, msgId: m._id, ts: m.timestamp_ms, source: 'chat' })}
             className={`mt-1 w-full max-w-[260px] hover:opacity-80 transition-opacity ${pill}`}
           >
             <span className={iconWell}>{fileIcon}</span>
@@ -259,7 +253,7 @@ export function renderMedia({
               src={url}
               className="w-[280px] max-w-full aspect-[4/3] rounded-sm"
               imgClassName="absolute inset-0 w-full h-full object-cover"
-              onClick={() => onLightbox({ src: url, type: 'photo', caption: host, msgId: m._id, ts: m.timestamp_ms })}
+              onClick={() => onLightbox({ src: url, type: 'photo', caption: host, msgId: m._id, ts: m.timestamp_ms, source: 'chat' })}
             />
             {host && <p className="text-[10px] text-mist-300 dark:text-mist-600 mt-0.5">{host}</p>}
           </div>
