@@ -903,12 +903,13 @@ export default function Lightbox({
             )
           })()
         ) : status !== 'error' ? (
-          // Track is left-aligned (not flex-centered): translate(-33%) must land on the middle slot.
+          // Track is left-aligned (not flex-centered): translate(-w) lands on the middle slot.
+          // Transform/width are JS-owned — do not put them in React style or re-renders
+          // (e.g. setDragging) will clobber an in-flight slide and cause settle jitter.
           <div ref={slideViewportRef} className="relative w-full h-full overflow-hidden">
             <div
               ref={slideTrackRef}
               className="absolute inset-y-0 left-0 flex h-full items-center will-change-transform"
-              style={{ width: '300%', transform: 'translate3d(-33.333%,0,0)' }}
             >
               <div className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0">
                 {state.prevSrc ? (
@@ -926,7 +927,7 @@ export default function Lightbox({
                 {/* Archive media is served via same-origin /api/media — next/image is intentionally unused. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  key={`${state.src}-${retry}`}
+                  key={retry}
                   ref={markImageReady}
                   src={state.src}
                   alt={state.caption || ''}
