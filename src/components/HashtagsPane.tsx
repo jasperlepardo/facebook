@@ -37,8 +37,6 @@ interface HashtagsPaneProps {
   hiddenMsgIds?: Set<string>
   onHideMessage?: (msgId: string) => void
   onUnhideMessage?: (msgId: string) => void
-  onHideUri?: (uri: string) => void
-  onUnhideUri?: (uri: string) => void
   activeTab: 'context' | 'messages'
   onActiveTabChange: (tab: 'context' | 'messages') => void
   msgFilter: string
@@ -47,7 +45,7 @@ interface HashtagsPaneProps {
   enabledTypes?: Set<ContentTypeKey>
 }
 
-export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter: _filter, onFilterChange: _onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, pendingUrlHashtagId, onResolveUrlHashtag, isSuperAdmin, showHidden, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, onHideUri, onUnhideUri, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange: _onMsgFilterChange, senderStyles, enabledTypes }: HashtagsPaneProps) {
+export default function HashtagsPane({ hashtags, thread = 'messages', onReload, onJumpToMessage, filter: _filter, onFilterChange: _onFilterChange, creating, onCreatingChange, onActiveHashtagChange, onActionsChange, onNavigateBack, pendingSelect, pendingUrlHashtagId, onResolveUrlHashtag, isSuperAdmin, showHidden, hideImages, hiddenUris, hiddenMsgIds, onHideMessage, onUnhideMessage, activeTab, onActiveTabChange, msgFilter, onMsgFilterChange: _onMsgFilterChange, senderStyles, enabledTypes }: HashtagsPaneProps) {
   const [selected, setSelected] = useState<Hashtag | null>(null)
   const [context, setContext] = useState('')
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
@@ -403,8 +401,6 @@ export default function HashtagsPane({ hashtags, thread = 'messages', onReload, 
                   hideImages={hideImages}
                   hiddenUris={hiddenUris}
                   hiddenMsgIds={hiddenMsgIds}
-                  onHideUri={onHideUri}
-                  onUnhideUri={onUnhideUri}
                   enabledTypes={enabledTypes}
                   senderStyles={senderStyles}
                 />

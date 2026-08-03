@@ -54,16 +54,18 @@ export interface LightboxState {
   caption: string
   msgId?: string
   ts?: number
+  /** Where the lightbox was opened from — drives Go to chat / Go to gallery. */
+  source?: 'chat' | 'gallery'
   /** 1-based index when browsing a set */
   index?: number
   total?: number
   /** Full-size neighbor URLs — prefetched only after current image is ready */
   prevSrc?: string
   nextSrc?: string
-  onPrev?: () => void
-  onNext?: () => void
+  onPrev?: () => void | Promise<void>
+  onNext?: () => void | Promise<void>
   /** Jump to a 0-based absolute index in the carousel set */
-  onGoToIndex?: (index: number) => void
+  onGoToIndex?: (index: number) => void | Promise<void>
   /**
    * Load a page of filmstrip thumbnails. `offset` is 0-based; returns uris for that page.
    * Callers should reuse the same lazy/windowed attachments fetch used for prev/next.

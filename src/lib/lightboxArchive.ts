@@ -1,6 +1,7 @@
 import { LightboxState } from '@/types'
 import { apiFetch } from '@/lib/utils'
 import { r2 } from '@/lib/format'
+import { lightboxMediaCaption } from '@/lib/lightboxCaption'
 
 type PhotoItem = { uri: string; ts: number; sender: string; msgId: string }
 
@@ -20,7 +21,8 @@ export function createArchiveLightboxOpener(
     if (!state.ts) { onLightbox(state); return }
 
     // Show the tapped media immediately; enrich with neighbors in the background.
-    onLightbox(state)
+    const seeded: LightboxState = { ...state, source: state.source ?? 'gallery' }
+    onLightbox(seeded)
 
     const mtype = state.mediaType ?? 'photos'
     const uriParam = state.uri ? `&uri=${encodeURIComponent(state.uri)}` : ''
@@ -37,8 +39,15 @@ export function createArchiveLightboxOpener(
       items.forEach((item, i) => win.items.set(baseOff + i, item))
       lightboxWindow.current = win
 
-      const localIdx = items.findIndex(i => i.uri === state.uri || (i.msgId === state.msgId && i.ts === state.ts))
-      const target = localIdx >= 0 ? localIdx : Math.min(1, items.length - 1)
+      // Prefer exact uri match; otherwise trust offsetOf (photoOff - baseOff).
+      // Never fall back to "middle of window" (Math.min(1,…)) — that opens the 2nd
+      // item whenever uri matching fails (e.g. first photo in the archive).
+      // Do not match on msgId+ts alone: multi-photo messages share both.
+      const byUri = state.uri ? items.findIndex(i => i.uri === state.uri) : -1
+      const expectedLocal = photoOff - baseOff
+      const target = byUri >= 0
+        ? byUri
+        : Math.min(Math.max(0, expectedLocal), Math.max(0, items.length - 1))
       if (!items[target]) return
 
       const ensureItem = async (absOff: number): Promise<PhotoItem | null> => {
@@ -94,28 +103,45 @@ export function createArchiveLightboxOpener(
         return {
           src: r2(item.uri),
           uri: item.uri, type: kind, mediaType: mtype,
-          caption: `${new Date(item.ts).toLocaleDateString()} · ${item.sender}`,
+          caption: lightboxMediaCaption(item.ts, item.sender),
           msgId: item.msgId, ts: item.ts,
+          source: state.source ?? 'gallery',
           index: absOff + 1,
           total,
           prevSrc: prev ? r2(prev.uri) : undefined,
           nextSrc: next ? r2(next.uri) : undefined,
-          onPrev: absOff > 0 ? async () => {
-            try {
-              const pi = await ensureItem(absOff - 1)
-              if (!pi) return
-              void ensureItem(absOff - 2)
-              onLightbox(mkState(absOff - 1, pi))
-            } catch { /* keep current */ }
-          } : undefined,
-          onNext: absOff < total - 1 ? async () => {
-            try {
-              const ni = await ensureItem(absOff + 1)
-              if (!ni) return
-              void ensureItem(absOff + 2)
-              onLightbox(mkState(absOff + 1, ni))
-            } catch { /* keep current */ }
-          } : undefined,
+          onPrev: absOff > 0 ? () => {
+        const cached = lightboxWindow.current?.items.get(absOff - 1)
+        if (cached) {
+          onLightbox(mkState(absOff - 1, cached))
+          void ensureItem(absOff - 2)
+          return
+        }
+        return (async () => {
+          try {
+            const pi = await ensureItem(absOff - 1)
+            if (!pi) return
+            onLightbox(mkState(absOff - 1, pi))
+            void ensureItem(absOff - 2)
+          } catch { /* keep current */ }
+        })()
+      } : undefined,
+      onNext: absOff < total - 1 ? () => {
+        const cached = lightboxWindow.current?.items.get(absOff + 1)
+        if (cached) {
+          onLightbox(mkState(absOff + 1, cached))
+          void ensureItem(absOff + 2)
+          return
+        }
+        return (async () => {
+          try {
+            const ni = await ensureItem(absOff + 1)
+            if (!ni) return
+            onLightbox(mkState(absOff + 1, ni))
+            void ensureItem(absOff + 2)
+          } catch { /* keep current */ }
+        })()
+      } : undefined,
           onGoToIndex: async (targetOff: number) => {
             if (targetOff < 0 || targetOff >= total) return
             try {
@@ -129,6 +155,10 @@ export function createArchiveLightboxOpener(
           loadStrip,
         }
       }
+
+      // Warm immediate neighbors before the user swipes.
+      void ensureItem(baseOff + target - 1)
+      void ensureItem(baseOff + target + 1)
 
       onLightbox(mkState(baseOff + target, items[target]))
     } catch {

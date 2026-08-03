@@ -1,5 +1,6 @@
 import { LightboxState } from '@/types'
 import { r2 } from '@/lib/format'
+import { lightboxMediaCaption } from '@/lib/lightboxCaption'
 
 export interface LocalMediaItem {
   uri: string
@@ -16,7 +17,8 @@ export function buildLocalMediaLightbox({
   mediaType,
   msgId,
   ts,
-  caption = '',
+  sender,
+  caption,
   onLightbox,
 }: {
   items: LocalMediaItem[]
@@ -26,11 +28,14 @@ export function buildLocalMediaLightbox({
   mediaType: 'photos' | 'videos' | 'gifs'
   msgId: string
   ts: number
+  sender: string
+  /** Override title; defaults to `date · sender` like gallery/archive. */
   caption?: string
   onLightbox: (state: LightboxState) => void
 }): LightboxState {
   const total = items.length
   const safeIndex = Math.max(0, Math.min(index, total - 1))
+  const title = caption?.trim() || lightboxMediaCaption(ts, sender)
 
   const loadStrip = async (offset: number, limit: number) => {
     return items.slice(offset, offset + limit).map(it => ({ uri: it.uri }))
@@ -46,9 +51,10 @@ export function buildLocalMediaLightbox({
       uri: item.uri,
       type,
       mediaType,
-      caption,
+      caption: title,
       msgId,
       ts,
+      source: 'chat',
       index: total > 1 ? idx + 1 : undefined,
       total: total > 1 ? total : undefined,
       prevSrc: prev ? r2(prev.uri) : undefined,

@@ -3,8 +3,7 @@ import { memo, useId } from 'react'
 import { MessageBlock, LightboxState, DateIndex } from '@/types'
 import { ContentTypeKey } from '@/lib/contentTypes'
 import MessageGroup from './MessageGroup'
-import DateMenu from '@/components/DateMenu'
-import StickyFrostedBar from '@/components/StickyFrostedBar'
+import DaySectionHeader from '@/components/DaySectionHeader'
 
 interface MessageListProps {
   blocks: MessageBlock[]
@@ -19,8 +18,6 @@ interface MessageListProps {
   hiddenUris?: Set<string>
   isSuperAdmin?: boolean
   hiddenMsgIds?: Set<string>
-  onHideUri?: (uri: string) => void
-  onUnhideUri?: (uri: string) => void
   enabledTypes?: Set<ContentTypeKey>
   senderStyles?: Record<string, { initials: string; color: string }>
 }
@@ -31,7 +28,7 @@ const MessageList = memo(function MessageList({
   blocks, onLightbox, selectedMsgIds, onToggle, onContextMenu,
   dateIndex, onJumpTo, onOpenDatePicker,
   hideImages, hiddenUris, isSuperAdmin, hiddenMsgIds,
-  onHideUri, onUnhideUri, enabledTypes, senderStyles,
+  enabledTypes, senderStyles,
 }: MessageListProps) {
   const uid = useId()
 
@@ -47,27 +44,15 @@ const MessageList = memo(function MessageList({
         const iso = new Date(day.blocks[0].msgs[0].timestamp_ms).toISOString().split('T')[0]
         return (
           <div key={day.date + day.blocks[0].msgs[0]._id} id={`${uid}-${iso}`} data-day-iso={iso} className="flex flex-col">
-            <StickyFrostedBar className="dsep flex items-center justify-center py-2.5 px-4 !border-b-0">
-              <span className="flex-1 border-t border-black/8 dark:border-white/10" />
-              <span className="mx-3 flex-shrink-0">
-                {onJumpTo ? (
-                  <DateMenu
-                    date={day.date}
-                    ts={day.blocks[0].msgs[0].timestamp_ms}
-                    prevDayTs={dayIdx > 0 ? days[dayIdx - 1].blocks[0].msgs[0].timestamp_ms : undefined}
-                    nextDayTs={dayIdx < days.length - 1 ? days[dayIdx + 1].blocks[0].msgs[0].timestamp_ms : undefined}
-                    dateIndex={dateIndex}
-                    onJumpTo={onJumpTo}
-                    onOpenDatePicker={onOpenDatePicker}
-                  />
-                ) : (
-                  <span className="liquid-glass text-[11px] font-semibold text-mist-500 dark:text-mist-400 px-3 py-1 rounded-full">
-                    {day.date}
-                  </span>
-                )}
-              </span>
-              <span className="flex-1 border-t border-black/8 dark:border-white/10" />
-            </StickyFrostedBar>
+            <DaySectionHeader
+              date={day.date}
+              ts={day.blocks[0].msgs[0].timestamp_ms}
+              prevDayTs={dayIdx > 0 ? days[dayIdx - 1].blocks[0].msgs[0].timestamp_ms : undefined}
+              nextDayTs={dayIdx < days.length - 1 ? days[dayIdx + 1].blocks[0].msgs[0].timestamp_ms : undefined}
+              dateIndex={dateIndex}
+              onJumpTo={onJumpTo}
+              onOpenDatePicker={onOpenDatePicker}
+            />
             {day.blocks.map((block, i) => (
               <MessageGroup
                 key={block.msgs[0]._id ?? i}
@@ -80,8 +65,6 @@ const MessageList = memo(function MessageList({
                 hiddenUris={hiddenUris}
                 isSuperAdmin={isSuperAdmin}
                 hiddenMsgIds={hiddenMsgIds}
-                onHideUri={onHideUri}
-                onUnhideUri={onUnhideUri}
                 enabledTypes={enabledTypes}
                 senderStyles={senderStyles}
               />
