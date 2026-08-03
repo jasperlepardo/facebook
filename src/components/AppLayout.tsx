@@ -458,8 +458,11 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
   }, [])
 
   // Enter stacked-card pose when the sheet opens — same timing as sheet-up.
+  // Depend on mediaPaneOpen (boolean), not mediaPane (ReactNode): parent re-renders
+  // (e.g. lightbox index changes) create a new element identity and would re-fire
+  // this effect, snapping/animating the behind card on every slide.
   useEffect(() => {
-    if (!sheetVisible || !mediaPane) return
+    if (!sheetVisible || !mediaPaneOpen) return
     if (!isMobileSheetViewport() || centeredDetail || hideListPane) return
     const detail = detailRef.current
     if (detail) {
@@ -470,7 +473,7 @@ export default function AppLayout({ section, onSectionChange, initials, name, pr
     }
     // Next frame so it runs with the sheet's enter animation, not after it.
     requestAnimationFrame(() => setBehindProgress(0, true))
-  }, [sheetVisible, mediaPane, setBehindProgress, centeredDetail, hideListPane])
+  }, [sheetVisible, mediaPaneOpen, setBehindProgress, centeredDetail, hideListPane])
 
   useEffect(() => {
     if (localStorage.getItem('navExpanded') === '1') setNavExpanded(true)

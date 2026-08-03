@@ -131,13 +131,14 @@ function LightboxFilmstrip({
   }, [currentIndex, ensureRange, total])
 
   // Keep the active thumb roughly centered when the index changes.
+  // Instant scroll — smooth here fights the slide settle and feels like chrome jitter.
   useLayoutEffect(() => {
     const el = scrollerRef.current
     if (!el) return
     const left = STRIP_PAD_X + currentIndex * STRIP_STRIDE - el.clientWidth / 2 + STRIP_CELL / 2
     suppressScrollSync.current = true
-    el.scrollTo({ left: Math.max(0, left), behavior: 'smooth' })
-    window.setTimeout(() => { suppressScrollSync.current = false }, 320)
+    el.scrollTo({ left: Math.max(0, left), behavior: 'auto' })
+    suppressScrollSync.current = false
   }, [currentIndex])
 
   useEffect(() => {
@@ -236,7 +237,6 @@ export default function Lightbox({
   const [retry, setRetry] = useState(0)
   const [scale, setScale] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [dragging, setDragging] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -247,6 +247,8 @@ export default function Lightbox({
   const currentImgRef = useRef<HTMLImageElement | null>(null)
   const scaleRef = useRef(1)
   const panRef = useRef({ x: 0, y: 0 })
+  /** Touch active — ref only so swipe settle doesn’t re-render mid-commit. */
+  const draggingRef = useRef(false)
   const dismissYRef = useRef(0)
   const slideXRef = useRef(0)
   const slideBusyRef = useRef(false)
@@ -380,9 +382,17 @@ export default function Lightbox({
     && (state.type === 'photo' || state.type === 'gif' || state.type === 'video')
   )
 
+  const setImgTransition = useCallback((on: boolean) => {
+    const img = currentImgRef.current
+    if (!img) return
+    img.style.transition = on ? 'transform 180ms ease-out' : 'none'
+  }, [])
+
   const resetZoom = useCallback(() => {
+    const already = scaleRef.current === 1 && panRef.current.x === 0 && panRef.current.y === 0
     scaleRef.current = 1
     panRef.current = { x: 0, y: 0 }
+    if (already) return
     setScale(1)
     setPan({ x: 0, y: 0 })
   }, [])
@@ -556,7 +566,8 @@ export default function Lightbox({
       if (el.closest('video, a, button, iframe, input, textarea')) return
     }
     // Allow page-dismiss on any media; pinch/zoom only for images.
-    setDragging(true)
+    draggingRef.current = true
+    setImgTransition(false)
     const t = touchRef.current
     const nowPerf = performance.now()
     if (isImage && e.touches.length === 2) {
@@ -574,11 +585,12 @@ export default function Lightbox({
           resetZoom()
         } else {
           scaleRef.current = 2
+          setImgTransition(true)
           setScale(2)
         }
         t.lastTap = 0
         t.mode = 'none'
-        setDragging(false)
+        draggingRef.current = false
         return
       }
       t.lastTap = now
@@ -653,7 +665,8 @@ export default function Lightbox({
     if (t.mode === 'pinch') {
       if (scaleRef.current < 1.05) resetZoom()
       t.mode = 'none'
-      setDragging(false)
+      draggingRef.current = false
+      setImgTransition(true)
       return
     }
     if (t.mode === 'dismiss') {
@@ -666,7 +679,8 @@ export default function Lightbox({
         resetDismiss()
       }
       t.mode = 'none'
-      setDragging(false)
+      draggingRef.current = false
+      setImgTransition(true)
       return
     }
     if (isImage && t.mode === 'swipe' && e.changedTouches[0]) {
@@ -686,7 +700,8 @@ export default function Lightbox({
       }
     }
     t.mode = 'none'
-    setDragging(false)
+    draggingRef.current = false
+    setImgTransition(true)
   }
 
   const counter = lightboxCounterFromState(state)
@@ -843,7 +858,8 @@ export default function Lightbox({
         onTouchEnd,
         onTouchCancel: () => {
           touchRef.current.mode = 'none'
-          setDragging(false)
+          draggingRef.current = false
+          setImgTransition(true)
           resetDismiss()
           if (slidePagerActive) resetSlideTrack(true)
         },
@@ -905,13 +921,18 @@ export default function Lightbox({
         ) : status !== 'error' ? (
           // Track is left-aligned (not flex-centered): translate(-w) lands on the middle slot.
           // Transform/width are JS-owned — do not put them in React style or re-renders
-          // (e.g. setDragging) will clobber an in-flight slide and cause settle jitter.
+          // will clobber an in-flight slide and cause settle jitter.
+          // Key slots by URL so React reuses the already-decoded neighbor <img> on handoff
+          // instead of assigning a new src to the center element (decode flash / jitter).
           <div ref={slideViewportRef} className="relative w-full h-full overflow-hidden">
             <div
               ref={slideTrackRef}
               className="absolute inset-y-0 left-0 flex h-full items-center will-change-transform"
             >
-              <div className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0">
+              <div
+                key={state.prevSrc ?? '__prev_empty'}
+                className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0"
+              >
                 {state.prevSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -923,7 +944,10 @@ export default function Lightbox({
                   />
                 ) : null}
               </div>
-              <div className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0">
+              <div
+                key={state.src}
+                className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0"
+              >
                 {/* Archive media is served via same-origin /api/media — next/image is intentionally unused. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -937,13 +961,15 @@ export default function Lightbox({
                   className={`max-w-full max-h-full rounded-sm object-contain origin-center transition-opacity ${status === 'ready' ? 'opacity-100' : 'opacity-0'}`}
                   style={{
                     transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-                    transition: dragging ? undefined : 'transform 180ms ease-out',
                   }}
                   onLoad={onCurrentImageLoad}
                   onError={() => setStatus('error')}
                 />
               </div>
-              <div className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0">
+              <div
+                key={state.nextSrc ?? '__next_empty'}
+                className="h-full w-1/3 min-w-0 flex items-center justify-center shrink-0 grow-0"
+              >
                 {state.nextSrc ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

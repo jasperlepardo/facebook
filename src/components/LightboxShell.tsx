@@ -1,5 +1,6 @@
 'use client'
 import type { HTMLAttributes, ReactNode, Ref } from 'react'
+import { createPortal } from 'react-dom'
 import AppHeader from '@/components/AppHeader'
 import { headerBtn } from '@/lib/ui'
 import type { LightboxState } from '@/types'
@@ -87,22 +88,24 @@ export default function LightboxShell({
   showNav?: boolean
   children: ReactNode
 }) {
-  return (
+  // Portal to body so lightbox sits outside AppLayout transforms (scaled "behind"
+  // card, push panes) and can't inherit containing-block / overflow quirks.
+  // Panel transform is JS-owned (dismiss swipe) — keep it out of React style.
+  const node = (
     <div
-      className="fixed inset-0 z-999"
+      className="fixed inset-0 z-999 overscroll-none"
       role="dialog"
       aria-modal
       aria-label="Media viewer"
     >
       <div
         ref={scrimRef}
-        className="absolute inset-0 bg-mist-50/95 dark:bg-black/95 [animation:fade-in_160ms_ease-out]"
+        className="absolute inset-0 bg-mist-50 dark:bg-black [animation:fade-in_160ms_ease-out]"
       />
 
       <div
         ref={panelRef}
         className="absolute inset-0 flex flex-col bg-mist-50 dark:bg-mist-950 text-gray-900 dark:text-white [animation:fade-in_160ms_ease-out] will-change-transform"
-        style={{ transform: 'translate3d(0,0,0)' }}
       >
         <AppHeader
           dismiss
@@ -119,7 +122,7 @@ export default function LightboxShell({
         />
 
         <div
-          className="flex-1 min-h-0 relative flex items-center justify-center px-2 select-none touch-none bg-mist-100/80 dark:bg-black/40"
+          className="flex-1 min-h-0 relative flex items-center justify-center px-2 select-none touch-none overscroll-none bg-mist-100/80 dark:bg-black/40"
           {...stageProps}
         >
           {showNav && (
@@ -157,6 +160,9 @@ export default function LightboxShell({
       </div>
     </div>
   )
+
+  if (typeof document === 'undefined') return node
+  return createPortal(node, document.body)
 }
 
 /** Sync-friendly placeholder while the lightbox chunk or media is not ready. */
