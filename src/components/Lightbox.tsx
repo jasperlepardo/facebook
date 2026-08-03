@@ -222,7 +222,11 @@ export default function Lightbox({
   state: LightboxState
   onClose: () => void
   onJumpToMessage?: (ts: number, msgId: string | null) => void
-  onGoToGallery?: (mediaType?: LightboxState['mediaType'] | 'files') => void
+  onGoToGallery?: (target: {
+    tab: NonNullable<LightboxState['mediaType']> | 'files' | 'photos'
+    uri?: string
+    ts?: number
+  }) => void
   isSuperAdmin?: boolean
   isHidden?: boolean
   onHide?: (uri: string) => void
@@ -702,7 +706,10 @@ export default function Lightbox({
       id: 'goToGallery',
       label: 'Go to gallery',
       icon: <GoToGalleryIcon size={15} />,
-      onPress: () => { onGoToGallery(tab === 'files' ? 'files' : tab); onClose() },
+      onPress: () => {
+        onGoToGallery({ tab, uri: state.uri, ts: state.ts })
+        onClose()
+      },
     })
   } else if (onJumpToMessage && state.ts != null && (fromGallery || !fromChat)) {
     actions.push({

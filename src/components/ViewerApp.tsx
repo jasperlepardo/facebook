@@ -48,7 +48,11 @@ function LightboxOverlay({
   state: LightboxState
   onClose: () => void
   onJumpToMessage?: (ts: number, msgId: string | null) => void
-  onGoToGallery?: (mediaType?: import('@/types').LightboxState['mediaType'] | 'files') => void
+  onGoToGallery?: (target: {
+    tab: NonNullable<import('@/types').LightboxState['mediaType']> | 'files' | 'photos'
+    uri?: string
+    ts?: number
+  }) => void
   isSuperAdmin?: boolean
   isHidden?: boolean
   onHide?: (uri: string) => void
@@ -128,6 +132,7 @@ export default function ViewerApp() {
   const [hideImages, setHideImages]         = useState(false)
   const [threadSideView, setThreadSideView] = useState<ThreadSideView>(null)
   const [mediaInitialTab, setMediaInitialTab] = useState<MediaTab>('photos')
+  const [mediaFocus, setMediaFocus] = useState<{ uri?: string; ts?: number } | null>(null)
   const [tagMsgIds, setTagMsgIds] = useState<string[] | null>(null)
   const clearChatSelectionRef = useRef<(() => void) | null>(null)
   const [hashtagSideView, setHashtagSideView] = useState(false)
@@ -225,14 +230,19 @@ export default function ViewerApp() {
     await jumpToMessage(ts, msgId, thread)
   }, [jumpToMessage, closeThreadSideView, setHashtagSearchOpen, setHashtagMsgFilter])
 
-  const goToGallery = useCallback((mediaType?: LightboxState['mediaType'] | 'files') => {
+  const goToGallery = useCallback((target: {
+    tab: NonNullable<LightboxState['mediaType']> | 'files' | 'photos'
+    uri?: string
+    ts?: number
+  }) => {
     setLightbox(null)
     setTagMsgIds(null)
     const tab: MediaTab =
-      mediaType === 'videos' || mediaType === 'gifs' || mediaType === 'photos' || mediaType === 'files'
-        ? mediaType
+      target.tab === 'videos' || target.tab === 'gifs' || target.tab === 'photos' || target.tab === 'files'
+        ? target.tab
         : 'photos'
     setMediaInitialTab(tab)
+    setMediaFocus(target.uri || target.ts != null ? { uri: target.uri, ts: target.ts } : null)
     setThreadSideView('media')
   }, [])
 
@@ -785,7 +795,7 @@ export default function ViewerApp() {
                 isSuperAdmin={isSuperAdmin}
                 showHidden={showHidden}
                 onToggleShowHidden={handleToggleShowHidden}
-                onOpenMedia={() => { setTagMsgIds(null); setMediaInitialTab('photos'); setThreadSideView('media') }}
+                onOpenMedia={() => { setTagMsgIds(null); setMediaFocus(null); setMediaInitialTab('photos'); setThreadSideView('media') }}
                 onThreadDeleted={collection => {
                   setThreads(prev => prev.filter(th => th.collection !== collection))
                   setActiveThread(prev => prev === collection ? (threads.find(th => th.collection !== collection)?.id ?? 'messages') : prev)
@@ -808,16 +818,19 @@ export default function ViewerApp() {
           if (threadSideView !== 'media') return undefined
           return (
             <MediaPane
-              key={`media-${activeThread}-${mediaInitialTab}`}
+              key={`media-${activeThread}-${mediaInitialTab}-${mediaFocus?.uri ?? mediaFocus?.ts ?? 'top'}`}
               thread={mediaThread}
               counts={mediaCounts}
               initialTab={mediaInitialTab}
+              focusUri={mediaFocus?.uri}
+              focusTs={mediaFocus?.ts}
+              participants={t.participants ?? []}
               onLightbox={state => { void openArchiveLightbox(state) }}
               onContextMenu={handleGalleryContextMenu}
               hideImages={hideImages}
               hiddenUris={allHiddenUris}
               isSuperAdmin={isSuperAdmin}
-              onBack={() => { setTagMsgIds(null); setThreadSideView('details') }}
+              onBack={() => { setTagMsgIds(null); setMediaFocus(null); setThreadSideView('details') }}
             />
           )
         })()) || (section === 'hashtags' && hashtagSideView && activeHashtag && (
