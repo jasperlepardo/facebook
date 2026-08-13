@@ -15,7 +15,34 @@ const ARRAY_FIELD: Record<string, string> = {
 
 const MEDIA_TYPES = ['photos', 'videos', 'gifs', 'stickers', 'audio', 'files', 'links', 'calls']
 
-async function mediaCountsFor(msgs: Awaited<ReturnType<typeof getCollection>>) {
+// Media counts are stable between imports — cache for 10 minutes per thread
+const mediaCache = new Map<string, { data: Record<string, number>; at: number }>()
+const MEDIA_TTL = 10 * 60_000
+
+// Main init payload is safe to cache briefly per user+thread
+const initCache = new Map<string, { data: Record<string, unknown>; at: number }>()
+const INIT_TTL = 30_000
+
+export function invalidateInitCache(userId?: string) {
+  if (userId) {
+    for (const key of initCache.keys()) {
+      if (key.startsWith(`${userId}:`)) initCache.delete(key)
+    }
+  } else {
+    initCache.clear()
+  }
+}
+
+export function invalidateMediaCache(thread?: string) {
+  if (thread) mediaCache.delete(thread)
+  else mediaCache.clear()
+}
+
+async function mediaCountsFor(msgs: Awaited<ReturnType<typeof getCollection>>, thread: string) {
+  const now = Date.now()
+  const hit = mediaCache.get(thread)
+  if (hit && now - hit.at < MEDIA_TTL) return hit.data
+
   const values = await Promise.all(MEDIA_TYPES.map(async type => {
     if (type in SINGULAR_MATCH) return msgs.countDocuments(SINGULAR_MATCH[type])
     const field = ARRAY_FIELD[type] ?? type
@@ -25,7 +52,10 @@ async function mediaCountsFor(msgs: Awaited<ReturnType<typeof getCollection>>) {
     ]).toArray()
     return (res[0] as { total?: number } | undefined)?.total ?? 0
   }))
-  return Object.fromEntries(MEDIA_TYPES.map((t, i) => [t, values[i]]))
+
+  const data = Object.fromEntries(MEDIA_TYPES.map((t, i) => [t, values[i]])) as Record<string, number>
+  mediaCache.set(thread, { data, at: now })
+  return data
 }
 
 export async function GET(req: NextRequest) {
@@ -48,7 +78,14 @@ export async function GET(req: NextRequest) {
 
     // Cheap path: only media tab counts (when MediaPane opens)
     if (mediaOnly) {
-      return NextResponse.json({ mediaCounts: await mediaCountsFor(msgs) })
+      return NextResponse.json({ mediaCounts: await mediaCountsFor(msgs, thread) })
+    }
+
+    const cacheKey = `${userId}:${thread}`
+    const now = Date.now()
+    const hit = initCache.get(cacheKey)
+    if (hit && now - hit.at < INIT_TTL) {
+      return NextResponse.json(hit.data)
     }
 
     const payload = await getPayloadClient()
@@ -94,9 +131,10 @@ export async function GET(req: NextRequest) {
     }
 
     if (includeMedia) {
-      body.mediaCounts = await mediaCountsFor(msgs)
+      body.mediaCounts = await mediaCountsFor(msgs, thread)
     }
 
+    initCache.set(cacheKey, { data: body, at: now })
     return NextResponse.json(body)
   } catch (e) {
     console.error(e)

@@ -1,8 +1,7 @@
 import { ObjectId } from 'mongodb'
 import { NextRequest, NextResponse } from 'next/server'
 import { getHiddenItems } from '@/lib/db'
-import { getSession } from '@/lib/session'
-import { getPayloadClient } from '@/lib/payload-access'
+import { requireSuperAdmin, getCallerInfo } from '@/lib/auth'
 import { invalidateHiddenFilterCache } from '@/lib/hidden-filter-cache'
 import { bumpHiddenSyncVersion } from '@/lib/hidden-sync'
 
@@ -15,19 +14,10 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
-async function requireSuperAdmin() {
-  const session = await getSession()
-  if (!session) return null
-  const payload = await getPayloadClient()
-  const user = await payload.findByID({ collection: 'users', id: session.userId })
-  if (!(user as any)?.superAdmin) return null
-  return user
-}
-
 // GET — list all hidden items
 export async function GET() {
-  const user = await requireSuperAdmin()
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: CORS })
+  const gate = await requireSuperAdmin()
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status, headers: CORS })
 
   const col = await getHiddenItems()
   const items = await col.find().sort({ createdAt: -1 }).toArray()
@@ -38,18 +28,18 @@ export async function GET() {
 
 // POST { type, value, note? } — add a hidden item
 export async function POST(req: NextRequest) {
-  const user = await requireSuperAdmin()
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: CORS })
+  const gate = await requireSuperAdmin()
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status, headers: CORS })
 
   const { type, value, note } = await req.json()
   if (!type || !value) return NextResponse.json({ error: 'type and value required' }, { status: 400, headers: CORS })
   if (type !== 'message' && type !== 'uri') return NextResponse.json({ error: 'type must be message or uri' }, { status: 400, headers: CORS })
 
+  const { name: createdBy } = await getCallerInfo()
   const col = await getHiddenItems()
-  // Upsert — avoid duplicates
   await col.updateOne(
     { type, value },
-    { $set: { type, value, note: note ?? '', createdAt: new Date().toISOString(), createdBy: (user as any).name ?? '' } },
+    { $set: { type, value, note: note ?? '', createdAt: new Date().toISOString(), createdBy: createdBy ?? '' } },
     { upsert: true }
   )
   const item = await col.findOne({ type, value })
@@ -60,8 +50,8 @@ export async function POST(req: NextRequest) {
 
 // DELETE ?id=xxx — remove a hidden item by _id
 export async function DELETE(req: NextRequest) {
-  const user = await requireSuperAdmin()
-  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: CORS })
+  const gate = await requireSuperAdmin()
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status, headers: CORS })
 
   const id = new URL(req.url).searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400, headers: CORS })
@@ -72,3 +62,4 @@ export async function DELETE(req: NextRequest) {
   await bumpHiddenSyncVersion()
   return NextResponse.json({ ok: true }, { headers: CORS })
 }
+

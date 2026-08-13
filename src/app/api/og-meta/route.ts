@@ -57,7 +57,7 @@ function cacheSet(url: string, data: OgMeta) {
     const oldest = cache.keys().next().value
     if (oldest) cache.delete(oldest)
   }
-  cacheSet(url, data)
+  cache.set(url, { data, ts: Date.now() })
 }
 
 export async function GET(req: NextRequest) {

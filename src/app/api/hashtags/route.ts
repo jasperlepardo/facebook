@@ -2,6 +2,7 @@ import config from '@payload-config'
 import { NextRequest, NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import { getCallerInfo } from '@/lib/auth'
+import { getSession } from '@/lib/session'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -30,7 +31,9 @@ export async function GET(req: NextRequest) {
       overrideAccess: true,
     })
 
-    const { userId, isSuperAdmin } = await getCallerInfo()
+    const session = await getSession()
+    const userId = session?.userId ?? null
+    const isSuperAdmin = session?.superAdmin ?? false
 
     const visible = result.docs.filter(h => {
       if (!h.isPrivate) return true

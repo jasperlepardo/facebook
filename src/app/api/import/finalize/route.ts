@@ -5,6 +5,8 @@ import { recomputeBlockIds } from '@/lib/blockIds'
 import { upsertThread } from '@/lib/threadUtils'
 import { invalidateThreadMessageCount } from '@/lib/threadCount'
 import { invalidateDateIndex } from '@/lib/dateIndex'
+import { invalidateMediaCache, invalidateInitCache } from '@/app/api/init/route'
+import { invalidateThreadsCache } from '@/app/api/threads/route'
 
 const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS' }
 
@@ -39,6 +41,9 @@ export async function POST(req: NextRequest) {
         await upsertThread({ collectionName, threadName, participants: participants ?? [], facebookThreadId, initials, color, total })
         invalidateThreadMessageCount(collectionName)
         await invalidateDateIndex(collectionName)
+        invalidateMediaCache(collectionName)
+        invalidateInitCache()
+        invalidateThreadsCache()
 
         send({ type: 'done', total })
       } catch (e) {

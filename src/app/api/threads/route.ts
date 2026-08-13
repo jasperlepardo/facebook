@@ -15,11 +15,24 @@ const CORS = {
   'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
 }
 
+// Threads change only when imported or renamed — 60s TTL is plenty
+let threadsCache: { data: { threads: ReturnType<typeof dedupeThreads> }; at: number } | null = null
+const THREADS_TTL = 60_000
+
+export function invalidateThreadsCache() {
+  threadsCache = null
+}
+
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: CORS })
 }
 
 export async function GET() {
+  const now = Date.now()
+  if (threadsCache && now - threadsCache.at < THREADS_TTL) {
+    return NextResponse.json(threadsCache.data, { headers: CORS })
+  }
+
   try {
     const payload = await getPayloadClient()
     const result  = await payload.find({
@@ -33,7 +46,9 @@ export async function GET() {
     for (const doc of result.docs) {
       threads.push(await mapThreadDoc(doc))
     }
-    return NextResponse.json({ threads: dedupeThreads(threads) }, { headers: CORS })
+    const data = { threads: dedupeThreads(threads) }
+    threadsCache = { data, at: now }
+    return NextResponse.json(data, { headers: CORS })
   } catch (e) {
     console.error(e)
     return NextResponse.json({ error: String(e) }, { status: 500, headers: CORS })
@@ -136,6 +151,7 @@ export async function PATCH(req: NextRequest) {
       })
     }
 
+    invalidateThreadsCache()
     return NextResponse.json({
       thread: await mapThreadDoc(updated),
     }, { headers: CORS })

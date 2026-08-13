@@ -1,15 +1,15 @@
 import { getSession } from '@/lib/session'
-import { getHiddenSnapshot, getHiddenSyncVersion } from '@/lib/hidden-sync'
+import { getHiddenSnapshot } from '@/lib/hidden-sync'
+import { getHiddenSync } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-const POLL_MS = 1000
-const HEARTBEAT_MS = 15_000
+const HEARTBEAT_MS = 30_000
 const MAX_MS = 5 * 60_000
 
-/** GET — SSE stream of hidden-items snapshots when version changes. */
+/** GET — SSE stream that pushes hidden-items snapshots instantly via MongoDB change streams. */
 export async function GET(req: Request) {
   const session = await getSession()
   if (!session) {
@@ -17,7 +17,6 @@ export async function GET(req: Request) {
   }
 
   const encoder = new TextEncoder()
-  let lastVersion = -1
   const started = Date.now()
 
   const stream = new ReadableStream({
@@ -29,37 +28,54 @@ export async function GET(req: Request) {
         controller.enqueue(encoder.encode(`: ping\n\n`))
       }
 
+      const col = await getHiddenSync()
+      const changeStream = col.watch([{ $match: { 'documentKey._id': 'global' } }])
+
       try {
         const snap = await getHiddenSnapshot()
-        lastVersion = snap.version
         send(snap)
 
-        let lastPing = Date.now()
         while (!req.signal.aborted && Date.now() - started < MAX_MS) {
-          await new Promise(r => setTimeout(r, POLL_MS))
+          const changed = await new Promise<boolean>(resolve => {
+            const timer = setTimeout(() => {
+              changeStream.removeListener('change', onChangeFired)
+              req.signal.removeEventListener('abort', onAbort)
+              resolve(false)
+            }, HEARTBEAT_MS)
+
+            const onChangeFired = () => {
+              clearTimeout(timer)
+              req.signal.removeEventListener('abort', onAbort)
+              resolve(true)
+            }
+
+            const onAbort = () => {
+              clearTimeout(timer)
+              changeStream.removeListener('change', onChangeFired)
+              resolve(false)
+            }
+
+            changeStream.once('change', onChangeFired)
+            req.signal.addEventListener('abort', onAbort, { once: true })
+          })
+
           if (req.signal.aborted) break
 
-          const version = await getHiddenSyncVersion()
-          if (version !== lastVersion) {
+          if (changed) {
             const next = await getHiddenSnapshot()
-            lastVersion = next.version
             send(next)
-          }
-
-          if (Date.now() - lastPing >= HEARTBEAT_MS) {
+          } else {
             ping()
-            lastPing = Date.now()
           }
         }
       } catch (e) {
         console.error('[hidden-items/stream]', e)
       } finally {
+        try { await changeStream.close() } catch { /* already closed */ }
         try { controller.close() } catch { /* already closed */ }
       }
     },
-    cancel() {
-      // client disconnected
-    },
+    cancel() {},
   })
 
   return new Response(stream, {
